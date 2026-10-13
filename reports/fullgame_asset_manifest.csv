@@ -1,0 +1,167 @@
+project_path,source_path,format,width,height,mode,transparency,role,confidence,evidence
+assets/fullgame/bosses/AchanBoss/spr_AchanBoss_0.png,sprites/spr_AchanBoss/,PNG,24,29,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/AchanBoss/spr_AchanBoss_1.png,sprites/spr_AchanBoss/,PNG,23,29,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/AchanBoss/spr_AchanBoss_2.png,sprites/spr_AchanBoss/,PNG,25,29,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/AchanBoss/spr_AchanBoss_3.png,sprites/spr_AchanBoss/,PNG,24,30,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Mikodanye/spr_Mikodanye_0.png,sprites/spr_Mikodanye/,PNG,51,67,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Mikodanye/spr_Mikodanye_1.png,sprites/spr_Mikodanye/,PNG,51,68,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Mikodanye/spr_Mikodanye_2.png,sprites/spr_Mikodanye/,PNG,51,67,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Mikodanye/spr_Mikodanye_3.png,sprites/spr_Mikodanye/,PNG,52,67,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Mikodanye/spr_Mikodanye_4.png,sprites/spr_Mikodanye/,PNG,52,67,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Mikodanye/spr_Mikodanye_5.png,sprites/spr_Mikodanye/,PNG,51,68,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Mikodanye/spr_Mikodanye_6.png,sprites/spr_Mikodanye/,PNG,51,68,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Mikodanye/spr_Mikodanye_7.png,sprites/spr_Mikodanye/,PNG,51,67,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Pekodam/spr_Pekodam_0.png,sprites/spr_Pekodam/,PNG,99,116,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Pekodam/spr_Pekodam_1.png,sprites/spr_Pekodam/,PNG,101,127,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Pekodam/spr_Pekodam_2.png,sprites/spr_Pekodam/,PNG,99,116,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Pekodam/spr_Pekodam_3.png,sprites/spr_Pekodam/,PNG,101,122,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Shubangelion_walk/spr_Shubangelion_walk_0.png,sprites/spr_Shubangelion_walk/,PNG,68,101,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Shubangelion_walk/spr_Shubangelion_walk_1.png,sprites/spr_Shubangelion_walk/,PNG,65,102,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Shubangelion_walk/spr_Shubangelion_walk_2.png,sprites/spr_Shubangelion_walk/,PNG,54,104,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Shubangelion_walk/spr_Shubangelion_walk_3.png,sprites/spr_Shubangelion_walk/,PNG,45,103,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Shubangelion_walk/spr_Shubangelion_walk_4.png,sprites/spr_Shubangelion_walk/,PNG,68,101,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Shubangelion_walk/spr_Shubangelion_walk_5.png,sprites/spr_Shubangelion_walk/,PNG,62,102,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Shubangelion_walk/spr_Shubangelion_walk_6.png,sprites/spr_Shubangelion_walk/,PNG,50,104,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Shubangelion_walk/spr_Shubangelion_walk_7.png,sprites/spr_Shubangelion_walk/,PNG,53,103,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Udin_walk/spr_Udin_walk_0.png,sprites/spr_Udin_walk/,PNG,43,53,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Udin_walk/spr_Udin_walk_1.png,sprites/spr_Udin_walk/,PNG,42,52,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Udin_walk/spr_Udin_walk_2.png,sprites/spr_Udin_walk/,PNG,39,52,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Udin_walk/spr_Udin_walk_3.png,sprites/spr_Udin_walk/,PNG,39,53,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Udin_walk/spr_Udin_walk_4.png,sprites/spr_Udin_walk/,PNG,39,52,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/Udin_walk/spr_Udin_walk_5.png,sprites/spr_Udin_walk/,PNG,39,52,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_0.png,sprites/spr_fubuzilla/,PNG,64,55,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_1.png,sprites/spr_fubuzilla/,PNG,75,52,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_10.png,sprites/spr_fubuzilla/,PNG,56,51,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_11.png,sprites/spr_fubuzilla/,PNG,60,54,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_2.png,sprites/spr_fubuzilla/,PNG,80,48,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_3.png,sprites/spr_fubuzilla/,PNG,82,45,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_4.png,sprites/spr_fubuzilla/,PNG,81,47,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_5.png,sprites/spr_fubuzilla/,PNG,78,52,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_6.png,sprites/spr_fubuzilla/,PNG,71,55,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_7.png,sprites/spr_fubuzilla/,PNG,65,54,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_8.png,sprites/spr_fubuzilla/,PNG,58,50,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/bosses/fubuzilla/spr_fubuzilla_9.png,sprites/spr_fubuzilla/,PNG,53,48,RGBA,yes,boss animation,medium,boss name and local frame family; stats are approximations
+assets/fullgame/characters/Ame/idle/spr_Ame_idle_0.png,sprites/Ame/spr_Ame_idle_,PNG,24,30,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ame/idle/spr_Ame_idle_1.png,sprites/Ame/spr_Ame_idle_,PNG,25,29,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ame/idle/spr_Ame_idle_2.png,sprites/Ame/spr_Ame_idle_,PNG,25,30,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ame/portrait.png,sprites/Ame/spr_Ame_run_,PNG,44,38,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ame/run/spr_Ame_run_0.png,sprites/Ame/spr_Ame_run_,PNG,24,26,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ame/run/spr_Ame_run_1.png,sprites/Ame/spr_Ame_run_,PNG,22,28,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ame/run/spr_Ame_run_2.png,sprites/Ame/spr_Ame_run_,PNG,22,30,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ame/run/spr_Ame_run_3.png,sprites/Ame/spr_Ame_run_,PNG,24,26,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ame/run/spr_Ame_run_4.png,sprites/Ame/spr_Ame_run_,PNG,22,29,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ame/run/spr_Ame_run_5.png,sprites/Ame/spr_Ame_run_,PNG,22,30,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/idle/spr_Calli_idle_0.png,sprites/Calli/spr_Calli_idle_,PNG,40,46,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/idle/spr_Calli_idle_1.png,sprites/Calli/spr_Calli_idle_,PNG,41,47,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/idle/spr_Calli_idle_2.png,sprites/Calli/spr_Calli_idle_,PNG,40,47,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/idle/spr_Calli_idle_3.png,sprites/Calli/spr_Calli_idle_,PNG,42,47,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/portrait.png,sprites/Calli/spr_Calli_run_,PNG,43,38,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/run/spr_Calli_run_0.png,sprites/Calli/spr_Calli_run_,PNG,43,48,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/run/spr_Calli_run_1.png,sprites/Calli/spr_Calli_run_,PNG,42,49,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/run/spr_Calli_run_2.png,sprites/Calli/spr_Calli_run_,PNG,44,49,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/run/spr_Calli_run_3.png,sprites/Calli/spr_Calli_run_,PNG,44,50,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/run/spr_Calli_run_4.png,sprites/Calli/spr_Calli_run_,PNG,43,51,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Calli/run/spr_Calli_run_5.png,sprites/Calli/spr_Calli_run_,PNG,45,50,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Gura/idle/spr_Gura_Idle_0.png,sprites/Gura/spr_Gura_Idle_,PNG,43,27,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Gura/idle/spr_Gura_Idle_1.png,sprites/Gura/spr_Gura_Idle_,PNG,42,28,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Gura/idle/spr_Gura_Idle_2.png,sprites/Gura/spr_Gura_Idle_,PNG,43,28,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Gura/portrait.png,sprites/Gura/spr_Gura_Run_,PNG,43,37,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Gura/run/spr_Gura_Run_0.png,sprites/Gura/spr_Gura_Run_,PNG,46,28,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Gura/run/spr_Gura_Run_1.png,sprites/Gura/spr_Gura_Run_,PNG,45,28,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Gura/run/spr_Gura_Run_2.png,sprites/Gura/spr_Gura_Run_,PNG,43,27,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Gura/run/spr_Gura_Run_3.png,sprites/Gura/spr_Gura_Run_,PNG,48,28,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Gura/run/spr_Gura_Run_4.png,sprites/Gura/spr_Gura_Run_,PNG,47,29,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Gura/run/spr_Gura_Run_5.png,sprites/Gura/spr_Gura_Run_,PNG,44,27,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/idle/spr_Ina_idle_0.png,sprites/Ina/spr_Ina_idle_,PNG,27,35,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/idle/spr_Ina_idle_1.png,sprites/Ina/spr_Ina_idle_,PNG,28,33,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/idle/spr_Ina_idle_2.png,sprites/Ina/spr_Ina_idle_,PNG,27,32,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/idle/spr_Ina_idle_3.png,sprites/Ina/spr_Ina_idle_,PNG,28,35,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/portrait.png,sprites/Ina/spr_Ina_run_,PNG,43,38,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/run/spr_Ina_run_0.png,sprites/Ina/spr_Ina_run_,PNG,30,34,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/run/spr_Ina_run_1.png,sprites/Ina/spr_Ina_run_,PNG,29,34,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/run/spr_Ina_run_2.png,sprites/Ina/spr_Ina_run_,PNG,30,34,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/run/spr_Ina_run_3.png,sprites/Ina/spr_Ina_run_,PNG,30,34,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/run/spr_Ina_run_4.png,sprites/Ina/spr_Ina_run_,PNG,29,34,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Ina/run/spr_Ina_run_5.png,sprites/Ina/spr_Ina_run_,PNG,30,34,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/idle/spr_Kiara_idle_0.png,sprites/Kiara/spr_Kiara_idle_,PNG,24,32,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/idle/spr_Kiara_idle_1.png,sprites/Kiara/spr_Kiara_idle_,PNG,24,33,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/idle/spr_Kiara_idle_2.png,sprites/Kiara/spr_Kiara_idle_,PNG,23,32,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/idle/spr_Kiara_idle_3.png,sprites/Kiara/spr_Kiara_idle_,PNG,24,33,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/portrait.png,sprites/Kiara/spr_Kiara_run_,PNG,43,38,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/run/spr_Kiara_run_0.png,sprites/Kiara/spr_Kiara_run_,PNG,38,30,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/run/spr_Kiara_run_1.png,sprites/Kiara/spr_Kiara_run_,PNG,38,30,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/run/spr_Kiara_run_2.png,sprites/Kiara/spr_Kiara_run_,PNG,37,32,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/run/spr_Kiara_run_3.png,sprites/Kiara/spr_Kiara_run_,PNG,37,29,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/run/spr_Kiara_run_4.png,sprites/Kiara/spr_Kiara_run_,PNG,39,29,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/characters/Kiara/run/spr_Kiara_run_5.png,sprites/Kiara/spr_Kiara_run_,PNG,39,32,RGBA,yes,character animation/portrait,high,local family plus animation frame structure
+assets/fullgame/enemies/Matsurisu/spr_Matsurisu_0.png,sprites/spr_Matsurisu/,PNG,33,26,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Matsurisu/spr_Matsurisu_1.png,sprites/spr_Matsurisu/,PNG,33,26,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Matsurisu/spr_Matsurisu_2.png,sprites/spr_Matsurisu/,PNG,33,25,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Matsurisu3/spr_Matsurisu3_0.png,sprites/spr_Matsurisu3/,PNG,33,26,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Matsurisu3/spr_Matsurisu3_1.png,sprites/spr_Matsurisu3/,PNG,33,26,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Matsurisu3/spr_Matsurisu3_2.png,sprites/spr_Matsurisu3/,PNG,33,25,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Moonafic/spr_Moonafic_0.png,sprites/spr_Moonafic/,PNG,25,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Moonafic/spr_Moonafic_1.png,sprites/spr_Moonafic/,PNG,27,26,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Moonafic/spr_Moonafic_2.png,sprites/spr_Moonafic/,PNG,25,27,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Moonafic2/spr_Moonafic2_0.png,sprites/spr_Moonafic2/,PNG,25,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Moonafic2/spr_Moonafic2_1.png,sprites/spr_Moonafic2/,PNG,27,26,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Moonafic2/spr_Moonafic2_2.png,sprites/spr_Moonafic2/,PNG,25,27,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiA/spr_NousagiEnemyA_0.png,sprites/spr_NousagiEnemyA/,PNG,24,21,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiA/spr_NousagiEnemyA_1.png,sprites/spr_NousagiEnemyA/,PNG,24,22,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiA/spr_NousagiEnemyA_2.png,sprites/spr_NousagiEnemyA/,PNG,22,22,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiB/spr_NousagiEnemyB_0.png,sprites/spr_NousagiEnemyB/,PNG,24,21,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiB/spr_NousagiEnemyB_1.png,sprites/spr_NousagiEnemyB/,PNG,24,22,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiB/spr_NousagiEnemyB_2.png,sprites/spr_NousagiEnemyB/,PNG,22,22,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiC/spr_NousagiEnemyC_0.png,sprites/spr_NousagiEnemyC/,PNG,24,21,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiC/spr_NousagiEnemyC_1.png,sprites/spr_NousagiEnemyC/,PNG,24,22,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiC/spr_NousagiEnemyC_2.png,sprites/spr_NousagiEnemyC/,PNG,22,22,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiD/spr_NousagiEnemyD_0.png,sprites/spr_NousagiEnemyD/,PNG,24,21,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiD/spr_NousagiEnemyD_1.png,sprites/spr_NousagiEnemyD/,PNG,25,24,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/NousagiD/spr_NousagiEnemyD_2.png,sprites/spr_NousagiEnemyD/,PNG,22,24,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Otaku/spr_DebuffOtakuA_0.png,sprites/spr_DebuffOtakuA/,PNG,36,42,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Otaku/spr_DebuffOtakuA_1.png,sprites/spr_DebuffOtakuA/,PNG,35,39,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Otaku/spr_DebuffOtakuA_2.png,sprites/spr_DebuffOtakuA/,PNG,38,48,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Otaku/spr_DebuffOtakuA_3.png,sprites/spr_DebuffOtakuA/,PNG,35,47,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Shrimp/spr_Shrimp_0.png,sprites/spr_Shrimp/,PNG,30,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Shrimp/spr_Shrimp_1.png,sprites/spr_Shrimp/,PNG,33,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Shrimp/spr_Shrimp_2.png,sprites/spr_Shrimp/,PNG,32,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Shrimp2/spr_Shrimp2_0.png,sprites/spr_Shrimp2/,PNG,30,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Shrimp2/spr_Shrimp2_1.png,sprites/spr_Shrimp2/,PNG,33,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Shrimp2/spr_Shrimp2_2.png,sprites/spr_Shrimp2/,PNG,32,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Sukonbu/spr_Sukonbu_0.png,sprites/spr_Sukonbu/,PNG,27,27,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Sukonbu/spr_Sukonbu_1.png,sprites/spr_Sukonbu/,PNG,26,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Sukonbu/spr_Sukonbu_2.png,sprites/spr_Sukonbu/,PNG,28,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Sukonbu2/spr_Sukonbu2_0.png,sprites/spr_Sukonbu2/,PNG,27,27,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Sukonbu2/spr_Sukonbu2_1.png,sprites/spr_Sukonbu2/,PNG,26,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/enemies/Sukonbu2/spr_Sukonbu2_2.png,sprites/spr_Sukonbu2/,PNG,28,28,RGBA,yes,enemy animation,medium,stage/name metadata; local object binding is not available for all enemy sprites
+assets/fullgame/pickups/coin.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,15,15,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_0.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_1.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_10.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_11.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_2.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_3.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_4.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_5.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_6.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_7.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_8.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_EXP_9.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/projectiles/ame_bullet.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,10,8,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
+assets/fullgame/projectiles/ame_weapon.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,18,20,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
+assets/fullgame/projectiles/axe.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,22,24,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
+assets/fullgame/projectiles/bomb.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,21,20,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
+assets/fullgame/projectiles/bullet.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,7,7,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
+assets/fullgame/projectiles/phoenix.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,22,20,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
+assets/fullgame/projectiles/scythe.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,24,20,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
+assets/fullgame/projectiles/tentacle.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,24,20,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
+assets/fullgame/projectiles/trident.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,22,20,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
+assets/fullgame/stages/beach.png,sprites/BG_grass_panel/ or local stage background candidate,PNG,54,320,RGBA,yes,stage tile/fallback background,medium,stage tile/fallback; full stage art is not a direct MIDP screen
+assets/fullgame/stages/carpet.png,sprites/BG_grass_panel/ or local stage background candidate,PNG,111,128,RGBA,yes,stage tile/fallback background,medium,stage tile/fallback; full stage art is not a direct MIDP screen
+assets/fullgame/stages/castle.png,sprites/BG_grass_panel/ or local stage background candidate,PNG,128,128,RGBA,yes,stage tile/fallback background,medium,stage tile/fallback; full stage art is not a direct MIDP screen
+assets/fullgame/stages/concert.png,sprites/BG_grass_panel/ or local stage background candidate,PNG,56,49,RGBA,yes,stage tile/fallback background,medium,stage tile/fallback; full stage art is not a direct MIDP screen
+assets/fullgame/stages/fantasy.png,sprites/BG_grass_panel/ or local stage background candidate,PNG,128,128,RGBA,yes,stage tile/fallback background,medium,stage tile/fallback; full stage art is not a direct MIDP screen
+assets/fullgame/stages/grass.png,sprites/BG_grass_panel/ or local stage background candidate,PNG,32,22,RGBA,yes,stage tile/fallback background,medium,stage tile/fallback; full stage art is not a direct MIDP screen
+assets/fullgame/stages/office.png,sprites/BG_grass_panel/ or local stage background candidate,PNG,128,128,RGBA,yes,stage tile/fallback background,medium,stage tile/fallback; full stage art is not a direct MIDP screen
+assets/fullgame/stages/yagoo.png,sprites/BG_grass_panel/ or local stage background candidate,PNG,34,97,RGBA,yes,stage tile/fallback background,medium,stage tile/fallback; full stage art is not a direct MIDP screen
+assets/fullgame/ui/pickup_icon.png,sprites/hud_pickupicon/,PNG,16,16,RGBA,yes,HUD/UI,medium,HUD icon family

@@ -1,0 +1,459 @@
+package me.holojava.fullgame;
+
+import javax.microedition.lcdui.Font;
+import javax.microedition.lcdui.Image;
+import javax.microedition.lcdui.Graphics;
+import javax.microedition.lcdui.game.GameCanvas;
+
+/** Menu flow and lifecycle-aware screen coordinator for the rebuilt game. */
+public class FullGameCanvas extends GameCanvas implements Runnable {
+    interface ShutdownRequest { void requestShutdown(); }
+    private static final int MENU = 0;
+    private static final int MODES = 1;
+    private static final int CHARACTERS = 2;
+    private static final int STAGES = 3;
+    private static final int SETTINGS = 4;
+    private static final int PREP = 5;
+    private static final int GAME = 6;
+    private static final int RESULTS = 7;
+    private static final int CONTROLS = 8;
+    private static final int CHARACTER_PAGE_SIZE = 8;
+
+    private final AssetLibrary assets;
+    private final SaveStore save;
+    private final ShutdownRequest shutdownRequest;
+    private volatile boolean stopped;
+    private volatile boolean threadRunning;
+    private volatile boolean applicationPaused;
+    private volatile boolean exitRequested;
+    private int screen = MENU;
+    private int menuIndex;
+    private int modeIndex;
+    private int characterIndex;
+    private int stageIndex;
+    private int resultIndex;
+    private int lastMenuScreen = MENU;
+    private boolean fireWasDown;
+    private boolean upWasDown;
+    private boolean downWasDown;
+    private boolean leftWasDown;
+    private boolean rightWasDown;
+    private boolean skillPressed;
+    private boolean specialPressed;
+    private boolean attackWasDown;
+    private boolean attackPulse;
+    private int characterPage;
+    private final Viewport viewport = new Viewport();
+    private RunWorld world;
+    private boolean worldWasVictory;
+    private String validationError;
+
+    public FullGameCanvas(AssetLibrary assets, SaveStore save, String validationError, ShutdownRequest shutdownRequest) {
+        super(true);
+        this.assets = assets;
+        this.save = save;
+        this.shutdownRequest = shutdownRequest;
+        this.validationError = validationError;
+        setFullScreenMode(true);
+        characterIndex = save.selectedCharacter();
+        if (characterIndex < 0 || characterIndex >= ContentCatalog.CHARACTERS.length) characterIndex = 0;
+        modeIndex = 0;
+        stageIndex = 0;
+    }
+
+    public boolean isRunning() { return threadRunning; }
+    public boolean exitRequested() { return exitRequested; }
+    public void pauseApplication() {
+        applicationPaused = true;
+        if (world != null) world.pause();
+    }
+    public void resumeApplication() {
+        applicationPaused = false;
+        if (world != null) world.resume();
+    }
+    public void stopApplication() { stopped = true; }
+
+    public void run() {
+        threadRunning = true;
+        long last = System.currentTimeMillis();
+        long accumulator = 0;
+        while (!stopped) {
+            if (applicationPaused) {
+                sleep(40);
+                last = System.currentTimeMillis();
+                continue;
+            }
+            long now = System.currentTimeMillis();
+            long delta = now - last;
+            if (delta < 0) delta = 0;
+            if (delta > 200) delta = 200;
+            last = now;
+            accumulator += delta;
+            int updates = 0;
+            while (accumulator >= 40L && updates < 3) {
+                update(now);
+                accumulator -= 40L;
+                updates++;
+            }
+            render();
+            flushGraphics();
+            sleep(16);
+        }
+        threadRunning = false;
+    }
+
+    public void keyPressed(int key) {
+        // Numeric action keys are deliberately explicit: 5 = skill, 9 = special.
+        if (key == '5') skillPressed = true;
+        if (key == '9') specialPressed = true;
+        if (key == '1') attackPulse = true;
+    }
+
+    private void update(long now) {
+        int keys = getKeyStates();
+        boolean fire = (keys & FIRE_PRESSED) != 0;
+        boolean up = (keys & UP_PRESSED) != 0;
+        boolean down = (keys & DOWN_PRESSED) != 0;
+        boolean left = (keys & LEFT_PRESSED) != 0;
+        boolean right = (keys & RIGHT_PRESSED) != 0;
+        boolean attackHeld = (keys & GAME_A_PRESSED) != 0;
+        boolean fireEdge = fire && !fireWasDown;
+        boolean upEdge = up && !upWasDown;
+        boolean downEdge = down && !downWasDown;
+        boolean leftEdge = left && !leftWasDown;
+        boolean rightEdge = right && !rightWasDown;
+        boolean attackEdge = attackHeld && !attackWasDown;
+        fireWasDown = fire; upWasDown = up; downWasDown = down; leftWasDown = left;
+        attackWasDown = attackHeld;
+
+        if (validationError != null && validationError.length() > 0) return;
+        viewport.update(getWidth(), getHeight());
+        if (world != null) world.setViewport(viewport);
+
+        if (screen == GAME) {
+            if (fireEdge && world.state() == RunWorld.STATE_RUNNING) world.pause();
+            else if (fireEdge && world.state() == RunWorld.STATE_PAUSED) world.resume();
+            if (world.state() != RunWorld.STATE_PAUSED) {
+                world.update(keys, attackHeld || attackEdge || attackPulse,
+                        skillPressed, specialPressed, now);
+                attackPulse = false;
+                skillPressed = false; specialPressed = false;
+            }
+            if (world.state() == RunWorld.STATE_LEVEL_UP) {
+                if (upEdge) world.moveOffer(-1);
+                if (downEdge) world.moveOffer(1);
+                if (fireEdge) world.selectOffer();
+            }
+            if (world.state() == RunWorld.STATE_GAME_OVER || world.state() == RunWorld.STATE_VICTORY) {
+                worldWasVictory = world.state() == RunWorld.STATE_VICTORY;
+                if (worldWasVictory && modeIndex == 0) save.setCompleted(characterIndex, ContentCatalog.stage(stageIndex).order);
+                screen = RESULTS;
+                resultIndex = 0;
+            }
+            return;
+        }
+        if (screen == MENU) updateMain(upEdge, downEdge, fireEdge);
+        else if (screen == MODES) updateModes(upEdge, downEdge, fireEdge);
+        else if (screen == CHARACTERS) updateCharacters(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
+        else if (screen == STAGES) updateStages(upEdge, downEdge, fireEdge, leftEdge);
+        else if (screen == SETTINGS) updateSettings(upEdge, downEdge, fireEdge, leftEdge);
+        else if (screen == CONTROLS) { if (leftEdge || fireEdge) screen = SETTINGS; }
+        else if (screen == PREP) updatePrep(upEdge, downEdge, fireEdge, leftEdge);
+        else if (screen == RESULTS) updateResults(upEdge, downEdge, fireEdge);
+    }
+
+    private void updateMain(boolean up, boolean down, boolean fire) {
+        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 6);
+        if (!fire) return;
+        switch (menuIndex) {
+            case 0: screen = CHARACTERS; menuIndex = 0; characterPage = 0; break;
+            case 1: screen = MODES; menuIndex = modeIndex; break;
+            case 2: screen = CHARACTERS; menuIndex = characterIndex; characterPage = characterIndex / CHARACTER_PAGE_SIZE; break;
+            case 3: screen = STAGES; menuIndex = 0; break;
+            case 4: screen = SETTINGS; menuIndex = 0; break;
+            case 5: exitRequested = true; stopped = true; shutdownRequest.requestShutdown(); break;
+            default: break;
+        }
+    }
+
+    private void updateModes(boolean up, boolean down, boolean fire) {
+        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 4);
+        if (!fire) return;
+        if (menuIndex == 3) { screen = MENU; menuIndex = 1; }
+        else { modeIndex = menuIndex; screen = CHARACTERS; menuIndex = characterIndex; characterPage = characterIndex / CHARACTER_PAGE_SIZE; }
+    }
+
+    private void updateCharacters(boolean up, boolean down, boolean fire, boolean left, boolean right) {
+        int count = ContentCatalog.CHARACTERS.length + 1;
+        if (left) {
+            if (characterPage > 0) { characterPage--; menuIndex = Math.max(0, menuIndex - CHARACTER_PAGE_SIZE); }
+            else { screen = MENU; menuIndex = 0; }
+            return;
+        }
+        if (right) {
+            int lastPage = (ContentCatalog.CHARACTERS.length - 1) / CHARACTER_PAGE_SIZE;
+            if (characterPage < lastPage) { characterPage++; menuIndex = Math.min(count - 1, menuIndex + CHARACTER_PAGE_SIZE); }
+            return;
+        }
+        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), count);
+        if (!fire) return;
+        if (menuIndex == ContentCatalog.CHARACTERS.length) { screen = MENU; menuIndex = 2; return; }
+        characterIndex = menuIndex;
+        characterPage = characterIndex / CHARACTER_PAGE_SIZE;
+        save.setSelectedCharacter(characterIndex);
+        screen = STAGES;
+        menuIndex = 0;
+    }
+
+    private void updateStages(boolean up, boolean down, boolean fire, boolean left) {
+        int count = ContentCatalog.STAGES.length + 1;
+        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), count);
+        if (left) { screen = CHARACTERS; menuIndex = characterIndex; return; }
+        if (!fire) return;
+        if (menuIndex == ContentCatalog.STAGES.length) { screen = MAIN_SAFE(); menuIndex = 3; return; }
+        int candidate = menuIndex;
+        if (!stageUnlocked(candidate) || !stageAllowed(candidate)) return;
+        stageIndex = candidate;
+        screen = PREP;
+    }
+
+    private int MAIN_SAFE() { return MENU; }
+
+    private void updateSettings(boolean up, boolean down, boolean fire, boolean left) {
+        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 4);
+        if (left) { screen = MENU; menuIndex = 4; return; }
+        if (!fire) return;
+        if (menuIndex == 0) save.setHardcore(!save.hardcore());
+        else if (menuIndex == 1) { /* audio is deliberately disabled on unverified runtimes */ }
+        else if (menuIndex == 2) screen = CONTROLS;
+        else screen = MENU;
+    }
+
+    private void updatePrep(boolean up, boolean down, boolean fire, boolean left) {
+        if (left) { screen = STAGES; menuIndex = stageIndex; return; }
+        if (fire) startRun();
+    }
+
+    private void updateResults(boolean up, boolean down, boolean fire) {
+        if (up || down) resultIndex = wrap(resultIndex + (up ? -1 : 1), 2);
+        if (!fire) return;
+        if (resultIndex == 0) startRun();
+        else { screen = MENU; menuIndex = 0; world = null; }
+    }
+
+    private void startRun() {
+        if (!stageUnlocked(stageIndex) || !stageAllowed(stageIndex)) { screen = STAGES; return; }
+        world = new RunWorld(assets, save, characterIndex, modeIndex, stageIndex);
+        world.setViewport(viewport);
+        screen = GAME;
+    }
+
+    private boolean stageAllowed(int index) {
+        ContentCatalog.StageDef s = ContentCatalog.stage(index);
+        if (ContentCatalog.MODES[modeIndex].completion == ContentCatalog.COMPLETE_KILL_TARGET) return s.timeStage;
+        return !s.timeStage;
+    }
+
+    private boolean stageUnlocked(int index) {
+        ContentCatalog.StageDef s = ContentCatalog.stage(index);
+        if (s.unlockRequirement == -1 || s.unlockRequirement == 99) return true;
+        if (s.timeStage) return save.isCompleted(characterIndex, 2);
+        return save.isCompleted(characterIndex, s.unlockRequirement);
+    }
+
+    private void render() {
+        Graphics g = getGraphics();
+        if (g == null) return;
+        int w = getWidth(); int h = getHeight();
+        g.setColor(0, 0, 0); g.fillRect(0, 0, w, h);
+        viewport.update(w, h);
+        int ox = (w - Viewport.MIN_W) / 2; int oy = (h - Viewport.MIN_H) / 2;
+        if (ox < 0) ox = 0; if (oy < 0) oy = 0;
+        if (validationError != null && validationError.length() > 0) {
+            drawText(g, ox + 12, oy + 30, "CONTENT VALIDATION ERROR", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+            drawText(g, ox + 12, oy + 70, validationError, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            return;
+        }
+        if (screen == GAME && world != null) {
+            world.setViewport(viewport);
+            world.draw(g, viewport.offsetX, viewport.offsetY, System.currentTimeMillis());
+            if (world.state() == RunWorld.STATE_LEVEL_UP) drawLevelUp(g, ox, oy);
+            if (world.state() == RunWorld.STATE_PAUSED) drawPause(g, ox, oy);
+            if (world.state() == RunWorld.STATE_GAME_OVER || world.state() == RunWorld.STATE_VICTORY) { /* results handled next tick */ }
+        } else if (screen == RESULTS) drawResults(g, ox, oy);
+        else drawMenuScreen(g, ox, oy);
+    }
+
+    private void drawMenuScreen(Graphics g, int x, int y) {
+        g.setColor(14, 20, 38); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        if (screen == MENU) drawMainMenu(g, x, y);
+        else if (screen == MODES) drawModes(g, x, y);
+        else if (screen == CHARACTERS) drawCharacters(g, x, y);
+        else if (screen == STAGES) drawStages(g, x, y);
+        else if (screen == SETTINGS) drawSettings(g, x, y);
+        else if (screen == CONTROLS) drawControls(g, x, y);
+        else if (screen == PREP) drawPrep(g, x, y);
+    }
+
+    private void drawMainMenu(Graphics g, int x, int y) {
+        title(g, x, y, "HOLOJAVA");
+        String[] items = { "Play", "Game Mode", "Characters", "Stage Select", "Settings", "Exit" };
+        list(g, x, y + 65, items, menuIndex);
+        drawText(g, x + 20, y + 210, "D-pad move   FIRE select", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    private void drawModes(Graphics g, int x, int y) {
+        title(g, x, y, "GAME MODE");
+        String[] items = { "Stage Mode", "Endless Mode", "Time Mode", "Back" };
+        list(g, x, y + 60, items, menuIndex);
+        drawText(g, x + 20, y + 195, ContentCatalog.MODES[modeIndex].objective, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 20, y + 210, "Stage Mode: final boss   Endless: until death   Time: 4000 fans", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    private void drawCharacters(Graphics g, int x, int y) {
+        title(g, x, y, "CHARACTER SELECT");
+        int count = ContentCatalog.CHARACTERS.length;
+        if (menuIndex >= count) characterPage = count / CHARACTER_PAGE_SIZE;
+        else characterPage = menuIndex / CHARACTER_PAGE_SIZE;
+        int first = characterPage * CHARACTER_PAGE_SIZE;
+        int last = Math.min(count, first + CHARACTER_PAGE_SIZE);
+        int start = 40;
+        for (int i = first; i < last; i++) {
+            ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
+            g.setColor(i == menuIndex ? 255 : 190, i == menuIndex ? 220 : 190, i == menuIndex ? 60 : 190);
+            Image portrait = assets.characterPortrait(i);
+            if (portrait != null) g.drawImage(portrait, x + 12, y + start + (i - first) * 26 - 15, Graphics.TOP | Graphics.LEFT);
+            String suffix = c.fallbackArt ? " [fallback art]" : "";
+            drawText(g, x + 62, y + start + (i - first) * 26, c.name + suffix,
+                    i == menuIndex ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
+        if (menuIndex == count) {
+            g.setColor(255, 230, 60);
+            drawText(g, x + 12, y + start + (last - first) * 26, "> Back", Font.STYLE_BOLD, Font.SIZE_SMALL);
+        }
+        int selected = Math.min(menuIndex, count - 1);
+        ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[selected];
+        g.setColor(255, 255, 255);
+        drawText(g, x + 12, y + 190, "Page " + (characterPage + 1) + "/" + (((count - 1) / CHARACTER_PAGE_SIZE) + 1)
+                + "   " + c.name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 12, y + 205, "HP " + c.hp + "  ATK " + c.atkPercent + "%  SPD " + c.spdPercent + "%  CRT " + c.critPercent + "%", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ContentCatalog.WeaponDef weapon = ContentCatalog.weapon(c.mainWeapon);
+        drawText(g, x + 12, y + 220, "Weapon: " + (weapon == null ? c.mainWeapon : weapon.name), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 12, y + 232, "LEFT/RIGHT page   FIRE confirm   fallback art is explicit", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    private void drawStages(Graphics g, int x, int y) {
+        title(g, x, y, "STAGE SELECT");
+        int start = 40;
+        for (int i = 0; i < ContentCatalog.STAGES.length; i++) {
+            ContentCatalog.StageDef s = ContentCatalog.STAGES[i];
+            boolean allowed = stageAllowed(i); boolean unlocked = stageUnlocked(i);
+            int color = i == menuIndex ? 255 : (allowed && unlocked ? 200 : 90);
+            String prefix = i == menuIndex ? "> " : "  ";
+            String suffix = !allowed ? " [mode]" : (!unlocked ? " [locked]" : "");
+            drawText(g, x + 12, y + start + i * 16, prefix + s.name + suffix, i == menuIndex ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            g.setColor(color, color, color);
+        }
+        drawText(g, x + 12, y + 214, "Stage / Endless use Normal + Hard. Time uses Concert Stage.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 12, y + 228, "LEFT back   FIRE confirm", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    private void drawSettings(Graphics g, int x, int y) {
+        title(g, x, y, "SETTINGS");
+        String[] items = { "Hardcore: " + (save.hardcore() ? "ON" : "OFF"),
+                "Audio: OFF (runtime not verified)", "Controls", "Back" };
+        list(g, x, y + 65, items, menuIndex);
+        drawText(g, x + 20, y + 190, "Hardcore sets Endless player HP to 1.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 20, y + 210, "Persistence is optional RMS storage.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    private void drawControls(Graphics g, int x, int y) {
+        title(g, x, y, "CONTROLS");
+        drawText(g, x + 24, y + 60, "D-pad: move / menu navigation", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 82, "GAME A or 1: manual basic attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 104, "FIRE: confirm / pause / resume", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 126, "5: skill   9: special attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 158, "Orbiting and passive weapons may fire autonomously.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 210, "LEFT or FIRE back", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    private void drawPrep(Graphics g, int x, int y) {
+        title(g, x, y, "RUN PREPARATION");
+        drawText(g, x + 24, y + 62, "Character: " + ContentCatalog.character(characterIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 82, "Mode: " + ContentCatalog.mode(modeIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 102, "Stage: " + ContentCatalog.stage(stageIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 132, ContentCatalog.mode(modeIndex).objective, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 160, "Boss schedule and enemy pool will load on start.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 200, "FIRE start   LEFT back", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    private void drawLevelUp(Graphics g, int x, int y) {
+        g.setColor(0, 0, 0); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        drawText(g, x + 100, y + 14, "LEVEL UP", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        for (int i = 0; i < world.offerCount(); i++) {
+            int yy = y + 46 + i * 24;
+            g.setColor(i == world.selectedOffer() ? 255 : 190, i == world.selectedOffer() ? 230 : 190, i == world.selectedOffer() ? 60 : 190);
+            drawText(g, x + 24, yy, (i == world.selectedOffer() ? "> " : "  ") + world.offerLabel(i), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            g.setColor(130, 130, 130);
+            drawText(g, x + 240, yy, world.offerType(i), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
+        drawText(g, x + 24, y + 200, "UP/DOWN select   FIRE confirm", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    private void drawPause(Graphics g, int x, int y) {
+        g.setColor(0, 0, 0); g.fillRect(x + 80, y + 88, 160, 62);
+        drawText(g, x + 130, y + 108, "PAUSED", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        drawText(g, x + 100, y + 132, "FIRE resume", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    private void drawResults(Graphics g, int x, int y) {
+        g.setColor(14, 20, 38); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        title(g, x, y, worldWasVictory ? "VICTORY" : "GAME OVER");
+        drawText(g, x + 26, y + 62, "Character: " + ContentCatalog.character(characterIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 26, y + 82, "Stage: " + ContentCatalog.stage(stageIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 26, y + 102, "Fans defeated: " + world.kills(), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 26, y + 122, "Level: " + world.playerLevel() + "   Coins: " + world.coins(), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 26, y + 142, "Time: " + timeString(world.elapsedSeconds()), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        if (worldWasVictory && modeIndex == 0) drawText(g, x + 26, y + 168, "Stage clear recorded for this character.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        String[] items = { "Replay", "Return to Menu" };
+        list(g, x, y + 185, items, resultIndex);
+    }
+
+    private void title(Graphics g, int x, int y, String text) {
+        g.setColor(255, 240, 120);
+        drawText(g, x + 90, y + 18, text, Font.STYLE_BOLD, Font.SIZE_LARGE);
+    }
+
+    private void list(Graphics g, int x, int y, String[] items, int selected) {
+        for (int i = 0; i < items.length; i++) {
+            g.setColor(i == selected ? 255 : 180, i == selected ? 230 : 180, i == selected ? 60 : 180);
+            drawText(g, x + 36, y + i * 22, (i == selected ? "> " : "  ") + items[i], i == selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
+    }
+
+    private void drawText(Graphics g, int x, int y, String text, int style, int size) {
+        g.setFont(Font.getFont(Font.FACE_SYSTEM, style, size));
+        g.drawString(text, x, y, Graphics.TOP | Graphics.LEFT);
+    }
+
+    private String timeString(long seconds) {
+        long m = seconds / 60L; long s = seconds % 60L;
+        return m + ":" + (s < 10 ? "0" + s : String.valueOf(s));
+    }
+
+    private int wrap(int value, int max) {
+        if (value < 0) return max - 1;
+        if (value >= max) return 0;
+        return value;
+    }
+
+    private void sleep(long ms) {
+        try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+    }
+
+    /** Small wrapper keeps menu portrait access explicit and null-safe. */
+    private static final class ImageHolder {
+        final javax.microedition.lcdui.Image image;
+        ImageHolder(javax.microedition.lcdui.Image image) { this.image = image; }
+    }
+}

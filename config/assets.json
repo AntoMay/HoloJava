@@ -1,0 +1,142 @@
+{
+  "schema_version": "0.1",
+  "asset_root": {
+    "env_var": "HOLOJAVA_ASSET_ROOT",
+    "default_relative_to_project": "../HoloCure_Unpacked"
+  },
+  "asset_root_description": "All asset.path values are relative to the configured extraction root. Do not store absolute home-directory paths here.",
+  "internal_resolution": {
+    "width": 320,
+    "height": 240
+  },
+  "assets": {
+    "player": {
+      "path": "sprites/testPlayer/testPlayer_0.png",
+      "frame_count": 1,
+      "dimensions": [64, 64],
+      "verified": true,
+      "temporary": true,
+      "notes": "Placeholder-style single-frame player proxy for the first vertical slice."
+    },
+    "enemy.basic": {
+      "path": "sprites/testEnemy/testEnemy_0.png",
+      "frame_count": 1,
+      "dimensions": [37, 55],
+      "verified": true,
+      "temporary": true,
+      "notes": "Single-frame enemy proxy."
+    },
+    "projectile.basic": {
+      "path": "sprites/spr_BulletTemp/spr_BulletTemp_0.png",
+      "frame_count": 1,
+      "dimensions": [7, 7],
+      "verified": true,
+      "temporary": true,
+      "notes": "Minimal projectile proxy."
+    },
+    "pickup.xp": {
+      "frame_pattern": "sprites/spr_EXP/spr_EXP_{index}.png",
+      "frame_count": 12,
+      "dimensions": [12, 13],
+      "indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      "verified": true,
+      "temporary": false,
+      "notes": "Frame numbering is exporter/file order; intended animation ordering is unverified."
+    },
+    "effect.pickup": {
+      "frame_pattern": "sprites/spr_fightpitPickUp_Attack/spr_fightpitPickUp_Attack_{index}.png",
+      "frame_count": 6,
+      "dimensions": [21, 21],
+      "indices": [0, 1, 2, 3, 4, 5],
+      "verified": true,
+      "temporary": true,
+      "notes": "Stable frame dimensions; gameplay meaning is unverified."
+    },
+    "effect.explosion": {
+      "frame_pattern": "sprites/spr_Explosion/spr_Explosion_{index}.png",
+      "frame_count": 9,
+      "verified": true,
+      "temporary": true,
+      "notes": "Exported frame sizes vary from 24x24 through 114x118. Do not assume a uniform sprite sheet without review."
+    },
+    "ui.pickup_icon": {
+      "path": "sprites/hud_pickupicon/hud_pickupicon_0.png",
+      "frame_count": 1,
+      "dimensions": [16, 16],
+      "verified": true,
+      "temporary": false
+    },
+    "ui.digit_white": {
+      "frame_pattern": "sprites/ui_digit_white/ui_digit_white_{index}.png",
+      "frame_count": 10,
+      "dimensions": [5, 7],
+      "indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      "verified": true,
+      "temporary": true,
+      "notes": "Glyph index matches digit value."
+    },
+    "ui.level_header": {
+      "path": "sprites/ui_level_header_white/ui_level_header_white_0.png",
+      "frame_count": 1,
+      "dimensions": [20, 9],
+      "verified": true,
+      "temporary": true
+    },
+    "arena.tile": {
+      "path": "sprites/BG_grass_panel/BG_grass_panel_0.png",
+      "frame_count": 1,
+      "dimensions": [32, 22],
+      "verified": true,
+      "temporary": true,
+      "notes": "Small reusable tile candidate for the provisional arena."
+    },
+    "sfx.shot": {
+      "path": "sounds/sfx/snd_bullet.wav",
+      "format": "WAV PCM",
+      "sample_rate": 44100,
+      "channels": 1,
+      "duration_seconds": 0.267823,
+      "verified": true
+    },
+    "sfx.hit": {
+      "path": "sounds/sfx/snd_hit1.wav",
+      "format": "WAV PCM",
+      "sample_rate": 44100,
+      "channels": 1,
+      "duration_seconds": 0.185760,
+      "verified": true
+    },
+    "sfx.xp_collect": {
+      "path": "sounds/sfx/snd_getEXP.wav",
+      "format": "WAV PCM",
+      "sample_rate": 44100,
+      "channels": 1,
+      "duration_seconds": 0.390884,
+      "verified": true
+    },
+    "sfx.impact": {
+      "path": "sounds/sfx/snd_explosion.wav",
+      "format": "WAV PCM",
+      "sample_rate": 44100,
+      "channels": 1,
+      "duration_seconds": 0.317188,
+      "verified": true
+    },
+    "bgm.arena": {
+      "path": "sounds/bgm/bgm_candygoround.ogg",
+      "format": "Ogg Vorbis",
+      "sample_rate": 48000,
+      "channels": 2,
+      "duration_seconds": 157.665188,
+      "verified": true
+    }
+  },
+  "unresolved_assets": [
+    {
+      "key": "effect.hit",
+      "status": "unresolved",
+      "reason": "No verified constant-size hit effect has been identified.",
+      "placeholder_strategy": "Use an in-memory colored circle, square, or text indicator until a verified asset is selected."
+    }
+  ]
+}

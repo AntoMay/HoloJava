@@ -1,0 +1,8 @@
+build/
+dist/
+__pycache__/
+recovery/
+rebuild-*/
+.DS_Store
+*.swp
+*.swo

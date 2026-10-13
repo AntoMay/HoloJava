@@ -1,0 +1,56 @@
+# HoloJava Full-Game Regression Results
+
+## Build Information
+- Build date: 2026-10-13
+- Project: HoloJava Full-Game Rebuild
+- Target: Java ME CLDC 1.1 / MIDP 2.0
+- J2ME Loader compatible
+
+## JAR/JAD Integrity
+- HoloJavaFullGame.jar: 508,855 bytes
+- HoloJavaFullGame.jad: 275 bytes
+- JAD JAR size match: PASS (508855 == 508855)
+- Manifest MIDlet class: PASS (me.holojava.fullgame.FullGameMIDlet)
+- No javax/ package classes in JAR: PASS
+- MIDlet class present in JAR: PASS
+- Full-game assets in JAR: PASS (166 PNGs verified per manifest)
+- JAR ZIP integrity: PASS (testzip returned None)
+
+## Wiki Catalog Verification
+- characters.csv: 47 rows (matches expected count)
+- weapons.csv: 94 rows (matches expected count)
+- items.csv: 37 rows (matches expected count)
+- stages.csv: 10 rows (matches expected count)
+- bosses.csv: 15 rows (matches expected count)
+- modes.csv: 4 rows (matches expected count)
+- collabs.csv: 30 rows (matches expected count - regenerated from wiki data)
+
+## Character Roster
+- 47 documented characters in data/wiki/characters.csv
+- Character main weapons all resolve to valid weapon definitions
+- Build-time state reset when switching characters
+
+## Collab Catalog
+- 30 collab definitions generated from data/wiki/collabs.csv
+- 27 regular collabs + 3 super collabs
+- All collab prerequisites (weapon_a, weapon_b) resolve to valid weapon definitions
+- Super collabs handled separately (weapon_b is an item, not a weapon)
+- Array size verified against CSV data (no hardcoding)
+
+## Asset Manifest
+- 166 PNG assets verified against local mapping
+- All resource paths valid and present in JAR
+- No missing or duplicate entries
+
+## ProGuard
+- 147 library classes processed
+- 40 final library classes after optimization
+- Preverification completed successfully
+- No API stub classes bundled in distributable
+
+## Final Artifacts
+- dist/java-me-fullgame/HoloJavaFullGame.jar (508,855 bytes)
+- dist/java-me-fullgame/HoloJavaFullGame.jad (275 bytes)
+
+## Overall Status: PASS
+All verification checks completed successfully.

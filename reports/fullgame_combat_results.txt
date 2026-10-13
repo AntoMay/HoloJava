@@ -1,0 +1,37 @@
+# HoloJava Combat Results
+
+## Combat Input System
+- Player-triggered attacks through centralized input mapping layer
+- Held-key repeat supported according to cooldown
+- Duplicate attack prevention from key polling and repeat events
+- Separate attack, movement, confirm, skill, special attack, and pause inputs
+- Combat input does not leak into menus, pause, or level-overlay screens
+- Autonomous orbiting and passive weapons preserved
+
+## Weapon Lifecycle
+- Basic attacks with cooldown management
+- Weapon categories: melee arcs, straight projectiles, orbiting weapons, boomerangs, AoE, homing, piercing, defensive barriers
+- Cooldown, damage, collision, lifetime, and visuals consistent
+- Bounded effect pools for particle effects
+- Effects never apply damage independently of combat simulation
+- Prevent unintended repeated damage and stale state after entity reuse
+
+## Enemy AI
+- Chaser behavior: pursues player contact damage
+- Shooter behavior: fires projectiles on cooldown
+- Charger behavior: fast movement toward player
+- Bomber behavior: explodes after timer or contact
+- Healer behavior: restores player or enemy HP
+- Weighted pool selection, edge spawn, cap, and scaling implemented
+
+## Damage Formula
+- Weapon damage stat modified by player ATK percentage
+- Critical hit probability and multiplier implemented
+- Knockback applied based on weapon weight and speed
+- Damage numbers displayed but not independently verified
+
+## Collab Weapons
+- Collab weapons fuse two weapon components at max level
+- Golden Anvil/Hammer required for fusion
+- One super collab per run limit
+- Weapon prerequisites validated against catalog
