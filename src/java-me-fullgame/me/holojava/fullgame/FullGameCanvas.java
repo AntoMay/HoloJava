@@ -20,18 +20,24 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int SPLASH = 9;
     private static final int CHARACTER_PAGE_SIZE = 8;
 
-    // Shared menu palette. Main Menu is the reference and every other menu screen now uses these
-    // same values, so background, ink and selection are defined in exactly one place. The set is
-    // tuned for the light page: every foreground below is at least 4.3:1 against MENU_BG_LOW and at
-    // least 6:1 against MENU_BG, which the previous dark-theme yellow and grey text could not reach
-    // (they sat near 1.2:1). Splash keeps only its own sky bands.
-    private static final int SPLASH_SKY = 150, SPLASH_SKY_D = 190, SPLASH_SKY_DD = 225;
-    private static final int MENU_BG = 236;        // page background and header band
-    private static final int MENU_BG_LOW = 206;    // content band below the header
+    // Shared HoloJava UI palette. The page and the panel are both light, so every piece of menu
+    // text is drawn in MENU_INK: white only reaches 1.66:1 on MENU_BG and 1.35:1 on MENU_PANEL,
+    // while the ink reaches 3.48:1 and 4.27:1. MENU_ACCENT is reserved for non-text selection marks
+    // (bars and frames), which stay readable through the "> " marker and the bold weight.
+    // Palette white (#FFFFFF) is deliberately not declared: on this palette it has no surface that
+    // clears the contrast bar, and an unused constant would be dead code.
+    private static final int MENU_BG_R = 117, MENU_BG_G = 213, MENU_BG_B = 247;             // #75D5F7
+    private static final int MENU_PANEL_R = 168, MENU_PANEL_G = 231, MENU_PANEL_B = 252;    // #A8E7FC
+    private static final int MENU_INK_R = 36, MENU_INK_G = 108, MENU_INK_B = 145;           // #246C91
+    private static final int MENU_ACCENT_R = 66, MENU_ACCENT_G = 191, MENU_ACCENT_B = 239;  // #42BFEF
+    // Splash sky, drawn from the same palette so the splash no longer sits on neutral greys. The
+    // three nested bands keep their original lightness order and stay soft-edged (1.23:1 and
+    // 1.27:1 between neighbours, softer than the 1.42:1 and 1.59:1 of the old greys). Both splash
+    // labels sit on the outer band only, where MENU_INK measures 4.27:1.
+    private static final int SPLASH_SKY_DD_R = 168, SPLASH_SKY_DD_G = 231, SPLASH_SKY_DD_B = 252; // #A8E7FC
+    private static final int SPLASH_SKY_D_R = 117, SPLASH_SKY_D_G = 213, SPLASH_SKY_D_B = 247;   // #75D5F7
+    private static final int SPLASH_SKY_R = 66, SPLASH_SKY_G = 191, SPLASH_SKY_B = 239;         // #42BFEF
     private static final int MENU_BODY_Y = 40;     // header band height; all content starts below
-    private static final int MENU_ITEM = 70;       // body text and unselected rows (6.0:1)
-    private static final int MENU_ITEM_DIM = 90;   // secondary labels (4.4:1)
-    private static final int MENU_SELECTED_R = 25, MENU_SELECTED_G = 45, MENU_SELECTED_B = 110;
 
     // Splash/Main Menu layout, in logical 320x240 pixels.
     private static final int SPLASH_LOGO_X = 10, SPLASH_LOGO_Y = 42;
@@ -369,8 +375,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     /** Shared page background: a lighter header band behind the title row and the slightly darker
      *  content band below it. The Main Menu paints its own, logo-driven variant of the same pair. */
     private void drawPageBackground(Graphics g, int x, int y) {
-        g.setColor(MENU_BG); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
-        g.setColor(MENU_BG_LOW);
+        g.setColor(MENU_BG_R, MENU_BG_G, MENU_BG_B); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
         g.fillRect(x, y + MENU_BODY_Y, Viewport.MIN_W, Viewport.MIN_H - MENU_BODY_Y);
     }
 
@@ -391,16 +397,19 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * Displayable, so the MIDlet lifecycle and the single render thread stay untouched.
      */
     private void drawSplash(Graphics g, int x, int y) {
-        g.setColor(SPLASH_SKY_DD); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
-        g.setColor(SPLASH_SKY_D); g.fillRect(x, y + 34, Viewport.MIN_W, 150);
-        g.setColor(SPLASH_SKY); g.fillRect(x, y + 60, Viewport.MIN_W, 98);
+        g.setColor(SPLASH_SKY_DD_R, SPLASH_SKY_DD_G, SPLASH_SKY_DD_B);
+        g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        g.setColor(SPLASH_SKY_D_R, SPLASH_SKY_D_G, SPLASH_SKY_D_B);
+        g.fillRect(x, y + 34, Viewport.MIN_W, 150);
+        g.setColor(SPLASH_SKY_R, SPLASH_SKY_G, SPLASH_SKY_B);
+        g.fillRect(x, y + 60, Viewport.MIN_W, 98);
 
         Image logo = assets.logo();
         if (logo != null) g.drawImage(logo, x + SPLASH_LOGO_X, y + SPLASH_LOGO_Y, Graphics.TOP | Graphics.LEFT);
 
-        // The splash sky is a light background, so its text uses the same shared ink as every
-        // other screen. The previous white prompt sat at 1.31:1 against SPLASH_SKY_DD.
-        g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
+        // Both labels fall on the outer band only, where the shared ink measures 4.27:1. White would
+        // be 1.35:1 there, so it is not used.
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         drawText(g, x + Viewport.MIN_W / 2, y + 12, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_LARGE);
         drawText(g, x + Viewport.MIN_W / 2, y + SPLASH_PROMPT_Y, "PRESS FIRE TO START",
                 Font.STYLE_BOLD, Font.SIZE_MEDIUM);
@@ -443,26 +452,25 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * selectable list, so it cannot be picked and cannot move the cursor.
      */
     private void drawMainMenu(Graphics g, int x, int y) {
-        g.setColor(MENU_BG); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
-        g.setColor(MENU_BG_LOW); g.fillRect(x, y + 84, Viewport.MIN_W, 108);
+        g.setColor(MENU_BG_R, MENU_BG_G, MENU_BG_B); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
+        g.fillRect(x, y + 84, Viewport.MIN_W, 108);
 
         Image logo = assets.menuLogo();
         if (logo != null) g.drawImage(logo, x + MENU_LOGO_X, y + MENU_LOGO_Y, Graphics.TOP | Graphics.LEFT);
         drawMenuAchan(g, x + MENU_ACHAN_X, y + MENU_ACHAN_Y);
 
-        g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         drawText(g, x + MENU_LIST_X, y + 88, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
         String[] items = { "Play", "Game Mode", "Characters", "Stage Select", "Settings", "Exit" };
         for (int i = 0; i < items.length; i++) {
             boolean selected = i == menuIndex;
             int rowY = y + MENU_LIST_Y + i * MENU_ROW_PITCH;
-            g.setColor(selected ? MENU_SELECTED_R : MENU_ITEM,
-                    selected ? MENU_SELECTED_G : MENU_ITEM,
-                    selected ? MENU_SELECTED_B : MENU_ITEM);
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
             drawText(g, x + MENU_LIST_X + 4, rowY, (selected ? "> " : "  ") + items[i],
                     selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
             if (selected) {
-                g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
+                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
                 g.fillRect(x + MENU_LIST_X, rowY + 2, 2, 12);
             }
         }
@@ -527,13 +535,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         for (int i = first; i < last; i++) {
             ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
             boolean on = i == menuIndex;
-            g.setColor(on ? MENU_SELECTED_R : MENU_ITEM, on ? MENU_SELECTED_G : MENU_ITEM,
-                    on ? MENU_SELECTED_B : MENU_ITEM);
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
             drawText(g, x + CHARS_LIST_X, y + CHARS_ROW_Y + (i - first) * CHARS_ROW_PITCH,
                     (on ? "> " : "  ") + c.id, on ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
         if (menuIndex == count) {
-            g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
             drawText(g, x + CHARS_LIST_X, y + CHARS_ROW_Y + (last - first) * CHARS_ROW_PITCH,
                     "> Back", Font.STYLE_BOLD, Font.SIZE_SMALL);
         }
@@ -541,10 +548,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int selected = Math.min(menuIndex, count - 1);
         ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[selected];
 
-        // Middle column: the selected character's portrait, native size, centred in the box.
-        g.setColor(16, 20, 34);
+        // Middle column: the selected character's portrait, native size, centred in the box. The
+        // frame geometry is untouched; only its colours changed. The mat uses the palette ink
+        // because the portraits are bright sprites (median luma 195) and need a dark backing, and
+        // the outline uses the cyan accent. The caption sits below the frame on the light panel,
+        // so it stays in the ink: white there would be 1.35:1.
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         g.fillRect(x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y, CHARS_PORTRAIT_W, CHARS_PORTRAIT_H);
-        g.setColor(MENU_ITEM);
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.drawRect(x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y, CHARS_PORTRAIT_W - 1, CHARS_PORTRAIT_H - 1);
         Image portrait = assets.characterPortrait(selected);
         if (portrait != null) {
@@ -552,7 +563,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                     y + CHARS_PORTRAIT_Y + (CHARS_PORTRAIT_H - portrait.getHeight()) / 2,
                     Graphics.TOP | Graphics.LEFT);
         }
-        g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         drawText(g, x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y + CHARS_PORTRAIT_H + 8,
                 c.id, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
@@ -578,7 +589,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int px = x + CHARS_PANEL_X;
         int py = y + CHARS_ROW_Y;
         int vx = px + CHARS_PANEL_GUTTER;
-        g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         drawText(g, px, py, charsPanelName, Font.STYLE_BOLD, Font.SIZE_SMALL);
         inkDim(g);
         drawText(g, vx - CHARS_PANEL_GUTTER, py + 20, "HP", Font.STYLE_PLAIN, Font.SIZE_SMALL);
@@ -608,11 +619,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, vx, py + 158, charsPanelArt, Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
-    // Map/stage status colours, tuned for the shared light page. Green always means
-    // unlocked-and-allowed; grey always means unavailable. The selected row is deliberately not a
-    // third colour: it is marked by the "> " arrow, bold style and an outline frame instead.
-    private static final int STAGE_UNLOCKED_R = 20, STAGE_UNLOCKED_G = 110, STAGE_UNLOCKED_B = 45;
-    private static final int STAGE_LOCKED = 90;
+    // Map/stage status colours, taken from the shared palette. The ink always means
+    // unlocked-and-allowed; the cyan accent means unavailable and deliberately recedes. The
+    // selected row is not a third colour: it is marked by the "> " arrow, bold style and an
+    // outline frame instead. The "[mode]" and "[locked]" suffixes keep the state readable in text
+    // regardless of the colour.
+    private static final int STAGE_UNLOCKED_R = 36, STAGE_UNLOCKED_G = 108, STAGE_UNLOCKED_B = 145;
+    private static final int STAGE_LOCKED_R = 66, STAGE_LOCKED_G = 191, STAGE_LOCKED_B = 239;
     private static final int STAGE_ROW_X = 12;
     private static final int STAGE_ROW_Y = 40;
     private static final int STAGE_ROW_PITCH = 16;
@@ -631,13 +644,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             int rowY = y + start + slot * STAGE_ROW_PITCH;
             // Colour is set before the text so it applies to this row, not the next one.
             if (allowed && unlocked) g.setColor(STAGE_UNLOCKED_R, STAGE_UNLOCKED_G, STAGE_UNLOCKED_B);
-            else g.setColor(STAGE_LOCKED, STAGE_LOCKED, STAGE_LOCKED);
+            else g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
             String prefix = selected ? "> " : "  ";
             String suffix = !allowed ? " [mode]" : (!unlocked ? " [locked]" : "");
             drawText(g, x + STAGE_ROW_X, rowY, prefix + s.name + suffix,
                     selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
             if (selected) {
-                g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
+                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
                 g.drawRect(x + STAGE_FRAME_X, rowY - 2, STAGE_FRAME_W, STAGE_FRAME_H);
             }
         }
@@ -713,22 +726,23 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void title(Graphics g, int x, int y, String text) {
-        g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         drawText(g, x + 90, y + 18, text, Font.STYLE_BOLD, Font.SIZE_LARGE);
     }
 
     /** Shared selectable list. The selected row is marked the same way everywhere: the "> " arrow,
-     *  bold style and a 2px selection bar, exactly as the Main Menu does it. */
+     *  bold style and a 2px cyan bar, exactly as the Main Menu does it. The palette has only one
+     *  text colour that stays readable on the light panel, so the selection is carried by the marker,
+     *  the weight and the bar rather than by a second text colour. */
     private void list(Graphics g, int x, int y, String[] items, int selected) {
         for (int i = 0; i < items.length; i++) {
             boolean on = i == selected;
             int rowY = y + i * 22;
-            g.setColor(on ? MENU_SELECTED_R : MENU_ITEM, on ? MENU_SELECTED_G : MENU_ITEM,
-                    on ? MENU_SELECTED_B : MENU_ITEM);
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
             drawText(g, x + 36, rowY, (on ? "> " : "  ") + items[i],
                     on ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
             if (on) {
-                g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
+                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
                 g.fillRect(x, rowY + 2, 2, 12);
             }
         }
@@ -737,10 +751,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     /** Sets the shared body-ink colour. Callers must use this before informational text, because
      *  drawText does not set a colour of its own and would otherwise inherit whatever the last
      *  drawing call left behind. */
-    private void ink(Graphics g) { g.setColor(MENU_ITEM); }
+    private void ink(Graphics g) { g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B); }
 
-    /** Sets the shared secondary-label colour, one step down from body ink. */
-    private void inkDim(Graphics g) { g.setColor(MENU_ITEM_DIM); }
+    /** Secondary labels. The palette exposes one readable text colour on the light panel, so this
+     *  resolves to the same ink as ink(); labels and values stay separated by their bold/plain
+     *  style and by the gutter, not by a second hue. */
+    private void inkDim(Graphics g) { g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B); }
 
     private void drawText(Graphics g, int x, int y, String text, int style, int size) {
         g.setFont(Font.getFont(Font.FACE_SYSTEM, style, size));
