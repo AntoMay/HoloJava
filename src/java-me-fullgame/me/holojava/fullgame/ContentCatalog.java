@@ -218,8 +218,7 @@ final class ContentCatalog {
         item("gorillas_paw", "Gorilla's Paw", 1, EFFECT_DAMAGE_PCT, 20, 3, 3, "bullet"),
         item("piki_piki", "Piki Piki Piman", 1, EFFECT_MAX_HP, 15, 3, 4, "bullet"),
         item("limiter", "Limiter", 1, EFFECT_PICKUP_PCT, 100, 3, 4, "bullet"),
-        item("headphones", "Headphones", 2, EFFECT_NEGATE, 15, 5, 4, "bullet"),
-        item("uber_sheep", "Uber Sheep", 0, EFFECT_FOOD_DROP, 10, 5, 4, "bullet")
+        item("headphones", "Headphones", 2, EFFECT_NEGATE, 15, 5, 4, "bullet")
     };
 
     static final EnemyDef[] ENEMIES = {
