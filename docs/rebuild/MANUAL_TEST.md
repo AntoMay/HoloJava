@@ -9,7 +9,7 @@ Install both files together. Do not mix them with the preserved diagnostic or sl
 
 ## Navigation
 
-1. Launch `HoloJava Full Game`.
+1. Launch `HoloJava`.
 2. Confirm the main menu renders: Play, Game Mode, Characters, Stage Select, Settings, Exit.
 3. Use the d-pad and FIRE on every option.
 4. Confirm Back returns to the previous screen and Exit shuts down cleanly.
@@ -45,7 +45,7 @@ Install both files together. Do not mix them with the preserved diagnostic or sl
 10. Navigate offers with UP/DOWN and confirm with FIRE.
 11. Confirm weapon, item, stat, and skill offers apply exactly once.
 12. Press numeric `5` after acquiring a skill; press numeric `9` for the one-use special.
-13. Pause with FIRE and resume with FIRE.
+13. Pause with FIRE; confirm Resume and Return to Menu appear, move the highlight with UP/DOWN, confirm with FIRE, and confirm Return to Menu discards the run and reopens the Main Menu.
 14. Reach a boss schedule and confirm a boss health bar, boss attacks, defeat drops, and encounter state.
 15. Confirm Stage Mode victory only after the final scheduled boss is defeated.
 16. Confirm Endless Mode continues after scheduled bosses until player defeat.
