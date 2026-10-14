@@ -174,7 +174,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
             return;
         }
-        if (screen == SPLASH) updateSplash();
+        if (screen == SPLASH) updateSplash(skillPressed || fireEdge, keys);
         else if (screen == MENU) updateMain(upEdge, downEdge, fireEdge);
         else if (screen == MODES) updateModes(upEdge, downEdge, fireEdge);
         else if (screen == CHARACTERS) updateCharacters(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
@@ -369,27 +369,33 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Splash input. Key 5 is the only accepted action; every input latch is cleared on the way
-     * out so the key that dismisses the splash cannot also fire a skill or attack in gameplay.
+     * Splash input. Key 5 (skillPressed) or a FIRE edge both leave the splash, so the prompt and
+     * the hardware agree on how to start. The transition is one-way: screen is only ever assigned
+     * SPLASH during construction, so there is no path back.
      */
-    private void updateSplash() {
-        if (!skillPressed) return;
-        clearInputLatches();
+    private void updateSplash(boolean advance, int keys) {
+        if (!advance) return;
+        clearInputLatches(keys);
         screen = MENU;
         menuIndex = 0;
     }
 
-    /** Drops every pending one-shot key latch and the held-key edge state. */
-    private void clearInputLatches() {
+    /**
+     * Drops every pending one-shot key latch and re-seeds the held-key edge state from the keys
+     * that are physically down right now. Seeding with the live state (rather than false) stops a
+     * still-held FIRE from manufacturing a fresh edge on the next update tick, which would
+     * otherwise carry the splash press straight into a Main Menu selection.
+     */
+    private void clearInputLatches(int keys) {
         skillPressed = false;
         specialPressed = false;
         attackPulse = false;
-        fireWasDown = false;
-        upWasDown = false;
-        downWasDown = false;
-        leftWasDown = false;
-        rightWasDown = false;
-        attackWasDown = false;
+        fireWasDown = (keys & FIRE_PRESSED) != 0;
+        upWasDown = (keys & UP_PRESSED) != 0;
+        downWasDown = (keys & DOWN_PRESSED) != 0;
+        leftWasDown = (keys & LEFT_PRESSED) != 0;
+        rightWasDown = (keys & RIGHT_PRESSED) != 0;
+        attackWasDown = (keys & GAME_A_PRESSED) != 0;
     }
 
     /**
