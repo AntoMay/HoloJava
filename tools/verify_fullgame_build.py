@@ -51,8 +51,8 @@ def main():
 
     with (ROOT / "reports/fullgame_asset_manifest.csv").open(newline="") as handle:
         manifest_rows = list(csv.DictReader(handle))
-    if len(manifest_rows) != 166:
-        fail("expected 166 asset manifest rows, got %d" % len(manifest_rows))
+    if len(manifest_rows) != 188:
+        fail("expected 188 asset manifest rows, got %d" % len(manifest_rows))
     for row in manifest_rows:
         if not (ROOT / row["project_path"]).exists():
             fail("asset manifest path missing: " + row["project_path"])

@@ -29,6 +29,10 @@ final class AssetLibrary {
     Image phoenix;
     Image tentacle;
     Image pickupIcon;
+    private static final int ACHAN_FRAMES = 20;
+    private Image logo;
+    private Image menuLogo;
+    private Image[] achan;
 
     Image tileGrass;
     Image tileOffice;
@@ -240,6 +244,31 @@ final class AssetLibrary {
 
     Image characterWeapon(int characterIndex) {
         return character(characterIndex).weapon;
+    }
+
+    /**
+     * Menu identity art used by the splash screen and Main Menu. Both are loaded lazily and
+     * cached, so the render loop never re-reads the files. Frames are pre-scaled to their display
+     * size at asset-preparation time because CLDC 1.1 / MIDP 2.0 cannot scale images at runtime.
+     */
+    Image logo() {
+        if (logo == null) logo = image("/assets/fullgame/ui/holocure_logo.png");
+        return logo;
+    }
+
+    /**
+     * Smaller copy of the same wordmark for the Main Menu column. A 300px-wide logo and the
+     * 100px-wide A-chan decoration cannot share a 320px screen, so the menu uses its own size.
+     */
+    Image menuLogo() {
+        if (menuLogo == null) menuLogo = image("/assets/fullgame/ui/holocure_logo_menu.png");
+        return menuLogo;
+    }
+
+    /** The 20 A-chan blink frames, all normalised to one 100x153 canvas so the sprite never jumps. */
+    Image[] achanFrames() {
+        if (achan == null) achan = frames("/assets/fullgame/ui/", ACHAN_FRAMES, "achan_blink_");
+        return achan;
     }
 
     private Image[] frames(String dir, int count) { return frames(dir, count, ""); }

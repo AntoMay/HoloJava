@@ -165,3 +165,25 @@ assets/fullgame/stages/grass.png,sprites/BG_grass_panel/ or local stage backgrou
 assets/fullgame/stages/office.png,sprites/BG_grass_panel/ or local stage background candidate,PNG,128,128,RGBA,yes,stage tile/fallback background,medium,stage tile/fallback; full stage art is not a direct MIDP screen
 assets/fullgame/stages/yagoo.png,sprites/BG_grass_panel/ or local stage background candidate,PNG,34,97,RGBA,yes,stage tile/fallback background,medium,stage tile/fallback; full stage art is not a direct MIDP screen
 assets/fullgame/ui/pickup_icon.png,sprites/hud_pickupicon/,PNG,16,16,RGBA,yes,HUD/UI,medium,HUD icon family
+assets/fullgame/ui/holocure_logo.png,sprites/spr_HoloCureTitle_full/,PNG,300,126,RGBA,yes,menu identity,high,HoloCure wordmark logo; pre-scaled 615x259 to 300x126 offline; aspect kept; 256 colours
+assets/fullgame/ui/achan_blink_00.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 0 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_01.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 1 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_02.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 2 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_03.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 3 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_04.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 4 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_05.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 5 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_06.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 6 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_07.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 7 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_08.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 8 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_09.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 9 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_10.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 10 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_11.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 11 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_12.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 12 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_13.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 13 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_14.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 14 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_15.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 15 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_16.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 16 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_17.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 17 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_18.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 18 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/achan_blink_19.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 19 of 20; normalised to 100x153 canvas offline; 128 colours
+assets/fullgame/ui/holocure_logo_menu.png,sprites/spr_HoloCureTitle_full/,PNG,176,74,RGBA,yes,menu identity,high,HoloCure wordmark for the Main Menu column; pre-scaled 615x259 to 176x74 offline; aspect kept; 256 colours

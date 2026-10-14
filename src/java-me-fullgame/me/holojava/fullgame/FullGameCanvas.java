@@ -17,7 +17,26 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int GAME = 6;
     private static final int RESULTS = 7;
     private static final int CONTROLS = 8;
+    private static final int SPLASH = 9;
     private static final int CHARACTER_PAGE_SIZE = 8;
+
+    // Temporary HoloCure-style preview palette for the splash screen and Main Menu only. Every
+    // other screen keeps its existing colours until the visual review settles on a final theme.
+    private static final int SPLASH_SKY = 150, SPLASH_SKY_D = 190, SPLASH_SKY_DD = 225;
+    private static final int SPLASH_INK = 255, SPLASH_INK_DIM = 235;
+    private static final int MENU_BG = 236, MENU_BG_LOW = 206;
+    private static final int MENU_SELECTED = 255;
+    private static final int MENU_ITEM = 70;
+    private static final int MENU_ACCENT = 90, MENU_ACCENT_G = 150, MENU_ACCENT_B = 235;
+
+    // Splash/Main Menu layout, in logical 320x240 pixels.
+    private static final int SPLASH_LOGO_X = 10, SPLASH_LOGO_Y = 42;
+    private static final int SPLASH_PROMPT_Y = 196;
+    private static final int SPLASH_HINT_Y = 216;
+    private static final int MENU_LOGO_X = 10, MENU_LOGO_Y = 8;
+    private static final int MENU_LIST_X = 14, MENU_LIST_Y = 112, MENU_ROW_PITCH = 21;
+    private static final int MENU_ACHAN_X = 205, MENU_ACHAN_Y = 40;
+    private static final int ACHAN_FRAME_MS = 260;
 
     private final AssetLibrary assets;
     private final SaveStore save;
@@ -26,7 +45,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private volatile boolean threadRunning;
     private volatile boolean applicationPaused;
     private volatile boolean exitRequested;
-    private int screen = MENU;
+    private int screen = SPLASH;
     private int menuIndex;
     private int modeIndex;
     private int characterIndex;
@@ -152,7 +171,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
             return;
         }
-        if (screen == MENU) updateMain(upEdge, downEdge, fireEdge);
+        if (screen == SPLASH) updateSplash();
+        else if (screen == MENU) updateMain(upEdge, downEdge, fireEdge);
         else if (screen == MODES) updateModes(upEdge, downEdge, fireEdge);
         else if (screen == CHARACTERS) updateCharacters(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == STAGES) updateStages(upEdge, downEdge, fireEdge, leftEdge);
@@ -312,6 +332,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void drawMenuScreen(Graphics g, int x, int y) {
+        if (screen == SPLASH) { drawSplash(g, x, y); return; }
         g.setColor(14, 20, 38); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
         if (screen == MENU) drawMainMenu(g, x, y);
         else if (screen == MODES) drawModes(g, x, y);
@@ -322,10 +343,90 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else if (screen == PREP) drawPrep(g, x, y);
     }
 
+    /**
+     * Splash screen. Drawn entirely inside the canvas as a screen state rather than as a separate
+     * Displayable, so the MIDlet lifecycle and the single render thread stay untouched.
+     */
+    private void drawSplash(Graphics g, int x, int y) {
+        g.setColor(SPLASH_SKY_DD); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        g.setColor(SPLASH_SKY_D); g.fillRect(x, y + 34, Viewport.MIN_W, 150);
+        g.setColor(SPLASH_SKY); g.fillRect(x, y + 60, Viewport.MIN_W, 98);
+
+        Image logo = assets.logo();
+        if (logo != null) g.drawImage(logo, x + SPLASH_LOGO_X, y + SPLASH_LOGO_Y, Graphics.TOP | Graphics.LEFT);
+
+        g.setColor(MENU_ACCENT, MENU_ACCENT_G, MENU_ACCENT_B);
+        drawText(g, x + Viewport.MIN_W / 2, y + 12, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_LARGE);
+        g.setColor(SPLASH_INK);
+        drawText(g, x + Viewport.MIN_W / 2, y + SPLASH_PROMPT_Y, "PRESS 5 TO START",
+                Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        g.setColor(MENU_ITEM);
+        drawText(g, x + Viewport.MIN_W / 2, y + SPLASH_HINT_Y, "Save the Fans!",
+                Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    /**
+     * Splash input. Key 5 is the only accepted action; every input latch is cleared on the way
+     * out so the key that dismisses the splash cannot also fire a skill or attack in gameplay.
+     */
+    private void updateSplash() {
+        if (!skillPressed) return;
+        clearInputLatches();
+        screen = MENU;
+        menuIndex = 0;
+    }
+
+    /** Drops every pending one-shot key latch and the held-key edge state. */
+    private void clearInputLatches() {
+        skillPressed = false;
+        specialPressed = false;
+        attackPulse = false;
+        fireWasDown = false;
+        upWasDown = false;
+        downWasDown = false;
+        leftWasDown = false;
+        rightWasDown = false;
+        attackWasDown = false;
+    }
+
+    /**
+     * Main Menu with a temporary light-blue and white HoloCure theme: the logo sits above the
+     * list on the left, A-chan decorates the right side, and the six entries keep their original
+     * order, wrap behaviour and actions. A-chan is drawn from a time-derived frame index and is
+     * never added to the selectable list, so it cannot be picked and cannot move the cursor.
+     */
     private void drawMainMenu(Graphics g, int x, int y) {
-        title(g, x, y, "HOLOJAVA");
+        g.setColor(MENU_BG); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        g.setColor(MENU_BG_LOW); g.fillRect(x, y + 84, Viewport.MIN_W, 108);
+
+        Image logo = assets.menuLogo();
+        if (logo != null) g.drawImage(logo, x + MENU_LOGO_X, y + MENU_LOGO_Y, Graphics.TOP | Graphics.LEFT);
+        drawMenuAchan(g, x + MENU_ACHAN_X, y + MENU_ACHAN_Y, System.currentTimeMillis());
+
+        g.setColor(MENU_ACCENT, MENU_ACCENT_G, MENU_ACCENT_B);
+        drawText(g, x + MENU_LIST_X, y + 88, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
         String[] items = { "Play", "Game Mode", "Characters", "Stage Select", "Settings", "Exit" };
-        list(g, x, y + 65, items, menuIndex);
+        for (int i = 0; i < items.length; i++) {
+            boolean selected = i == menuIndex;
+            int rowY = y + MENU_LIST_Y + i * MENU_ROW_PITCH;
+            g.setColor(selected ? MENU_SELECTED : MENU_ITEM,
+                    selected ? MENU_SELECTED : MENU_ITEM,
+                    selected ? MENU_SELECTED : MENU_ITEM);
+            drawText(g, x + MENU_LIST_X + 4, rowY, (selected ? "> " : "  ") + items[i],
+                    selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            if (selected) {
+                g.setColor(MENU_ACCENT, MENU_ACCENT_G, MENU_ACCENT_B);
+                g.fillRect(x + MENU_LIST_X, rowY + 2, 2, 12);
+            }
+        }
+    }
+
+    /** Draws the A-chan blink decoration. Purely visual: no input or state is affected. */
+    private void drawMenuAchan(Graphics g, int x, int y, long now) {
+        Image[] frames = assets.achanFrames();
+        if (frames == null || frames.length == 0) return;
+        Image frame = frames[(int) ((now / ACHAN_FRAME_MS) % frames.length)];
+        if (frame != null) g.drawImage(frame, x, y, Graphics.TOP | Graphics.LEFT);
     }
 
     private void drawModes(Graphics g, int x, int y) {
