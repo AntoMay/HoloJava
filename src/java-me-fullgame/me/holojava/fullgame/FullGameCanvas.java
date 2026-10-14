@@ -460,19 +460,41 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                 Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
+    // Map/stage status colours. Yellow always means unlocked-and-allowed; dark grey always means
+    // unavailable. White is deliberately not a status colour: the selected row is marked by the
+    // "> " arrow, bold style and an outline frame instead of a third colour.
+    private static final int STAGE_UNLOCKED_R = 255, STAGE_UNLOCKED_G = 240, STAGE_UNLOCKED_B = 120;
+    private static final int STAGE_LOCKED = 90;
+    private static final int STAGE_FRAME = 170;
+    private static final int STAGE_ROW_X = 12;
+    private static final int STAGE_ROW_Y = 40;
+    private static final int STAGE_ROW_PITCH = 16;
+    private static final int STAGE_FRAME_X = 8;
+    private static final int STAGE_FRAME_W = 244;
+    private static final int STAGE_FRAME_H = 14;
+
     private void drawStages(Graphics g, int x, int y) {
         title(g, x, y, "STAGE SELECT");
-        int start = 40;
+        int start = STAGE_ROW_Y;
         int[] stages = selectableStages();
         for (int slot = 0; slot < stages.length; slot++) {
             ContentCatalog.StageDef s = ContentCatalog.STAGES[stages[slot]];
             boolean allowed = stageAllowed(stages[slot]); boolean unlocked = stageUnlocked(stages[slot]);
-            int color = slot == menuIndex ? 255 : (allowed && unlocked ? 200 : 90);
-            String prefix = slot == menuIndex ? "> " : "  ";
+            boolean selected = slot == menuIndex;
+            int rowY = y + start + slot * STAGE_ROW_PITCH;
+            // Colour is set before the text so it applies to this row, not the next one.
+            if (allowed && unlocked) g.setColor(STAGE_UNLOCKED_R, STAGE_UNLOCKED_G, STAGE_UNLOCKED_B);
+            else g.setColor(STAGE_LOCKED, STAGE_LOCKED, STAGE_LOCKED);
+            String prefix = selected ? "> " : "  ";
             String suffix = !allowed ? " [mode]" : (!unlocked ? " [locked]" : "");
-            drawText(g, x + 12, y + start + slot * 16, prefix + s.name + suffix, slot == menuIndex ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
-            g.setColor(color, color, color);
+            drawText(g, x + STAGE_ROW_X, rowY, prefix + s.name + suffix,
+                    selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            if (selected) {
+                g.setColor(STAGE_FRAME, STAGE_FRAME, STAGE_FRAME);
+                g.drawRect(x + STAGE_FRAME_X, rowY - 2, STAGE_FRAME_W, STAGE_FRAME_H);
+            }
         }
+        g.setColor(200, 200, 200);
         drawText(g, x + 12, y + 214, "Hard and Time stages are not available yet.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 12, y + 228, "LEFT back   FIRE confirm", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
