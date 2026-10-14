@@ -31,6 +31,42 @@ final class RunWorld {
     private static final int MELEE_POOL = 24;
     private static final int PICKUP_POOL = 96;
 
+    // HUD bar geometry, in logical world pixels.
+    private static final int HP_BAR_X = 4;
+    private static final int HP_BAR_Y = 18;
+    // Short bar: 66px is 20.6% of the 320px design width. It also defines the slot-row width,
+    // so the weapon and skill rows stay exactly as long as the HP bar.
+    private static final int HP_BAR_W = 66;
+    private static final int HP_BAR_H = 10;
+    private static final int HP_BAR_INSET = 2;
+    private static final int HP_BAR_LOW_PERCENT = 25;
+    private static final int BOSS_BAR_W = 250;
+    private static final int BOSS_BAR_H = 18;
+    private static final int BOSS_BAR_INSET = 3;
+
+    // Compact slot rows. Both rows are six equal cells spanning HP_BAR_W.
+    private static final int SLOT_COLS = 6;
+    private static final int SLOT_W = HP_BAR_W / SLOT_COLS; // 66 / 6 = 11
+    private static final int SLOT_H = 11;
+    private static final int SLOT_INSET = 1;
+    private static final int WEAPON_SLOT_Y = 30;
+    private static final int SKILL_SLOT_Y = 42;
+    private static final int SLOT_FILL = 30;
+    private static final int SLOT_FILL_EMPTY = 18;
+    private static final int SLOT_BORDER = 78;
+    // Neutral ownership marker. Weapon/skill slots carry no weapon-specific art: no HoloJava
+    // sprite except bullet (7x7) fits the 9px interior, and no HoloCure icon is below 12x17,
+    // so nothing could be shown without scaling, which MIDP cannot do.
+    private static final int SLOT_MARK = 175;
+    private static final int SLOT_MARK_G = 180;
+    private static final int SLOT_MARK_B = 190;
+
+    // Status run block, top-right, right-aligned to the world edge.
+    private static final int STATUS_MARGIN = 4;
+    private static final int STATUS_TITLE_Y = 4;
+    private static final int STATUS_ROW_H = 15;
+    private static final int FANS_LINE_Y = 64;
+
     private final AssetLibrary assets;
     private final ContentCatalog.CharacterDef character;
     private final ContentCatalog.ModeDef mode;
@@ -1530,16 +1566,47 @@ final class RunWorld {
         }
         g.drawString(cachedHpString, offX + 4, offY + 4, Graphics.TOP | Graphics.LEFT);
 
-        // Level & EXP line: "LvX  EXP X/Y"
+        // Player HP bar, directly under the HP text. The ratio is clamped so the fill can never
+        // exceed the inner width or go negative; playerMaxHp <= 0 renders as an empty bar.
+        double maxHpRatio = (double) playerMaxHp;
+        double hpRatio = maxHpRatio > 0.0 ? MathUtil.clamp((double) playerHp / maxHpRatio, 0.0, 1.0) : 0.0;
+        int hpFillW = (int) ((HP_BAR_W - 2 * HP_BAR_INSET) * hpRatio);
+        g.setColor(20, 20, 20); g.fillRect(offX + HP_BAR_X, offY + HP_BAR_Y, HP_BAR_W, HP_BAR_H);
+        g.setColor(90, 30, 30);
+        g.fillRect(offX + HP_BAR_X + HP_BAR_INSET, offY + HP_BAR_Y + HP_BAR_INSET,
+                HP_BAR_W - 2 * HP_BAR_INSET, HP_BAR_H - 2 * HP_BAR_INSET);
+        if (hpRatio * 100.0 <= HP_BAR_LOW_PERCENT) g.setColor(220, 40, 40);
+        else g.setColor(40, 190, 60);
+        g.fillRect(offX + HP_BAR_X + HP_BAR_INSET, offY + HP_BAR_Y + HP_BAR_INSET, hpFillW, HP_BAR_H - 2 * HP_BAR_INSET);
+        g.setColor(0, 0, 0);
+
+        // Weapon row: six equal cells directly under the HP bar, spanning the same width.
+        // A cell is marked as owned only when the slot holds a real, in-range weapon entry.
+        for (int i = 0; i < SLOT_COLS; i++) {
+            boolean owned = false;
+            if (i < weaponCount) {
+                int wi = weaponSlots[i];
+                if (wi >= 0 && wi < ContentCatalog.WEAPONS.length && ContentCatalog.WEAPONS[wi] != null) owned = true;
+            }
+            drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + WEAPON_SLOT_Y, owned);
+        }
+
+        // Skill row: a character owns exactly one skill, tracked by skillAcquired. Only that
+        // one cell can ever be marked; the rest stay empty rather than showing invented skills.
+        for (int i = 0; i < SLOT_COLS; i++) {
+            drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + SKILL_SLOT_Y, i == 0 && skillAcquired);
+        }
+        g.setColor(0, 0, 0);
+
+        // Level & EXP line (drawn in the status run block, top-right)
         if (cachedLevelExpString == null || playerLevel != lastPlayerLevel || experience != lastExperience || expNeed != lastExpNeed) {
-            cachedLevelExpString = "Lv" + playerLevel + "  EXP " + experience + "/" + expNeed;
+            cachedLevelExpString = "Lv " + playerLevel + "  EXP " + experience + "/" + expNeed;
             lastPlayerLevel = playerLevel;
             lastExperience = experience;
             lastExpNeed = expNeed;
         }
-        g.drawString(cachedLevelExpString, offX + 4, offY + 19, Graphics.TOP | Graphics.LEFT);
 
-        // Time & Kill line: "Time X  Kill X" (timeString cached per second)
+        // Time & Kill line (timeString cached per second)
         if (cachedTimeString == null || now - lastTimeStringUpdate >= 1000) {
             cachedTimeString = timeString();
             lastTimeStringUpdate = now;
@@ -1549,41 +1616,72 @@ final class RunWorld {
             lastKills = kills;
             lastCachedTimeString = cachedTimeString;
         }
-        g.drawString(cachedTimeKillString, offX + 4, offY + 34, Graphics.TOP | Graphics.LEFT);
 
-        // Coins, Weapons, Items line
+        // Coins, Weapons, Items line (drawn in the status run block, top-right)
         if (cachedCoinsString == null || coins != lastCoins || weaponCount != lastWeaponCount || itemCount != lastItemCount) {
-            cachedCoinsString = "Coins " + coins + "  W" + weaponCount + " I" + itemCount;
+            cachedCoinsString = "Coins " + coins + "  W " + weaponCount + "  I " + itemCount;
             lastCoins = coins;
             lastWeaponCount = weaponCount;
             lastItemCount = itemCount;
         }
-        g.drawString(cachedCoinsString, offX + 4, offY + 49, Graphics.TOP | Graphics.LEFT);
 
-        // Fans line (Time Mode only)
+        // Status run block, top-right. Graphics.RIGHT anchors each line to the world edge, so
+        // the block tracks worldWidth on wider screens without any width estimation.
+        int statusX = offX + worldWidth - STATUS_MARGIN;
+        g.setColor(0, 0, 0);
+        g.drawString("Status run", statusX, offY + STATUS_TITLE_Y, Graphics.TOP | Graphics.RIGHT);
+        g.drawString(cachedLevelExpString, statusX, offY + STATUS_TITLE_Y + STATUS_ROW_H,
+                Graphics.TOP | Graphics.RIGHT);
+        g.drawString(cachedTimeKillString, statusX, offY + STATUS_TITLE_Y + 2 * STATUS_ROW_H,
+                Graphics.TOP | Graphics.RIGHT);
+        g.drawString(cachedCoinsString, statusX, offY + STATUS_TITLE_Y + 3 * STATUS_ROW_H,
+                Graphics.TOP | Graphics.RIGHT);
+
+        // Fans line (Time Mode only), parked below the status block so the two never overlap.
         if (mode.completion == ContentCatalog.COMPLETE_KILL_TARGET) {
             if (cachedFansString == null || kills != lastFansKills) {
                 cachedFansString = "Fans " + kills + "/" + mode.targetKills;
                 lastFansKills = kills;
             }
-            g.drawString(cachedFansString, offX + worldWidth - 90, offY + 4, Graphics.TOP | Graphics.LEFT);
+            g.drawString(cachedFansString, statusX, offY + FANS_LINE_Y, Graphics.TOP | Graphics.RIGHT);
         }
 
-        // Boss HP bar and name
+        // Boss HP bar and name. The bar is centred on the same axis as the HCENTER name text,
+        // so both stay aligned on world widths wider than the 320px design resolution.
         if (boss.active) {
-            g.setColor(40, 0, 0); g.fillRect(offX + 35, offY + 76, 250, 18);
-            g.setColor(220, 30, 30); g.fillRect(offX + 38, offY + 79, (int) (244.0 * MathUtil.clamp((double) boss.hp / (double) boss.maxHp, 0.0, 1.0)), 12);
+            int bossBarX = offX + (worldWidth - BOSS_BAR_W) / 2;
+            g.setColor(40, 0, 0); g.fillRect(bossBarX, offY + 92, BOSS_BAR_W, BOSS_BAR_H);
+            g.setColor(220, 30, 30);
+            g.fillRect(bossBarX + BOSS_BAR_INSET, offY + 95,
+                    (int) ((BOSS_BAR_W - 2 * BOSS_BAR_INSET) * MathUtil.clamp((double) boss.hp / (double) boss.maxHp, 0.0, 1.0)),
+                    BOSS_BAR_H - 2 * BOSS_BAR_INSET);
             g.setColor(255, 255, 255);
             if (cachedBossName == null || !bossName().equals(lastBossName)) {
                 cachedBossName = bossName();
                 lastBossName = cachedBossName;
             }
-            g.drawString(cachedBossName, offX + worldWidth / 2, offY + 80, Graphics.TOP | Graphics.HCENTER);
+            g.drawString(cachedBossName, offX + worldWidth / 2, offY + 96, Graphics.TOP | Graphics.HCENTER);
         }
 
         // Controls hint (constant string, no cache needed but kept for consistency)
         g.setColor(200, 200, 200);
         g.drawString(cachedControlsHint, offX + worldWidth - 105, offY + worldHeight - 14, Graphics.TOP | Graphics.LEFT);
+    }
+
+    /**
+     * Draws one 11x11 HUD slot. An owned cell carries a neutral 9x9 marker; an empty cell stays
+     * dark. No weapon- or skill-specific artwork is drawn: every available sprite is either a
+     * generic projectile shared by several weapons or too large for the 9px interior, and MIDP
+     * cannot scale images. Level data stays in weaponLevels and is not faked on screen.
+     */
+    private void drawHudSlot(Graphics g, int sx, int sy, boolean owned) {
+        g.setColor(owned ? SLOT_FILL : SLOT_FILL_EMPTY);
+        g.fillRect(sx, sy, SLOT_W, SLOT_H);
+        g.setColor(SLOT_BORDER);
+        g.drawRect(sx, sy, SLOT_W - 1, SLOT_H - 1);
+        if (!owned) return;
+        g.setColor(SLOT_MARK, SLOT_MARK_G, SLOT_MARK_B);
+        g.fillRect(sx + SLOT_INSET, sy + SLOT_INSET, SLOT_W - 2 * SLOT_INSET, SLOT_H - 2 * SLOT_INSET);
     }
 
     private void drawLevelUp(Graphics g, int offX, int offY) {
