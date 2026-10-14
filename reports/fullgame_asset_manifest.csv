@@ -187,3 +187,4 @@ assets/fullgame/ui/achan_blink_17.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,y
 assets/fullgame/ui/achan_blink_18.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 18 of 20; normalised to 100x153 canvas offline; 128 colours
 assets/fullgame/ui/achan_blink_19.png,sprites/spr_AchanBlink/,PNG,100,153,RGBA,yes,menu decoration,high,A-chan blink frame 19 of 20; normalised to 100x153 canvas offline; 128 colours
 assets/fullgame/ui/holocure_logo_menu.png,sprites/spr_HoloCureTitle_full/,PNG,176,74,RGBA,yes,menu identity,high,HoloCure wordmark for the Main Menu column; pre-scaled 615x259 to 176x74 offline; aspect kept; 256 colours
+assets/fullgame/ui/holocure_icon.png,HoloCure/HoloCure.exe RT_ICON (id 4),PNG,32,32,RGBA,yes,MIDlet icon,high,32x32 frame extracted from the HoloCure PE icon group; ICO to PNG via PIL; alpha preserved

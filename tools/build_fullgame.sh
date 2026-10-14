@@ -23,7 +23,7 @@ MIDlet-Name: HoloJava Full Game
 MIDlet-Version: 1.0.0
 MIDlet-Vendor: HoloJava
 MIDlet-1: HoloJava Full Game, , me.holojava.fullgame.FullGameMIDlet
-MIDlet-Icon: assets/fullgame/ui/pickup_icon.png
+MIDlet-Icon: assets/fullgame/ui/holocure_icon.png
 MicroEdition-Configuration: CLDC-1.1
 MicroEdition-Profile: MIDP-2.0
 MANIFEST

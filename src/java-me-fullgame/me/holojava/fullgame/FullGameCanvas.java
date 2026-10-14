@@ -57,10 +57,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private boolean downWasDown;
     private boolean leftWasDown;
     private boolean rightWasDown;
-    private boolean skillPressed;
-    private boolean specialPressed;
+    // keyPressed() runs on the device event thread while update() runs on the game thread, so
+    // these three latches must be volatile or the press can be missed entirely. The other flags
+    // below follow the same convention for the same reason.
+    private volatile boolean skillPressed;
+    private volatile boolean specialPressed;
     private boolean attackWasDown;
-    private boolean attackPulse;
+    private volatile boolean attackPulse;
     private int characterPage;
     private final Viewport viewport = new Viewport();
     private RunWorld world;
