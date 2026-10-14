@@ -113,6 +113,29 @@ final class RunWorld {
     private int heldOffer = -1;
     private boolean won;
 
+    // HUD string cache fields for allocation optimization
+    private String cachedHpString;
+    private String cachedLevelExpString;
+    private String cachedTimeKillString;
+    private String cachedCoinsString;
+    private String cachedFansString;
+    private String cachedBossName;
+    private String cachedControlsHint = "5 Skill  9 Special";
+
+    private int lastPlayerHp = -1;
+    private int lastPlayerMaxHp = -1;
+    private int lastPlayerLevel = -1;
+    private int lastExperience = -1;
+    private int lastExpNeed = -1;
+    private long lastTimeStringUpdate = 0;
+    private String cachedTimeString;
+    private int lastKills = -1;
+    private int lastCoins = -1;
+    private int lastWeaponCount = -1;
+    private int lastItemCount = -1;
+    private int lastFansKills = -1;
+    private String lastBossName = null;
+
     RunWorld(AssetLibrary assets, SaveStore save, int characterIndex, int modeIndex, int stageIndex) {
         this.assets = assets;
         this.characterIndex = characterIndex;
@@ -162,6 +185,22 @@ final class RunWorld {
         rerolls = mode.standardLoadout ? 10 : 0;
         holds = 5;
         offerCount = 0; selectedOffer = 0; heldOffer = -1;
+
+        // Reset HUD string cache
+        cachedHpString = null;
+        cachedLevelExpString = null;
+        cachedTimeKillString = null;
+        cachedCoinsString = null;
+        cachedFansString = null;
+        cachedBossName = null;
+        lastPlayerHp = -1; lastPlayerMaxHp = -1;
+        lastPlayerLevel = -1; lastExperience = -1; lastExpNeed = -1;
+        lastTimeStringUpdate = 0; cachedTimeString = null;
+        lastKills = -1;
+        lastCoins = -1; lastWeaponCount = -1; lastItemCount = -1;
+        lastFansKills = -1;
+        lastBossName = null;
+
         addWeapon(ContentCatalog.weaponIndex(character.mainWeapon), 1);
         if (mode.standardLoadout) weaponLevels[0] = ContentCatalog.weapon(0).maxLevel;
         weaponReadyAt[0] = startTime + 500;
@@ -1477,20 +1516,68 @@ final class RunWorld {
         Font small = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         g.setFont(small);
         g.setColor(0, 0, 0);
-        g.drawString("HP " + playerHp + "/" + playerMaxHp, offX + 4, offY + 4, Graphics.TOP | Graphics.LEFT);
-        g.drawString("Lv" + playerLevel + "  EXP " + experience + "/" + expNeed, offX + 4, offY + 19, Graphics.TOP | Graphics.LEFT);
-        g.drawString("Time " + timeString() + "  Kill " + kills, offX + 4, offY + 34, Graphics.TOP | Graphics.LEFT);
-        g.drawString("Coins " + coins + "  W" + weaponCount + " I" + itemCount, offX + 4, offY + 49, Graphics.TOP | Graphics.LEFT);
-        if (mode.completion == ContentCatalog.COMPLETE_KILL_TARGET) {
-            g.drawString("Fans " + kills + "/" + mode.targetKills, offX + worldWidth - 90, offY + 4, Graphics.TOP | Graphics.LEFT);
+
+        // HP line: "HP X/Y"
+        if (cachedHpString == null || playerHp != lastPlayerHp || playerMaxHp != lastPlayerMaxHp) {
+            cachedHpString = "HP " + playerHp + "/" + playerMaxHp;
+            lastPlayerHp = playerHp;
+            lastPlayerMaxHp = playerMaxHp;
         }
+        g.drawString(cachedHpString, offX + 4, offY + 4, Graphics.TOP | Graphics.LEFT);
+
+        // Level & EXP line: "LvX  EXP X/Y"
+        if (cachedLevelExpString == null || playerLevel != lastPlayerLevel || experience != lastExperience || expNeed != lastExpNeed) {
+            cachedLevelExpString = "Lv" + playerLevel + "  EXP " + experience + "/" + expNeed;
+            lastPlayerLevel = playerLevel;
+            lastExperience = experience;
+            lastExpNeed = expNeed;
+        }
+        g.drawString(cachedLevelExpString, offX + 4, offY + 19, Graphics.TOP | Graphics.LEFT);
+
+        // Time & Kill line: "Time X  Kill X" (timeString cached per second)
+        if (cachedTimeString == null || now - lastTimeStringUpdate >= 1000) {
+            cachedTimeString = timeString();
+            lastTimeStringUpdate = now;
+        }
+        if (cachedTimeKillString == null || kills != lastKills || cachedTimeString != null) {
+            cachedTimeKillString = "Time " + cachedTimeString + "  Kill " + kills;
+            lastKills = kills;
+        }
+        g.drawString(cachedTimeKillString, offX + 4, offY + 34, Graphics.TOP | Graphics.LEFT);
+
+        // Coins, Weapons, Items line
+        if (cachedCoinsString == null || coins != lastCoins || weaponCount != lastWeaponCount || itemCount != lastItemCount) {
+            cachedCoinsString = "Coins " + coins + "  W" + weaponCount + " I" + itemCount;
+            lastCoins = coins;
+            lastWeaponCount = weaponCount;
+            lastItemCount = itemCount;
+        }
+        g.drawString(cachedCoinsString, offX + 4, offY + 49, Graphics.TOP | Graphics.LEFT);
+
+        // Fans line (Time Mode only)
+        if (mode.completion == ContentCatalog.COMPLETE_KILL_TARGET) {
+            if (cachedFansString == null || kills != lastFansKills) {
+                cachedFansString = "Fans " + kills + "/" + mode.targetKills;
+                lastFansKills = kills;
+            }
+            g.drawString(cachedFansString, offX + worldWidth - 90, offY + 4, Graphics.TOP | Graphics.LEFT);
+        }
+
+        // Boss HP bar and name
         if (boss.active) {
             g.setColor(40, 0, 0); g.fillRect(offX + 35, offY + 76, 250, 18);
             g.setColor(220, 30, 30); g.fillRect(offX + 38, offY + 79, (int) (244.0 * MathUtil.clamp((double) boss.hp / (double) boss.maxHp, 0.0, 1.0)), 12);
-            g.setColor(255, 255, 255); g.drawString(bossName(), offX + worldWidth / 2, offY + 80, Graphics.TOP | Graphics.HCENTER);
+            g.setColor(255, 255, 255);
+            if (cachedBossName == null || !bossName().equals(lastBossName)) {
+                cachedBossName = bossName();
+                lastBossName = cachedBossName;
+            }
+            g.drawString(cachedBossName, offX + worldWidth / 2, offY + 80, Graphics.TOP | Graphics.HCENTER);
         }
+
+        // Controls hint (constant string, no cache needed but kept for consistency)
         g.setColor(200, 200, 200);
-        g.drawString("5 Skill  9 Special", offX + worldWidth - 105, offY + worldHeight - 14, Graphics.TOP | Graphics.LEFT);
+        g.drawString(cachedControlsHint, offX + worldWidth - 105, offY + worldHeight - 14, Graphics.TOP | Graphics.LEFT);
     }
 
     private void drawLevelUp(Graphics g, int offX, int offY) {
