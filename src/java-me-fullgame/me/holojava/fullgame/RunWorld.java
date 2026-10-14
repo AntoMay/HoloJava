@@ -1085,11 +1085,15 @@ final class RunWorld {
 
     private void dropPickup(int x, int y, int type, int value, long now) {
         // Documented EXP merging: combine nearby small drops of the same tier.
+        // Merge only when the incoming value fits under the 200 cap. If it does not fit, fall
+        // through to the spawn loop below so the overflow is kept in its own pickup instead of
+        // being discarded.
         if (type == 0) {
             for (int i = 0; i < pickups.length; i++) {
                 Pickup p = pickups[i];
-                if (p.active && p.type == 0 && Math.abs(p.x - x) < 8 && Math.abs(p.y - y) < 8 && p.value < 200) {
-                    p.value = Math.min(200, p.value + value);
+                if (p.active && p.type == 0 && Math.abs(p.x - x) < 8 && Math.abs(p.y - y) < 8
+                        && p.value + value <= 200) {
+                    p.value += value;
                     return;
                 }
             }
