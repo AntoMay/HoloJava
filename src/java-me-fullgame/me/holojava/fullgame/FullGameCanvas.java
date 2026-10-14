@@ -337,6 +337,36 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, x + 20, y + 210, "Endless and Time modes are not available yet.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
+    /**
+     * Character Select layout for the 320x240 logical screen, in logical pixels relative to the
+     * centred 320x240 panel: a 65px list on the left, a 72x91 portrait box in the middle, and the
+     * remaining right column for the stats panel. MIDP cannot scale images, so the portrait keeps
+     * its native 43x37..44x38 size and is only centred inside the 72x91 box.
+     */
+    private static final int CHARS_LIST_X = 2;
+    private static final int CHARS_ROW_Y = 42;
+    private static final int CHARS_ROW_PITCH = 24;
+    private static final int CHARS_PORTRAIT_X = 69;
+    private static final int CHARS_PORTRAIT_Y = 42;
+    private static final int CHARS_PORTRAIT_W = 72;
+    private static final int CHARS_PORTRAIT_H = 91;
+    private static final int CHARS_PANEL_X = 145;
+    // Gutter between the right-column labels and their values.
+    private static final int CHARS_PANEL_GUTTER = 50;
+
+    // Right-panel text is rebuilt only when the highlighted character changes, so the panel costs
+    // no per-frame string allocations.
+    private int charsPanelIndex = -1;
+    private String charsPanelName = "";
+    private String charsPanelHp = "";
+    private String charsPanelAtk = "";
+    private String charsPanelSpd = "";
+    private String charsPanelCrit = "";
+    private String charsPanelWeapon = "";
+    private String charsPanelSkill = "";
+    private String charsPanelSpecial = "";
+    private String charsPanelArt = "";
+
     private void drawCharacters(Graphics g, int x, int y) {
         title(g, x, y, "CHARACTER SELECT");
         int count = ContentCatalog.CHARACTERS.length;
@@ -344,29 +374,90 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else characterPage = menuIndex / CHARACTER_PAGE_SIZE;
         int first = characterPage * CHARACTER_PAGE_SIZE;
         int last = Math.min(count, first + CHARACTER_PAGE_SIZE);
-        int start = 40;
+
+        // Left column: one compact row per character on the current page, then the Back entry.
+        // Only the catalog id is listed so the 65px column never truncates a display name.
         for (int i = first; i < last; i++) {
             ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
-            g.setColor(i == menuIndex ? 255 : 190, i == menuIndex ? 220 : 190, i == menuIndex ? 60 : 190);
-            Image portrait = assets.characterPortrait(i);
-            if (portrait != null) g.drawImage(portrait, x + 12, y + start + (i - first) * 26 - 15, Graphics.TOP | Graphics.LEFT);
-            String suffix = c.fallbackArt ? " [fallback art]" : "";
-            drawText(g, x + 62, y + start + (i - first) * 26, c.name + suffix,
-                    i == menuIndex ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            boolean on = i == menuIndex;
+            g.setColor(on ? 255 : 190, on ? 220 : 190, on ? 60 : 190);
+            drawText(g, x + CHARS_LIST_X, y + CHARS_ROW_Y + (i - first) * CHARS_ROW_PITCH,
+                    (on ? "> " : "  ") + c.id, on ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
         if (menuIndex == count) {
             g.setColor(255, 230, 60);
-            drawText(g, x + 12, y + start + (last - first) * 26, "> Back", Font.STYLE_BOLD, Font.SIZE_SMALL);
+            drawText(g, x + CHARS_LIST_X, y + CHARS_ROW_Y + (last - first) * CHARS_ROW_PITCH,
+                    "> Back", Font.STYLE_BOLD, Font.SIZE_SMALL);
         }
+
         int selected = Math.min(menuIndex, count - 1);
         ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[selected];
+
+        // Middle column: the selected character's portrait, native size, centred in the box.
+        g.setColor(16, 20, 34);
+        g.fillRect(x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y, CHARS_PORTRAIT_W, CHARS_PORTRAIT_H);
+        g.setColor(70, 80, 110);
+        g.drawRect(x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y, CHARS_PORTRAIT_W - 1, CHARS_PORTRAIT_H - 1);
+        Image portrait = assets.characterPortrait(selected);
+        if (portrait != null) {
+            g.drawImage(portrait, x + CHARS_PORTRAIT_X + (CHARS_PORTRAIT_W - portrait.getWidth()) / 2,
+                    y + CHARS_PORTRAIT_Y + (CHARS_PORTRAIT_H - portrait.getHeight()) / 2,
+                    Graphics.TOP | Graphics.LEFT);
+        }
         g.setColor(255, 255, 255);
-        drawText(g, x + 12, y + 190, "Page " + (characterPage + 1) + "/" + (((count - 1) / CHARACTER_PAGE_SIZE) + 1)
-                + "   " + c.name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 12, y + 205, "HP " + c.hp + "  ATK " + c.atkPercent + "%  SPD " + c.spdPercent + "%  CRT " + c.critPercent + "%", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ContentCatalog.WeaponDef weapon = ContentCatalog.weapon(c.mainWeapon);
-        drawText(g, x + 12, y + 220, "Weapon: " + (weapon == null ? c.mainWeapon : weapon.name), Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 12, y + 232, "LEFT/RIGHT page   FIRE confirm   fallback art is explicit", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y + CHARS_PORTRAIT_H + 8,
+                c.id, Font.STYLE_BOLD, Font.SIZE_SMALL);
+
+        if (charsPanelIndex != selected) {
+            charsPanelIndex = selected;
+            charsPanelName = c.name;
+            charsPanelHp = String.valueOf(c.hp);
+            charsPanelAtk = c.atkPercent + "%";
+            charsPanelSpd = c.spdPercent + "%";
+            charsPanelCrit = c.critPercent + "%";
+            ContentCatalog.WeaponDef weapon = ContentCatalog.weapon(c.mainWeapon);
+            charsPanelWeapon = weapon == null ? c.mainWeapon : weapon.name;
+            charsPanelSkill = c.skill;
+            charsPanelSpecial = c.special;
+            charsPanelArt = c.fallbackArt ? "fallback" : "original";
+        }
+
+        // Right column: full name, then a label gutter with the stats CharacterDef actually
+        // carries, then the loadout. Labels are right-aligned into a fixed gutter so the widest
+        // value ("Hunter's Instinct", 17 chars) still fits inside the 175px column.
+        // DEF is not shown because ContentCatalog.CharacterDef has no defence field, and
+        // RunWorld.defensePercent is a runtime item stat that is only ever reset to 0.
+        int px = x + CHARS_PANEL_X;
+        int py = y + CHARS_ROW_Y;
+        int vx = px + CHARS_PANEL_GUTTER;
+        g.setColor(255, 255, 255);
+        drawText(g, px, py, charsPanelName, Font.STYLE_BOLD, Font.SIZE_SMALL);
+        g.setColor(150, 150, 160);
+        drawText(g, vx - CHARS_PANEL_GUTTER, py + 20, "HP", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx - CHARS_PANEL_GUTTER, py + 38, "ATK", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx - CHARS_PANEL_GUTTER, py + 56, "SPD", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx - CHARS_PANEL_GUTTER, py + 74, "CRT", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        g.setColor(190, 190, 190);
+        drawText(g, vx, py + 20, charsPanelHp, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx, py + 38, charsPanelAtk, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx, py + 56, charsPanelSpd, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx, py + 74, charsPanelCrit, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        g.setColor(110, 130, 180);
+        drawText(g, vx - CHARS_PANEL_GUTTER, py + 98, "Weapon", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx, py + 98, charsPanelWeapon, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        g.setColor(150, 200, 150);
+        drawText(g, vx - CHARS_PANEL_GUTTER, py + 116, "Skill", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx, py + 116, charsPanelSkill, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx - CHARS_PANEL_GUTTER, py + 134, "Special", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx, py + 134, charsPanelSpecial, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        g.setColor(140, 140, 140);
+        drawText(g, vx - CHARS_PANEL_GUTTER, py + 158, "Art", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, vx, py + 158, charsPanelArt, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+
+        // Bottom hint matches the keys updateCharacters actually handles.
+        g.setColor(200, 200, 200);
+        drawText(g, x + 2, y + 228, "UP/DOWN select   LEFT back   FIRE confirm",
+                Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawStages(Graphics g, int x, int y) {
