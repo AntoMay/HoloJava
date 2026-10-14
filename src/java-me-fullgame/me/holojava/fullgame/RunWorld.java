@@ -129,6 +129,7 @@ final class RunWorld {
     private int lastExpNeed = -1;
     private long lastTimeStringUpdate = 0;
     private String cachedTimeString;
+    private String lastCachedTimeString;
     private int lastKills = -1;
     private int lastCoins = -1;
     private int lastWeaponCount = -1;
@@ -195,7 +196,7 @@ final class RunWorld {
         cachedBossName = null;
         lastPlayerHp = -1; lastPlayerMaxHp = -1;
         lastPlayerLevel = -1; lastExperience = -1; lastExpNeed = -1;
-        lastTimeStringUpdate = 0; cachedTimeString = null;
+        lastTimeStringUpdate = 0; cachedTimeString = null; lastCachedTimeString = null;
         lastKills = -1;
         lastCoins = -1; lastWeaponCount = -1; lastItemCount = -1;
         lastFansKills = -1;
@@ -1539,9 +1540,10 @@ final class RunWorld {
             cachedTimeString = timeString();
             lastTimeStringUpdate = now;
         }
-        if (cachedTimeKillString == null || kills != lastKills || cachedTimeString != null) {
+        if (cachedTimeKillString == null || kills != lastKills || !cachedTimeString.equals(lastCachedTimeString)) {
             cachedTimeKillString = "Time " + cachedTimeString + "  Kill " + kills;
             lastKills = kills;
+            lastCachedTimeString = cachedTimeString;
         }
         g.drawString(cachedTimeKillString, offX + 4, offY + 34, Graphics.TOP | Graphics.LEFT);
 
