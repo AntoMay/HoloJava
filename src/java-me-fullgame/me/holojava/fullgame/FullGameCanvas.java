@@ -58,7 +58,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private int stageIndex;
     private int resultIndex;
     private int pauseIndex;
-    private int lastMenuScreen = MENU;
     private boolean fireWasDown;
     private boolean upWasDown;
     private boolean downWasDown;
@@ -661,7 +660,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         ink(g);
         drawText(g, x + 24, y + 60, "D-pad: move / menu navigation", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 82, "GAME A or 1: manual basic attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 104, "FIRE: confirm / pause / resume", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 104, "FIRE: select / pause menu / resume", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 126, "L and R are extra select / back keys in menus", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 148, "5: skill   9: special attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 180, "Orbiting and passive weapons may fire autonomously.", Font.STYLE_PLAIN, Font.SIZE_SMALL);

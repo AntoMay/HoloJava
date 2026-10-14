@@ -1706,13 +1706,6 @@ final class RunWorld {
         }
     }
 
-    private void drawPaused(Graphics g, int offX, int offY) {
-        g.setColor(0, 0, 0); g.fillRect(offX + 55, offY + 80, 210, 80);
-        g.setColor(255, 255, 255);
-        Font medium = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
-        g.setFont(medium); g.drawString("PAUSED", offX + worldWidth / 2, offY + 105, Graphics.TOP | Graphics.HCENTER);
-    }
-
     private String timeString() {
         long s = elapsedSeconds(); long m = s / 60L; long h = m / 60L; m %= 60L; s %= 60L;
         return h > 0 ? (h + ":" + two(m) + ":" + two(s)) : (m + ":" + two(s));
