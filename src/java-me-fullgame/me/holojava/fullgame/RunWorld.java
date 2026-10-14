@@ -1704,8 +1704,6 @@ final class RunWorld {
             g.setColor(140, 140, 140); g.drawString(offerType(i), offX + 240, offY + y, Graphics.TOP | Graphics.LEFT);
             y += 24;
         }
-        g.setColor(200, 200, 200);
-        g.drawString("UP/DOWN select   FIRE confirm", offX + 40, offY + 200, Graphics.TOP | Graphics.LEFT);
     }
 
     private void drawPaused(Graphics g, int offX, int offY) {

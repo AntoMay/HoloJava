@@ -326,7 +326,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         title(g, x, y, "HOLOJAVA");
         String[] items = { "Play", "Game Mode", "Characters", "Stage Select", "Settings", "Exit" };
         list(g, x, y + 65, items, menuIndex);
-        drawText(g, x + 20, y + 210, "D-pad move   FIRE select", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawModes(Graphics g, int x, int y) {
@@ -453,11 +452,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         g.setColor(140, 140, 140);
         drawText(g, vx - CHARS_PANEL_GUTTER, py + 158, "Art", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, vx, py + 158, charsPanelArt, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-
-        // Bottom hint matches the keys updateCharacters actually handles.
-        g.setColor(200, 200, 200);
-        drawText(g, x + 2, y + 228, "UP/DOWN select   LEFT back   FIRE confirm",
-                Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     // Map/stage status colours. Yellow always means unlocked-and-allowed; dark grey always means
@@ -496,7 +490,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
         g.setColor(200, 200, 200);
         drawText(g, x + 12, y + 214, "Hard and Time stages are not available yet.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 12, y + 228, "LEFT back   FIRE confirm", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawSettings(Graphics g, int x, int y) {
@@ -515,7 +508,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, x + 24, y + 104, "FIRE: confirm / pause / resume", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 126, "5: skill   9: special attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 158, "Orbiting and passive weapons may fire autonomously.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 210, "LEFT or FIRE back", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawPrep(Graphics g, int x, int y) {
@@ -525,7 +517,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, x + 24, y + 102, "Stage: " + ContentCatalog.stage(stageIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 132, ContentCatalog.mode(modeIndex).objective, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 160, "Boss schedule and enemy pool will load on start.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 200, "FIRE start   LEFT back", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawLevelUp(Graphics g, int x, int y) {
@@ -540,13 +531,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             g.setColor(130, 130, 130);
             drawText(g, x + 240, yy, world.offerType(i), Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
-        drawText(g, x + 24, y + 200, "UP/DOWN select   FIRE confirm", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawPause(Graphics g, int x, int y) {
-        g.setColor(0, 0, 0); g.fillRect(x + 80, y + 88, 160, 62);
-        drawText(g, x + 130, y + 108, "PAUSED", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
-        drawText(g, x + 100, y + 132, "FIRE resume", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        // Box shrunk to wrap the single remaining label; the old 62px height was sized for the
+        // removed "FIRE resume" hint and would leave an empty band below the text.
+        g.setColor(0, 0, 0); g.fillRect(x + 80, y + 99, 160, 40);
+        drawText(g, x + 130, y + 110, "PAUSED", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
     }
 
     private void drawResults(Graphics g, int x, int y) {
