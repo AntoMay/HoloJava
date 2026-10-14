@@ -160,10 +160,15 @@ public class WikiCatalogData {
 
 
     /**
-     * Stub method: returns empty array. Full implementation would parse characters.csv.
+     * Returns the playable character roster defined in {@code ContentCatalog.BASE_CHARACTERS}.
+     * Entries are limited to characters with verified local animation assets and a main weapon
+     * that resolves against {@code ContentCatalog.BASE_WEAPONS}; see {@code ContentCatalog.validate()}.
+     *
+     * <p>Does not read {@code /data/wiki/characters.csv}. That resource is not packaged into the
+     * build output, and its rows use display-name weapons that would fail validation.
      */
-    static final CharacterDef[] buildCharacters() {
-        return new CharacterDef[0];
+    static final CharacterDef[] buildCharacters(CharacterDef[] baseCharacters) {
+        return baseCharacters;
     }
 
     /**

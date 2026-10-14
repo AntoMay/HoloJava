@@ -147,7 +147,7 @@ final class ContentCatalog {
         int spawnIntervalMs;
         int maxEnemies;
         int coinClear;
-        int unlockRequirement; // stage order required, -1 default, 99 = never.
+        int unlockRequirement; // stage order required; -1 and 99 mean always unlocked (see FullGameCanvas.stageUnlocked).
         String bossA;
         int bossATimeSec;
         String bossB;
@@ -165,7 +165,19 @@ final class ContentCatalog {
         String source;
     }
 
-    static final CharacterDef[] CHARACTERS = WikiCatalogData.buildCharacters();
+    // Playable roster: only characters with verified local animation assets are exposed.
+    // Order is load-bearing: AssetLibrary maps asset groups Gura, Ame, Calli, Kiara, Ina to
+    // character indices 0-4 (AssetLibrary.groupIndex), and each entry's mainWeapon must
+    // resolve against BASE_WEAPONS for validate() to pass.
+    static final CharacterDef[] BASE_CHARACTERS = {
+        character("gura", "Gawr Gura", 65, 110, 140, 5, 1, "trident_thrust", "Shark Call", "Shark Bite", true, "Gura"),
+        character("ame", "Amelia Watson", 75, 130, 135, 10, 3, "pistol_shot", "Slow Time", "Hunter's Instinct", true, "Ame"),
+        character("calli", "Mori Calliope", 70, 115, 130, 10, 4, "scythe_swing", "The Reaper", "Undying", true, "Calli"),
+        character("kiara", "Takanashi Kiara", 90, 100, 140, 5, 3, "phoenix_sword", "Phoenix Fire", "Second Flame", true, "Kiara"),
+        character("ina", "Ninomae Inanis", 75, 90, 150, 1, 1, "summon_tentacle", "Spirit of the Oni", "The Ancient One", true, "Ina")
+    };
+
+    static final CharacterDef[] CHARACTERS = WikiCatalogData.buildCharacters(BASE_CHARACTERS);
 
     // Additional documented roster is tracked in data/wiki/characters.csv. Entries without
     // verified local animation assets are defined but not presented as playable.
@@ -254,7 +266,7 @@ final class ContentCatalog {
         stage("stage2", "Holo Office", false, false, 1, "office", 1, "sukonbu", "kuro_sukonbu", "sukonbu", 1150, 24, 5000, 0, "mikodanye", 600, "achan", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; combat values approximated"),
         stage("stage3", "Halloween Castle", false, false, 2, "castle", 2, "matsurisu", "matsurisu3", "matsurisu", 1000, 28, 7500, 1, "shubangelion", 600, "spiderchama", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; Spiderchama asset approximated"),
         stage("stage4", "Gelora Bung Yagoo", false, false, 3, "carpet", 3, "moonafic", "moonafic_vip", "moonafic", 900, 32, 10000, 2, "udin", 600, "area15", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; Area 15 asset approximated"),
-        stage("stage5", "Fantasy Island", false, false, 4, "fantasy", 4, "nousagi_a", "nousagi_b", "nousagi_c", 850, 36, 15000, 99, "nanora", 600, "pekodam", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; Nanora asset approximated"),
+        stage("stage5", "Fantasy Island", false, false, 4, "fantasy", 4, "nousagi_a", "nousagi_b", "nousagi_c", 850, 36, 15000, 3, "nanora", 600, "pekodam", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; Nanora asset approximated"),
         stage("stage1h", "Grassy Plains (Night)", true, false, 5, "grass", 5, "dark_shrimp", "shrimp", "dark_shrimp", 1000, 26, 5000, 1, "fubuzilla", 600, "halloween_bae", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m final boss uses fallback asset"),
         stage("stage2h", "Holo Office (Evening)", true, false, 6, "office", 6, "kuro_sukonbu", "sukonbu", "kuro_sukonbu", 900, 30, 15000, 5, "mikodanye", 600, "nodoka", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m Nodoka uses fallback asset"),
         stage("stage3h", "Halloween Castle (Myth)", true, false, 7, "castle", 7, "matsurisu3", "matsurisu", "matsurisu3", 850, 34, 30000, 6, "shubangelion", 600, "halloween_myth", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m Halloween Myth uses fallback asset"),

@@ -152,9 +152,24 @@ final class AssetLibrary {
         if (index < 0 || index >= characters.length) index = 0;
         CharacterAssets current = characters[index];
         if (current.portrait == null) {
-            current.portrait = image("/assets/fullgame/portraits/" + ContentCatalog.CHARACTERS[index].id + ".png");
+            String id = ContentCatalog.CHARACTERS[index].id;
+            current.portrait = image("/assets/fullgame/portraits/" + portraitFile(id) + ".png");
         }
         return current.portrait;
+    }
+
+    /**
+     * Resolves the portrait asset filename for a catalog id. Portrait files are named after the
+     * documented wiki id, which is longer than the catalog id used by gameplay code, so the five
+     * playable characters need an explicit mapping. Unmapped ids fall back to the catalog id.
+     */
+    private static String portraitFile(String catalogId) {
+        if ("gura".equals(catalogId)) return "gawr_gura";
+        if ("ame".equals(catalogId)) return "amelia_watson";
+        if ("calli".equals(catalogId)) return "mori_calliope";
+        if ("kiara".equals(catalogId)) return "takanashi_kiara";
+        if ("ina".equals(catalogId)) return "ninomae_inanis";
+        return catalogId;
     }
 
     private int groupIndex(String group) {

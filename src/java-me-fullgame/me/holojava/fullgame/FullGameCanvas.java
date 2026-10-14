@@ -177,10 +177,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void updateModes(boolean up, boolean down, boolean fire) {
-        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 4);
+        // Stage Mode only for now. Endless and Time remain defined in ContentCatalog.MODES and
+        // fully implemented in RunWorld; widening this list is the single point of re-enabling them.
+        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 2);
         if (!fire) return;
-        if (menuIndex == 3) { screen = MENU; menuIndex = 1; }
-        else { modeIndex = menuIndex; screen = CHARACTERS; menuIndex = characterIndex; characterPage = characterIndex / CHARACTER_PAGE_SIZE; }
+        if (menuIndex == 1) { screen = MENU; menuIndex = 1; }
+        else { modeIndex = 0; screen = CHARACTERS; menuIndex = characterIndex; characterPage = characterIndex / CHARACTER_PAGE_SIZE; }
     }
 
     private void updateCharacters(boolean up, boolean down, boolean fire, boolean left, boolean right) {
@@ -206,15 +208,34 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void updateStages(boolean up, boolean down, boolean fire, boolean left) {
-        int count = ContentCatalog.STAGES.length + 1;
+        int[] stages = selectableStages();
+        int count = stages.length + 1;
         if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), count);
         if (left) { screen = CHARACTERS; menuIndex = characterIndex; return; }
         if (!fire) return;
-        if (menuIndex == ContentCatalog.STAGES.length) { screen = MAIN_SAFE(); menuIndex = 3; return; }
-        int candidate = menuIndex;
+        if (menuIndex == stages.length) { screen = MAIN_SAFE(); menuIndex = 3; return; }
+        int candidate = stages[menuIndex];
         if (!stageUnlocked(candidate) || !stageAllowed(candidate)) return;
         stageIndex = candidate;
         screen = PREP;
+    }
+
+    /**
+     * Stage indices reachable from Stage Mode: normal stages only. Hard variants and the Time
+     * stage stay defined in ContentCatalog.STAGES, and stageIndex still stores the real catalog
+     * index used by RunWorld and AssetLibrary.prepareStage. Widening this filter is the single
+     * point of re-enabling them.
+     */
+    private static int[] selectableStages() {
+        int[] buffer = new int[ContentCatalog.STAGES.length];
+        int count = 0;
+        for (int i = 0; i < ContentCatalog.STAGES.length; i++) {
+            ContentCatalog.StageDef s = ContentCatalog.STAGES[i];
+            if (!s.hard && !s.timeStage) buffer[count++] = i;
+        }
+        int[] result = new int[count];
+        System.arraycopy(buffer, 0, result, 0, count);
+        return result;
     }
 
     private int MAIN_SAFE() { return MENU; }
@@ -230,7 +251,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void updatePrep(boolean up, boolean down, boolean fire, boolean left) {
-        if (left) { screen = STAGES; menuIndex = stageIndex; return; }
+        if (left) {
+            screen = STAGES;
+            int[] stages = selectableStages();
+            menuIndex = 0;
+            for (int slot = 0; slot < stages.length; slot++) if (stages[slot] == stageIndex) { menuIndex = slot; break; }
+            return;
+        }
         if (fire) startRun();
     }
 
@@ -304,10 +331,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
     private void drawModes(Graphics g, int x, int y) {
         title(g, x, y, "GAME MODE");
-        String[] items = { "Stage Mode", "Endless Mode", "Time Mode", "Back" };
+        String[] items = { "Stage Mode", "Back" };
         list(g, x, y + 60, items, menuIndex);
         drawText(g, x + 20, y + 195, ContentCatalog.MODES[modeIndex].objective, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 20, y + 210, "Stage Mode: final boss   Endless: until death   Time: 4000 fans", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 20, y + 210, "Endless and Time modes are not available yet.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawCharacters(Graphics g, int x, int y) {
@@ -345,16 +372,17 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private void drawStages(Graphics g, int x, int y) {
         title(g, x, y, "STAGE SELECT");
         int start = 40;
-        for (int i = 0; i < ContentCatalog.STAGES.length; i++) {
-            ContentCatalog.StageDef s = ContentCatalog.STAGES[i];
-            boolean allowed = stageAllowed(i); boolean unlocked = stageUnlocked(i);
-            int color = i == menuIndex ? 255 : (allowed && unlocked ? 200 : 90);
-            String prefix = i == menuIndex ? "> " : "  ";
+        int[] stages = selectableStages();
+        for (int slot = 0; slot < stages.length; slot++) {
+            ContentCatalog.StageDef s = ContentCatalog.STAGES[stages[slot]];
+            boolean allowed = stageAllowed(stages[slot]); boolean unlocked = stageUnlocked(stages[slot]);
+            int color = slot == menuIndex ? 255 : (allowed && unlocked ? 200 : 90);
+            String prefix = slot == menuIndex ? "> " : "  ";
             String suffix = !allowed ? " [mode]" : (!unlocked ? " [locked]" : "");
-            drawText(g, x + 12, y + start + i * 16, prefix + s.name + suffix, i == menuIndex ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            drawText(g, x + 12, y + start + slot * 16, prefix + s.name + suffix, slot == menuIndex ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
             g.setColor(color, color, color);
         }
-        drawText(g, x + 12, y + 214, "Stage / Endless use Normal + Hard. Time uses Concert Stage.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 12, y + 214, "Hard and Time stages are not available yet.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 12, y + 228, "LEFT back   FIRE confirm", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
