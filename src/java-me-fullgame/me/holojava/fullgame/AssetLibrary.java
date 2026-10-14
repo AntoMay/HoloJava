@@ -29,10 +29,9 @@ final class AssetLibrary {
     Image phoenix;
     Image tentacle;
     Image pickupIcon;
-    private static final int ACHAN_FRAMES = 20;
     private Image logo;
     private Image menuLogo;
-    private Image[] achan;
+    private Image achan;
 
     Image tileGrass;
     Image tileOffice;
@@ -265,9 +264,10 @@ final class AssetLibrary {
         return menuLogo;
     }
 
-    /** The 20 A-chan blink frames, all normalised to one 100x153 canvas so the sprite never jumps. */
-    Image[] achanFrames() {
-        if (achan == null) achan = frames("/assets/fullgame/ui/", ACHAN_FRAMES, "achan_blink_");
+    /** Static A-chan frame used as menu decoration. Only the single frame is loaded, so the
+     *  decoration costs one image instead of the whole blink strip. */
+    Image achanFrame() {
+        if (achan == null) achan = image("/assets/fullgame/ui/achan_blink_00.png");
         return achan;
     }
 

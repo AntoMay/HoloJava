@@ -20,23 +20,29 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int SPLASH = 9;
     private static final int CHARACTER_PAGE_SIZE = 8;
 
-    // Temporary HoloCure-style preview palette for the splash screen and Main Menu only. Every
-    // other screen keeps its existing colours until the visual review settles on a final theme.
+    // Shared menu palette. Main Menu is the reference and every other menu screen now uses these
+    // same values, so background, ink and selection are defined in exactly one place. The set is
+    // tuned for the light page: every foreground below is at least 4.3:1 against MENU_BG_LOW and at
+    // least 6:1 against MENU_BG, which the previous dark-theme yellow and grey text could not reach
+    // (they sat near 1.2:1). Splash keeps only its own sky bands.
     private static final int SPLASH_SKY = 150, SPLASH_SKY_D = 190, SPLASH_SKY_DD = 225;
-    private static final int SPLASH_INK = 255, SPLASH_INK_DIM = 235;
-    private static final int MENU_BG = 236, MENU_BG_LOW = 206;
-    private static final int MENU_SELECTED = 255;
-    private static final int MENU_ITEM = 70;
-    private static final int MENU_ACCENT = 90, MENU_ACCENT_G = 150, MENU_ACCENT_B = 235;
+    private static final int MENU_BG = 236;        // page background and header band
+    private static final int MENU_BG_LOW = 206;    // content band below the header
+    private static final int MENU_BODY_Y = 40;     // header band height; all content starts below
+    private static final int MENU_ITEM = 70;       // body text and unselected rows (6.0:1)
+    private static final int MENU_ITEM_DIM = 90;   // secondary labels (4.4:1)
+    private static final int MENU_SELECTED_R = 25, MENU_SELECTED_G = 45, MENU_SELECTED_B = 110;
 
     // Splash/Main Menu layout, in logical 320x240 pixels.
     private static final int SPLASH_LOGO_X = 10, SPLASH_LOGO_Y = 42;
     private static final int SPLASH_PROMPT_Y = 196;
-    private static final int SPLASH_HINT_Y = 216;
     private static final int MENU_LOGO_X = 10, MENU_LOGO_Y = 8;
     private static final int MENU_LIST_X = 14, MENU_LIST_Y = 112, MENU_ROW_PITCH = 21;
+    // Pause menu. Two entries at the shared 22px list pitch span 44px, so 98 centres them on the
+    // 240px page. Index 0 is Resume so the menu always opens on the safe choice.
+    private static final String[] PAUSE_ITEMS = { "Resume", "Return to Menu" };
+    private static final int PAUSE_LIST_Y = 98;
     private static final int MENU_ACHAN_X = 205, MENU_ACHAN_Y = 40;
-    private static final int ACHAN_FRAME_MS = 260;
 
     private final AssetLibrary assets;
     private final SaveStore save;
@@ -51,6 +57,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private int characterIndex;
     private int stageIndex;
     private int resultIndex;
+    private int pauseIndex;
     private int lastMenuScreen = MENU;
     private boolean fireWasDown;
     private boolean upWasDown;
@@ -153,36 +160,48 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (world != null) world.setViewport(viewport);
 
         if (screen == GAME) {
-            if (fireEdge && world.state() == RunWorld.STATE_RUNNING) world.pause();
-            else if (fireEdge && world.state() == RunWorld.STATE_PAUSED) world.resume();
-            if (world.state() != RunWorld.STATE_PAUSED) {
-                world.update(keys, attackHeld || attackEdge || attackPulse,
-                        skillPressed, specialPressed, now);
-                attackPulse = false;
-                skillPressed = false; specialPressed = false;
+            if (world.state() == RunWorld.STATE_PAUSED) {
+                // The simulation is frozen, so the pause menu owns the navigation keys here. L and R
+                // are deliberately not read on this path: they stay player movement in gameplay.
+                updatePause(upEdge, downEdge, fireEdge);
+            } else {
+                if (fireEdge && world.state() == RunWorld.STATE_RUNNING) { world.pause(); pauseIndex = 0; }
+                if (world.state() != RunWorld.STATE_PAUSED) {
+                    world.update(keys, attackHeld || attackEdge || attackPulse,
+                            skillPressed, specialPressed, now);
+                }
+                if (world.state() == RunWorld.STATE_LEVEL_UP) {
+                    if (upEdge) world.moveOffer(-1);
+                    if (downEdge) world.moveOffer(1);
+                    if (fireEdge) world.selectOffer();
+                }
+                if (world.state() == RunWorld.STATE_GAME_OVER || world.state() == RunWorld.STATE_VICTORY) {
+                    worldWasVictory = world.state() == RunWorld.STATE_VICTORY;
+                    if (worldWasVictory && modeIndex == 0) save.setCompleted(characterIndex, ContentCatalog.stage(stageIndex).order);
+                    screen = RESULTS;
+                    resultIndex = 0;
+                }
             }
-            if (world.state() == RunWorld.STATE_LEVEL_UP) {
-                if (upEdge) world.moveOffer(-1);
-                if (downEdge) world.moveOffer(1);
-                if (fireEdge) world.selectOffer();
-            }
-            if (world.state() == RunWorld.STATE_GAME_OVER || world.state() == RunWorld.STATE_VICTORY) {
-                worldWasVictory = world.state() == RunWorld.STATE_VICTORY;
-                if (worldWasVictory && modeIndex == 0) save.setCompleted(characterIndex, ContentCatalog.stage(stageIndex).order);
-                screen = RESULTS;
-                resultIndex = 0;
-            }
+            // One-shot latches are dropped on every exit from gameplay. While paused the simulation
+            // is not ticked, so 5, 9 and 1 would otherwise survive the pause and fire on the first
+            // tick after resuming.
+            attackPulse = false;
+            skillPressed = false;
+            specialPressed = false;
             return;
         }
-        if (screen == SPLASH) updateSplash(skillPressed || fireEdge, keys);
-        else if (screen == MENU) updateMain(upEdge, downEdge, fireEdge);
-        else if (screen == MODES) updateModes(upEdge, downEdge, fireEdge);
+        // L/R map onto the two menu roles the d-pad directions do not already own. A direction is
+        // Back on the screens that already treat it that way and Select on the rest, so a single
+        // press can never both confirm a choice and leave the screen.
+        if (screen == SPLASH) updateSplash(skillPressed || fireEdge || leftEdge || rightEdge, keys);
+        else if (screen == MENU) updateMain(upEdge, downEdge, fireEdge || leftEdge || rightEdge);
+        else if (screen == MODES) updateModes(upEdge, downEdge, fireEdge || leftEdge, rightEdge);
         else if (screen == CHARACTERS) updateCharacters(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
-        else if (screen == STAGES) updateStages(upEdge, downEdge, fireEdge, leftEdge);
-        else if (screen == SETTINGS) updateSettings(upEdge, downEdge, fireEdge, leftEdge);
-        else if (screen == CONTROLS) { if (leftEdge || fireEdge) screen = SETTINGS; }
-        else if (screen == PREP) updatePrep(upEdge, downEdge, fireEdge, leftEdge);
-        else if (screen == RESULTS) updateResults(upEdge, downEdge, fireEdge);
+        else if (screen == STAGES) updateStages(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
+        else if (screen == SETTINGS) updateSettings(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
+        else if (screen == CONTROLS) { if (leftEdge || rightEdge || fireEdge) screen = SETTINGS; }
+        else if (screen == PREP) updatePrep(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
+        else if (screen == RESULTS) updateResults(upEdge, downEdge, fireEdge || leftEdge, rightEdge);
     }
 
     private void updateMain(boolean up, boolean down, boolean fire) {
@@ -199,10 +218,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
     }
 
-    private void updateModes(boolean up, boolean down, boolean fire) {
+    private void updateModes(boolean up, boolean down, boolean fire, boolean back) {
         // Stage Mode only for now. Endless and Time remain defined in ContentCatalog.MODES and
         // fully implemented in RunWorld; widening this list is the single point of re-enabling them.
         if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 2);
+        if (back) { screen = MENU; menuIndex = 1; return; }
         if (!fire) return;
         if (menuIndex == 1) { screen = MENU; menuIndex = 1; }
         else { modeIndex = 0; screen = CHARACTERS; menuIndex = characterIndex; characterPage = characterIndex / CHARACTER_PAGE_SIZE; }
@@ -284,8 +304,21 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (fire) startRun();
     }
 
-    private void updateResults(boolean up, boolean down, boolean fire) {
+    /**
+     * Pause menu input. Runs while RunWorld is STATE_PAUSED, so it never competes with the
+     * simulation for keys. "Return to Menu" abandons the run exactly the way the Results screen
+     * does: the RunWorld reference is dropped and nothing about the abandoned run is saved.
+     */
+    private void updatePause(boolean up, boolean down, boolean fire) {
+        if (up || down) pauseIndex = wrap(pauseIndex + (up ? -1 : 1), PAUSE_ITEMS.length);
+        if (!fire) return;
+        if (pauseIndex == 0) world.resume();
+        else { screen = MENU; menuIndex = 0; world = null; }
+    }
+
+    private void updateResults(boolean up, boolean down, boolean fire, boolean back) {
         if (up || down) resultIndex = wrap(resultIndex + (up ? -1 : 1), 2);
+        if (back) { screen = MENU; menuIndex = 0; world = null; return; }
         if (!fire) return;
         if (resultIndex == 0) startRun();
         else { screen = MENU; menuIndex = 0; world = null; }
@@ -334,9 +367,17 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else drawMenuScreen(g, ox, oy);
     }
 
+    /** Shared page background: a lighter header band behind the title row and the slightly darker
+     *  content band below it. The Main Menu paints its own, logo-driven variant of the same pair. */
+    private void drawPageBackground(Graphics g, int x, int y) {
+        g.setColor(MENU_BG); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        g.setColor(MENU_BG_LOW);
+        g.fillRect(x, y + MENU_BODY_Y, Viewport.MIN_W, Viewport.MIN_H - MENU_BODY_Y);
+    }
+
     private void drawMenuScreen(Graphics g, int x, int y) {
         if (screen == SPLASH) { drawSplash(g, x, y); return; }
-        g.setColor(14, 20, 38); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        if (screen != MENU) drawPageBackground(g, x, y);
         if (screen == MENU) drawMainMenu(g, x, y);
         else if (screen == MODES) drawModes(g, x, y);
         else if (screen == CHARACTERS) drawCharacters(g, x, y);
@@ -358,20 +399,18 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         Image logo = assets.logo();
         if (logo != null) g.drawImage(logo, x + SPLASH_LOGO_X, y + SPLASH_LOGO_Y, Graphics.TOP | Graphics.LEFT);
 
-        g.setColor(MENU_ACCENT, MENU_ACCENT_G, MENU_ACCENT_B);
+        // The splash sky is a light background, so its text uses the same shared ink as every
+        // other screen. The previous white prompt sat at 1.31:1 against SPLASH_SKY_DD.
+        g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
         drawText(g, x + Viewport.MIN_W / 2, y + 12, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_LARGE);
-        g.setColor(SPLASH_INK);
-        drawText(g, x + Viewport.MIN_W / 2, y + SPLASH_PROMPT_Y, "PRESS 5 TO START",
+        drawText(g, x + Viewport.MIN_W / 2, y + SPLASH_PROMPT_Y, "PRESS FIRE TO START",
                 Font.STYLE_BOLD, Font.SIZE_MEDIUM);
-        g.setColor(MENU_ITEM);
-        drawText(g, x + Viewport.MIN_W / 2, y + SPLASH_HINT_Y, "Save the Fans!",
-                Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     /**
-     * Splash input. Key 5 (skillPressed) or a FIRE edge both leave the splash, so the prompt and
-     * the hardware agree on how to start. The transition is one-way: screen is only ever assigned
-     * SPLASH during construction, so there is no path back.
+     * Splash input. FIRE, L and R all leave the splash, and so does key 5 (skillPressed), so the
+     * prompt and the accepted keys agree on how to start. The transition is one-way: screen is
+     * only ever assigned SPLASH during construction, so there is no path back.
      */
     private void updateSplash(boolean advance, int keys) {
         if (!advance) return;
@@ -399,10 +438,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Main Menu with a temporary light-blue and white HoloCure theme: the logo sits above the
+     * Main Menu, and the visual reference for every other menu screen: the logo sits above the
      * list on the left, A-chan decorates the right side, and the six entries keep their original
-     * order, wrap behaviour and actions. A-chan is drawn from a time-derived frame index and is
-     * never added to the selectable list, so it cannot be picked and cannot move the cursor.
+     * order, wrap behaviour and actions. A-chan is one static frame and is never added to the
+     * selectable list, so it cannot be picked and cannot move the cursor.
      */
     private void drawMainMenu(Graphics g, int x, int y) {
         g.setColor(MENU_BG); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
@@ -410,31 +449,30 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
         Image logo = assets.menuLogo();
         if (logo != null) g.drawImage(logo, x + MENU_LOGO_X, y + MENU_LOGO_Y, Graphics.TOP | Graphics.LEFT);
-        drawMenuAchan(g, x + MENU_ACHAN_X, y + MENU_ACHAN_Y, System.currentTimeMillis());
+        drawMenuAchan(g, x + MENU_ACHAN_X, y + MENU_ACHAN_Y);
 
-        g.setColor(MENU_ACCENT, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
         drawText(g, x + MENU_LIST_X, y + 88, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
         String[] items = { "Play", "Game Mode", "Characters", "Stage Select", "Settings", "Exit" };
         for (int i = 0; i < items.length; i++) {
             boolean selected = i == menuIndex;
             int rowY = y + MENU_LIST_Y + i * MENU_ROW_PITCH;
-            g.setColor(selected ? MENU_SELECTED : MENU_ITEM,
-                    selected ? MENU_SELECTED : MENU_ITEM,
-                    selected ? MENU_SELECTED : MENU_ITEM);
+            g.setColor(selected ? MENU_SELECTED_R : MENU_ITEM,
+                    selected ? MENU_SELECTED_G : MENU_ITEM,
+                    selected ? MENU_SELECTED_B : MENU_ITEM);
             drawText(g, x + MENU_LIST_X + 4, rowY, (selected ? "> " : "  ") + items[i],
                     selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
             if (selected) {
-                g.setColor(MENU_ACCENT, MENU_ACCENT_G, MENU_ACCENT_B);
+                g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
                 g.fillRect(x + MENU_LIST_X, rowY + 2, 2, 12);
             }
         }
     }
 
-    /** Draws the A-chan blink decoration. Purely visual: no input or state is affected. */
-    private void drawMenuAchan(Graphics g, int x, int y, long now) {
-        Image[] frames = assets.achanFrames();
-        if (frames == null || frames.length == 0) return;
-        Image frame = frames[(int) ((now / ACHAN_FRAME_MS) % frames.length)];
+    /** Draws the A-chan decoration. One fixed frame, no timer and no frame index: the sprite is
+     *  static menu artwork. Purely visual, no input or state is affected. */
+    private void drawMenuAchan(Graphics g, int x, int y) {
+        Image frame = assets.achanFrame();
         if (frame != null) g.drawImage(frame, x, y, Graphics.TOP | Graphics.LEFT);
     }
 
@@ -442,6 +480,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         title(g, x, y, "GAME MODE");
         String[] items = { "Stage Mode", "Back" };
         list(g, x, y + 60, items, menuIndex);
+        ink(g);
         drawText(g, x + 20, y + 195, ContentCatalog.MODES[modeIndex].objective, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 20, y + 210, "Endless and Time modes are not available yet.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
@@ -489,12 +528,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         for (int i = first; i < last; i++) {
             ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
             boolean on = i == menuIndex;
-            g.setColor(on ? 255 : 190, on ? 220 : 190, on ? 60 : 190);
+            g.setColor(on ? MENU_SELECTED_R : MENU_ITEM, on ? MENU_SELECTED_G : MENU_ITEM,
+                    on ? MENU_SELECTED_B : MENU_ITEM);
             drawText(g, x + CHARS_LIST_X, y + CHARS_ROW_Y + (i - first) * CHARS_ROW_PITCH,
                     (on ? "> " : "  ") + c.id, on ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
         if (menuIndex == count) {
-            g.setColor(255, 230, 60);
+            g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
             drawText(g, x + CHARS_LIST_X, y + CHARS_ROW_Y + (last - first) * CHARS_ROW_PITCH,
                     "> Back", Font.STYLE_BOLD, Font.SIZE_SMALL);
         }
@@ -505,7 +545,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         // Middle column: the selected character's portrait, native size, centred in the box.
         g.setColor(16, 20, 34);
         g.fillRect(x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y, CHARS_PORTRAIT_W, CHARS_PORTRAIT_H);
-        g.setColor(70, 80, 110);
+        g.setColor(MENU_ITEM);
         g.drawRect(x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y, CHARS_PORTRAIT_W - 1, CHARS_PORTRAIT_H - 1);
         Image portrait = assets.characterPortrait(selected);
         if (portrait != null) {
@@ -513,7 +553,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                     y + CHARS_PORTRAIT_Y + (CHARS_PORTRAIT_H - portrait.getHeight()) / 2,
                     Graphics.TOP | Graphics.LEFT);
         }
-        g.setColor(255, 255, 255);
+        g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
         drawText(g, x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y + CHARS_PORTRAIT_H + 8,
                 c.id, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
@@ -539,37 +579,41 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int px = x + CHARS_PANEL_X;
         int py = y + CHARS_ROW_Y;
         int vx = px + CHARS_PANEL_GUTTER;
-        g.setColor(255, 255, 255);
+        g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
         drawText(g, px, py, charsPanelName, Font.STYLE_BOLD, Font.SIZE_SMALL);
-        g.setColor(150, 150, 160);
+        inkDim(g);
         drawText(g, vx - CHARS_PANEL_GUTTER, py + 20, "HP", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, vx - CHARS_PANEL_GUTTER, py + 38, "ATK", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, vx - CHARS_PANEL_GUTTER, py + 56, "SPD", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, vx - CHARS_PANEL_GUTTER, py + 74, "CRT", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        g.setColor(190, 190, 190);
+        ink(g);
         drawText(g, vx, py + 20, charsPanelHp, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, vx, py + 38, charsPanelAtk, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, vx, py + 56, charsPanelSpd, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, vx, py + 74, charsPanelCrit, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        g.setColor(110, 130, 180);
+        inkDim(g);
         drawText(g, vx - CHARS_PANEL_GUTTER, py + 98, "Weapon", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ink(g);
         drawText(g, vx, py + 98, charsPanelWeapon, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        g.setColor(150, 200, 150);
+        inkDim(g);
         drawText(g, vx - CHARS_PANEL_GUTTER, py + 116, "Skill", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ink(g);
         drawText(g, vx, py + 116, charsPanelSkill, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        inkDim(g);
         drawText(g, vx - CHARS_PANEL_GUTTER, py + 134, "Special", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ink(g);
         drawText(g, vx, py + 134, charsPanelSpecial, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        g.setColor(140, 140, 140);
+        inkDim(g);
         drawText(g, vx - CHARS_PANEL_GUTTER, py + 158, "Art", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ink(g);
         drawText(g, vx, py + 158, charsPanelArt, Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
-    // Map/stage status colours. Yellow always means unlocked-and-allowed; dark grey always means
-    // unavailable. White is deliberately not a status colour: the selected row is marked by the
-    // "> " arrow, bold style and an outline frame instead of a third colour.
-    private static final int STAGE_UNLOCKED_R = 255, STAGE_UNLOCKED_G = 240, STAGE_UNLOCKED_B = 120;
+    // Map/stage status colours, tuned for the shared light page. Green always means
+    // unlocked-and-allowed; grey always means unavailable. The selected row is deliberately not a
+    // third colour: it is marked by the "> " arrow, bold style and an outline frame instead.
+    private static final int STAGE_UNLOCKED_R = 20, STAGE_UNLOCKED_G = 110, STAGE_UNLOCKED_B = 45;
     private static final int STAGE_LOCKED = 90;
-    private static final int STAGE_FRAME = 170;
     private static final int STAGE_ROW_X = 12;
     private static final int STAGE_ROW_Y = 40;
     private static final int STAGE_ROW_PITCH = 16;
@@ -594,11 +638,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             drawText(g, x + STAGE_ROW_X, rowY, prefix + s.name + suffix,
                     selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
             if (selected) {
-                g.setColor(STAGE_FRAME, STAGE_FRAME, STAGE_FRAME);
+                g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
                 g.drawRect(x + STAGE_FRAME_X, rowY - 2, STAGE_FRAME_W, STAGE_FRAME_H);
             }
         }
-        g.setColor(200, 200, 200);
+        ink(g);
         drawText(g, x + 12, y + 214, "Hard and Time stages are not available yet.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
@@ -607,21 +651,25 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         String[] items = { "Hardcore: " + (save.hardcore() ? "ON" : "OFF"),
                 "Audio: OFF (runtime not verified)", "Controls", "Back" };
         list(g, x, y + 65, items, menuIndex);
+        ink(g);
         drawText(g, x + 20, y + 190, "Hardcore sets Endless player HP to 1.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 20, y + 210, "Persistence is optional RMS storage.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawControls(Graphics g, int x, int y) {
         title(g, x, y, "CONTROLS");
+        ink(g);
         drawText(g, x + 24, y + 60, "D-pad: move / menu navigation", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 82, "GAME A or 1: manual basic attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 104, "FIRE: confirm / pause / resume", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 126, "5: skill   9: special attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 158, "Orbiting and passive weapons may fire autonomously.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 126, "L and R are extra select / back keys in menus", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 148, "5: skill   9: special attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 180, "Orbiting and passive weapons may fire autonomously.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawPrep(Graphics g, int x, int y) {
         title(g, x, y, "RUN PREPARATION");
+        ink(g);
         drawText(g, x + 24, y + 62, "Character: " + ContentCatalog.character(characterIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 82, "Mode: " + ContentCatalog.mode(modeIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 102, "Stage: " + ContentCatalog.stage(stageIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
@@ -643,16 +691,18 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
     }
 
+    /** Pause screen, drawn as a full page so it uses the same title, list and selection bar as
+     *  every other menu instead of a lone label floating over the frozen gameplay. */
     private void drawPause(Graphics g, int x, int y) {
-        // Box shrunk to wrap the single remaining label; the old 62px height was sized for the
-        // removed "FIRE resume" hint and would leave an empty band below the text.
-        g.setColor(0, 0, 0); g.fillRect(x + 80, y + 99, 160, 40);
-        drawText(g, x + 130, y + 110, "PAUSED", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        drawPageBackground(g, x, y);
+        title(g, x, y, "PAUSED");
+        list(g, x, y + PAUSE_LIST_Y, PAUSE_ITEMS, pauseIndex);
     }
 
     private void drawResults(Graphics g, int x, int y) {
-        g.setColor(14, 20, 38); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        drawPageBackground(g, x, y);
         title(g, x, y, worldWasVictory ? "VICTORY" : "GAME OVER");
+        ink(g);
         drawText(g, x + 26, y + 62, "Character: " + ContentCatalog.character(characterIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 26, y + 82, "Stage: " + ContentCatalog.stage(stageIndex).name, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 26, y + 102, "Fans defeated: " + world.kills(), Font.STYLE_PLAIN, Font.SIZE_SMALL);
@@ -664,16 +714,34 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void title(Graphics g, int x, int y, String text) {
-        g.setColor(255, 240, 120);
+        g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
         drawText(g, x + 90, y + 18, text, Font.STYLE_BOLD, Font.SIZE_LARGE);
     }
 
+    /** Shared selectable list. The selected row is marked the same way everywhere: the "> " arrow,
+     *  bold style and a 2px selection bar, exactly as the Main Menu does it. */
     private void list(Graphics g, int x, int y, String[] items, int selected) {
         for (int i = 0; i < items.length; i++) {
-            g.setColor(i == selected ? 255 : 180, i == selected ? 230 : 180, i == selected ? 60 : 180);
-            drawText(g, x + 36, y + i * 22, (i == selected ? "> " : "  ") + items[i], i == selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            boolean on = i == selected;
+            int rowY = y + i * 22;
+            g.setColor(on ? MENU_SELECTED_R : MENU_ITEM, on ? MENU_SELECTED_G : MENU_ITEM,
+                    on ? MENU_SELECTED_B : MENU_ITEM);
+            drawText(g, x + 36, rowY, (on ? "> " : "  ") + items[i],
+                    on ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            if (on) {
+                g.setColor(MENU_SELECTED_R, MENU_SELECTED_G, MENU_SELECTED_B);
+                g.fillRect(x, rowY + 2, 2, 12);
+            }
         }
     }
+
+    /** Sets the shared body-ink colour. Callers must use this before informational text, because
+     *  drawText does not set a colour of its own and would otherwise inherit whatever the last
+     *  drawing call left behind. */
+    private void ink(Graphics g) { g.setColor(MENU_ITEM); }
+
+    /** Sets the shared secondary-label colour, one step down from body ink. */
+    private void inkDim(Graphics g) { g.setColor(MENU_ITEM_DIM); }
 
     private void drawText(Graphics g, int x, int y, String text, int style, int size) {
         g.setFont(Font.getFont(Font.FACE_SYSTEM, style, size));
