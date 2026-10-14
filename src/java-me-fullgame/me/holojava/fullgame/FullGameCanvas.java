@@ -511,8 +511,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, x + 100, y + 14, "LEVEL UP", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
         for (int i = 0; i < world.offerCount(); i++) {
             int yy = y + 46 + i * 24;
-            g.setColor(i == world.selectedOffer() ? 255 : 190, i == world.selectedOffer() ? 230 : 190, i == world.selectedOffer() ? 60 : 190);
-            drawText(g, x + 24, yy, (i == world.selectedOffer() ? "> " : "  ") + world.offerLabel(i), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            boolean selected = i == world.selectedOffer();
+            if (world.offerIsCollab(i)) g.setColor(selected ? 255 : 230, selected ? 190 : 138, selected ? 90 : 40);
+            else g.setColor(selected ? 255 : 190, selected ? 230 : 190, selected ? 60 : 190);
+            drawText(g, x + 24, yy, (selected ? "> " : "  ") + world.offerLabel(i), Font.STYLE_PLAIN, Font.SIZE_SMALL);
             g.setColor(130, 130, 130);
             drawText(g, x + 240, yy, world.offerType(i), Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }

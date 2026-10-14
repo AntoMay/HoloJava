@@ -323,6 +323,12 @@ final class RunWorld {
         return "META";
     }
 
+    /** True when the level-up option at this index is a collab weapon. Read-only, for UI accents. */
+    boolean offerIsCollab(int index) {
+        if (index < 0 || index >= offerCount) return false;
+        return offers[index].collab;
+    }
+
     void selectOffer() {
         if (state != STATE_LEVEL_UP || offerCount == 0) return;
         int index = selectedOffer;
