@@ -1660,11 +1660,21 @@ final class RunWorld {
             Image frame = anim.frames[frameIndex];
             if (frame == null) continue;
 
-            // Position the melee animation relative to player
-            int x = offX + px;
-            int y = offY + py;
-            int mx = x + (m.animDir >= 0 ? 18 : -6 - frame.getWidth());
-            int my = py + 8;
+            // Center the melee animation on the collision box center (player center)
+            // Collision box is m.area x m.area centered on player center (px+12, py+12)
+            int cx = offX + px + 12;
+            int cy = offY + py + 12;
+            int frameW = frame.getWidth();
+            int frameH = frame.getHeight();
+            int mx = cx - frameW / 2;
+            int my = cy - frameH / 2;
+
+            // Adjust for facing direction: flip horizontally by offset when facing left
+            if (m.animDir < 0) {
+                // For left-facing, shift left by frame width to simulate flip
+                // Since MIDP can't flip images, we draw from the right edge
+                mx = cx + frameW / 2;
+            }
 
             g.drawImage(frame, mx, my, Graphics.TOP | Graphics.LEFT);
         }
