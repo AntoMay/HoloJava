@@ -984,8 +984,8 @@ final class RunWorld {
             for (int e = 0; e < enemies.length; e++) {
                 Enemy enemy = enemies[e];
                 if (!enemy.active) continue;
-                int cx = enemy.x + enemyWidth(e) / 2;
-                int cy = enemy.y + enemyHeight(e) / 2;
+                int cx = enemy.x + enemyWidth(enemy.defIndex) / 2;
+                int cy = enemy.y + enemyHeight(enemy.defIndex) / 2;
                 int dx = cx - x; int dy = cy - y;
                 if (dx * dx + dy * dy <= radius * radius) damageEnemy(e, enemy, damage, critical, 4, x - cx, y - cy);
             }
