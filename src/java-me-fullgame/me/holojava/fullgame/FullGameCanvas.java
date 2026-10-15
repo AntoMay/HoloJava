@@ -181,10 +181,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                     if (fireEdge) world.selectOffer();
                 }
                 if (world.state() == RunWorld.STATE_GAME_OVER || world.state() == RunWorld.STATE_VICTORY) {
-                    worldWasVictory = world.state() == RunWorld.STATE_VICTORY;
-                    if (worldWasVictory && modeIndex == 0) save.setCompleted(characterIndex, ContentCatalog.stage(stageIndex).order);
-                    screen = RESULTS;
-                    resultIndex = 0;
+                    handleRunEnd();
                 }
             }
             // One-shot latches are dropped on every exit from gameplay. While paused the simulation
@@ -334,6 +331,25 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         world = new RunWorld(assets, save, characterIndex, modeIndex, stageIndex);
         world.setViewport(viewport);
         screen = GAME;
+    }
+
+    /**
+     * The run has finished, in either direction. Split out of {@code update()} unchanged so the
+     * completion decision is reachable without the MIDP {@code getKeyStates()} call that
+ * {@code update()} makes first, which the desktop stub refuses.
+     *
+     * <p>Completion is recorded under {@code ContentCatalog.stage(stageIndex).order}, not under the
+     * stage index: {@link #stageUnlocked(int)} looks those orders up, and they are the same numbers
+     * only because the catalog is currently ordered. A stage already marked complete is simply
+     * marked complete again, so replaying it is harmless.
+     */
+    private void handleRunEnd() {
+        worldWasVictory = world.state() == RunWorld.STATE_VICTORY;
+        if (worldWasVictory && modeIndex == 0) {
+            save.setCompleted(characterIndex, ContentCatalog.stage(stageIndex).order);
+        }
+        screen = RESULTS;
+        resultIndex = 0;
     }
 
     private boolean stageAllowed(int index) {
