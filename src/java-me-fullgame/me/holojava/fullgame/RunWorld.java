@@ -763,6 +763,12 @@ final class RunWorld {
     }
 
     private void defeatBoss() {
+        // Idempotence guard. The reference has none, but there the clear reward only inflated a
+        // run-local counter. That reward now credits a permanent balance, so paying it twice would
+        // duplicate coins forever. Every current caller already checks boss.active, so this is
+        // unreachable in play today and changes no existing outcome; it exists so that no future
+        // caller can duplicate permanent coins by forgetting that check.
+        if (!boss.active) return;
         boss.active = false;
         int slot = bossEncounterIndex;
         bossEncounterIndex = -1;
@@ -773,7 +779,14 @@ final class RunWorld {
         if (mode.completion == ContentCatalog.COMPLETE_FINAL_BOSS) {
             boolean finalDefeated = stage.hard ? encounterDefeated[2] : encounterDefeated[1];
             if (finalDefeated) {
-                coins += stage.coinClear + defeatCount / 4;
+                // Decision C: the stage-clear reward joins the permanent balance, while the
+                // level-up +100 stays run-local. crediting is a transaction, so a refused write
+                // leaves the stored balance exactly as it was. This is reached only once per run:
+                // defeatBoss clears boss.active on its first line and every caller of
+                // damageBoss is gated on it.
+                int clearReward = stage.coinClear + defeatCount / 4;
+                coins += clearReward;
+                if (save != null) save.creditCoins(clearReward);
                 won = true;
                 state = STATE_VICTORY;
             }
