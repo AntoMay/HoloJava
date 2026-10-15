@@ -273,7 +273,7 @@ final class ContentCatalog {
     };
 
     static final StageDef[] STAGES = {
-        stage("stage1", "Grassy Plains", false, false, 0, "grass", 0, "shrimp", "dark_shrimp", "shrimp", 1300, 20, 3000, -1, "fubuzilla", 600, "smol_ame", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; combat values approximated"),
+        stage("stage1", "Grassy Plains", false, false, 0, "grass_field", 0, "shrimp", "dark_shrimp", "shrimp", 1300, 20, 3000, -1, "fubuzilla", 600, "smol_ame", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; combat values approximated"),
         stage("stage2", "Holo Office", false, false, 1, "office", 1, "sukonbu", "kuro_sukonbu", "sukonbu", 1150, 24, 5000, 0, "mikodanye", 600, "achan", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; combat values approximated"),
         stage("stage3", "Halloween Castle", false, false, 2, "castle", 2, "matsurisu", "matsurisu3", "matsurisu", 1000, 28, 7500, 1, "shubangelion", 600, "spiderchama", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; Spiderchama asset approximated"),
         stage("stage4", "Gelora Bung Yagoo", false, false, 3, "carpet", 3, "moonafic", "moonafic_vip", "moonafic", 900, 32, 10000, 2, "udin", 600, "area15", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; Area 15 asset approximated"),

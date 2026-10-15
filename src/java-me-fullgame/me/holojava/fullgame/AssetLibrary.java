@@ -34,6 +34,7 @@ final class AssetLibrary {
     private Image achan;
 
     Image tileGrass;
+    Image tileGrassField;
     Image tileOffice;
     Image tileCastle;
     Image tileCarpet;
@@ -198,6 +199,10 @@ final class AssetLibrary {
     }
 
     Image tile(String key) {
+        if ("grass_field".equals(key)) {
+            if (tileGrassField == null) tileGrassField = image("/assets/fullgame/stages/grass_field.png");
+            return tileGrassField;
+        }
         if ("grass".equals(key)) {
             if (tileGrass == null) tileGrass = image("/assets/fullgame/stages/grass.png");
             return tileGrass;
