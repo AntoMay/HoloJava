@@ -115,6 +115,12 @@ final class RunWorld {
     private int experience;
     private int expNeed;
     private int coins;
+    /**
+     * Permanent progress store for this run. Retained rather than passed through so a collected
+     * coin can be committed at the moment it is picked up. Null is tolerated and simply means the
+     * run is not backed by persistence, matching the class rule that gameplay never depends on it.
+     */
+    private final SaveStore save;
     private int kills;
     private int defeatCount;
     private long invulUntil;
@@ -182,6 +188,7 @@ final class RunWorld {
 
     RunWorld(AssetLibrary assets, SaveStore save, int characterIndex, int modeIndex, int stageIndex) {
         this.assets = assets;
+        this.save = save;
         this.characterIndex = characterIndex;
         this.modeIndex = modeIndex;
         this.stageIndex = stageIndex;
@@ -1014,6 +1021,12 @@ final class RunWorld {
             }
         } else if (p.type == 1) {
             coins += p.value;
+            // Only a collected pickup becomes permanent. The run counter above stays run-local and
+            // is what the HUD and the results screen show; this is the balance that survives the
+            // run. creditCoins is a transaction, so a refused write leaves the stored balance
+            // exactly as it was and the run continues regardless. p.active was cleared on the first
+            // line of this method, so one pickup can never be committed twice.
+            if (save != null) save.creditCoins(p.value);
         } else if (p.type == 2) {
             playerHp = Math.min(playerMaxHp, playerHp + Math.max(5, playerMaxHp / 5));
         } else if (p.type == 4) {
