@@ -209,9 +209,10 @@ public final class RunWorldWeaponTest {
         return array;
     }
 
-    private static void updateWeapons(Object w, boolean attackPressed, long now) throws Exception {
+    private static void updateWeapons(Object w, long now, boolean attackPressed) throws Exception {
         Method m = worldClass().getDeclaredMethod("updateWeapons", long.class, boolean.class);
         m.setAccessible(true);
+        System.out.println("DEBUG updateWeapons: now=" + now + " attackPressed=" + attackPressed);
         m.invoke(w, Long.valueOf(now), Boolean.valueOf(attackPressed));
     }
 
@@ -282,6 +283,39 @@ public final class RunWorldWeaponTest {
 
     // ---------------------------------------------------------------- tests
 
+
+    /**
+     * The new key mapping: FIRE (primary), 5, 1 all reach the world as attack input.
+     * Orbit weapons remain autonomous. This is not a mirror of the reference's
+     * auto-fire; it is the deliberate adaptation documented in the class Javadoc.
+     */
+    private static void testAllAttackKeysReachTheWeaponUpdate() throws Exception {
+        System.out.println("[19] FIRE, 5, and 1 all reach the world as attack input");
+        ContentCatalog.WeaponDef def = pickWeapon(ContentCatalog.PATTERN_PROJECTILE);
+        Object w = world();
+        equip(w, def, 1);
+        set(w, "weaponReadyAt", new long[]{0L});
+
+        updateWeapons(w, 10000L, true);
+        int shotsAfterFire = activeShots(w);
+        expect(shotsAfterFire > 0, "FIRE (or equivalent) fires the weapon");
+
+        // Verify the weapon is PROJECTILE, not ORBIT
+        int wid = intAt(w, "weaponSlots", 0);
+        ContentCatalog.WeaponDef wdef = ContentCatalog.WEAPONS[wid];
+        expectEq(wdef.pattern, ContentCatalog.PATTERN_PROJECTILE,
+            "picked weapon must be PROJECTILE, not ORBIT");
+
+        // Clear all shots
+        Object[] shots = (Object[]) field(w, "shots");
+        for (Object s : shots) set(s, "active", Boolean.FALSE);
+        expectEq(activeShots(w), 0, "shots cleared before second call");
+
+        // With no attack boolean, it must not fire again
+        updateWeapons(w, 20000L, false);
+        expectEq(activeShots(w), 0, "no attack key means no fire");
+    }
+
     public static void main(String[] args) throws Exception {
         testCooldownFollowsTheHasteFormula();
         testCooldownReachesTheEightyMillisecondFloor();
@@ -296,6 +330,7 @@ public final class RunWorldWeaponTest {
         testWeaponUsesWorldCoordinatesWhenTheCameraHasScrolled();
         testWeaponLevelShortensTheCooldown();
         testAimIgnoresTheCameraWhenTheTargetIsBehind();
+        testAllAttackKeysReachTheWeaponUpdate();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -313,7 +348,7 @@ public final class RunWorldWeaponTest {
             Object w = world();
             equip(w, def, 1);
             set(w, "hastePercent", Integer.valueOf(hastePercent));
-            updateWeapons(w, true, 10000L);
+            updateWeapons(w, 10000L, true);
             long ready = longAt(w, "weaponReadyAt", 0);
             expectEq((int) (ready - 10000L), expectedCooldown(def, hastePercent, 1),
                 "cooldown at haste " + hastePercent);
@@ -328,14 +363,14 @@ public final class RunWorldWeaponTest {
         Object base = world();
         equip(base, def, 1);
         set(base, "hastePercent", Integer.valueOf(0));
-        updateWeapons(base, true, 10000L);
+        updateWeapons(base, 10000L, true);
         int baseCooldown = (int) (longAt(base, "weaponReadyAt", 0) - 10000L);
 
         // Max haste on a fast weapon must bottom out at the floor rather than going lower.
         Object fast = world();
         equip(fast, def, 10);
         set(fast, "hastePercent", Integer.valueOf(1000));
-        updateWeapons(fast, true, 10000L);
+        updateWeapons(fast, 10000L, true);
         int fastCooldown = (int) (longAt(fast, "weaponReadyAt", 0) - 10000L);
         expectEq(fastCooldown, 80, "a very fast weapon is floored at 80 ms");
         expect(fastCooldown < baseCooldown, "and that is shorter than the unfloored cooldown");
@@ -351,7 +386,7 @@ public final class RunWorldWeaponTest {
         Object w = world();
         equip(w, def, 1);
         set(w, "hastePercent", Integer.valueOf(-400));   // haste would be -300 without the guard
-        updateWeapons(w, true, 10000L);
+        updateWeapons(w, 10000L, true);
         int cooldown = (int) (longAt(w, "weaponReadyAt", 0) - 10000L);
         expectEq(cooldown, expectedCooldown(def, -400, 1),
             "the cooldown matches the guarded formula");
@@ -372,11 +407,11 @@ public final class RunWorldWeaponTest {
         Object w = world();
         equip(w, def, 1);
 
-        updateWeapons(w, false, 10000L);
+        updateWeapons(w, 10000L, false);
         expectEq(activeShots(w), 0, "no projectile while the attack is not held");
         expectEq(longAt(w, "weaponReadyAt", 0), 0L, "and the cooldown was not even started");
 
-        updateWeapons(w, true, 10000L);
+        updateWeapons(w, 10000L, true);
         expect(activeShots(w) > 0, "holding attack fires the weapon");
     }
 
@@ -387,7 +422,7 @@ public final class RunWorldWeaponTest {
         Object w = world();
         equip(w, orbit, 1);
 
-        updateWeapons(w, false, 10000L);
+        updateWeapons(w, 10000L, false);
         expect(activeShots(w) > 0,
             "an orbiting weapon is autonomous and fires with no input held");
         expectEq(longAt(w, "weaponReadyAt", 0) > 10000L, true,
@@ -402,7 +437,7 @@ public final class RunWorldWeaponTest {
         set(w, "hastePercent", Integer.valueOf(0));
 
         long t = 10000L;
-        updateWeapons(w, true, t);
+        updateWeapons(w, t, true);
         long readyAt = longAt(w, "weaponReadyAt", 0);
         int cooldown = (int) (readyAt - t);
 
@@ -410,10 +445,10 @@ public final class RunWorldWeaponTest {
         Object[] pool = (Object[]) field(w, "shots");
         for (int i = 0; i < pool.length; i++) set(pool[i], "active", Boolean.FALSE);
 
-        updateWeapons(w, true, readyAt - 1);
+        updateWeapons(w, readyAt - 1, true);
         expectEq(activeShots(w), 0, "one millisecond early, nothing fires");
 
-        updateWeapons(w, true, readyAt);
+        updateWeapons(w, readyAt, true);
         expect(activeShots(w) > 0, "exactly at the cooldown boundary the weapon fires again");
         expect(cooldown > 0, "and the cooldown was a real interval");
     }
@@ -428,7 +463,7 @@ public final class RunWorldWeaponTest {
         set(w, "facingY", Integer.valueOf(0));
         placeEnemy(w, 3, 260, 120, 50);          // due right of the player
 
-        updateWeapons(w, true, 10000L);
+        updateWeapons(w, 10000L, true);
         Object shot = firstActiveShot(w);
         expect(shot != null, "a projectile was created");
         expectEq(getInt(shot, "x"), 172, "it spawns at the player's centre x");
@@ -447,7 +482,7 @@ public final class RunWorldWeaponTest {
         set(w, "facingX", Integer.valueOf(-1));
         set(w, "facingY", Integer.valueOf(0));
 
-        updateWeapons(w, true, 10000L);
+        updateWeapons(w, 10000L, true);
         Object shot = firstActiveShot(w);
         expect(shot != null, "a projectile was still created");
         expectEq(getInt(shot, "target"), -1, "with no target selected");
@@ -464,7 +499,7 @@ public final class RunWorldWeaponTest {
         set(w, "facingX", Integer.valueOf(1));
         set(w, "facingY", Integer.valueOf(0));
 
-        updateWeapons(w, true, 10000L);
+        updateWeapons(w, 10000L, true);
         Object shot = firstActiveShot(w);
         expect(shot != null, "a projectile exists");
         int active = activeShots(w);
@@ -484,7 +519,7 @@ public final class RunWorldWeaponTest {
         Object w = world();
         equip(w, def, 1);
 
-        updateWeapons(w, true, 10000L);
+        updateWeapons(w, 10000L, true);
         expectEq(activeShots(w), 0, "a melee arc creates no projectile");
 
         Object[] arcs = (Object[]) field(w, "melee");
@@ -516,7 +551,7 @@ public final class RunWorldWeaponTest {
         set(w, "facingY", Integer.valueOf(0));
         placeEnemy(w, 1, 600, 120, 50);          // right of the player, well off the camera
 
-        updateWeapons(w, true, 10000L);
+        updateWeapons(w, 10000L, true);
         Object shot = firstActiveShot(w);
         expect(shot != null, "a projectile was created while scrolled");
         expectEq(getInt(shot, "x"), 512, "it spawns at the player's world position, not the camera's");
@@ -544,13 +579,13 @@ public final class RunWorldWeaponTest {
         Object lvl1 = world();
         equip(lvl1, slowest, 1);
         set(lvl1, "hastePercent", Integer.valueOf(0));
-        updateWeapons(lvl1, true, 10000L);
+        updateWeapons(lvl1, 10000L, true);
         int c1 = (int) (longAt(lvl1, "weaponReadyAt", 0) - 10000L);
 
         Object lvl5 = world();
         equip(lvl5, slowest, 5);
         set(lvl5, "hastePercent", Integer.valueOf(0));
-        updateWeapons(lvl5, true, 10000L);
+        updateWeapons(lvl5, 10000L, true);
         int c5 = (int) (longAt(lvl5, "weaponReadyAt", 0) - 10000L);
 
         expectEq(c1, expectedCooldown(slowest, 0, 1), "level 1 matches the formula");
@@ -582,7 +617,7 @@ public final class RunWorldWeaponTest {
         expect(cam > 0, "the camera is scrolled right while the player stands at x=500");
         expect(cam > 212, "and by more than the distance to the target, so a leak would flip the sign");
 
-        updateWeapons(w, true, 10000L);
+        updateWeapons(w, 10000L, true);
         Object shot = firstActiveShot(w);
         expect(shot != null, "a projectile was created");
         expectEq(getInt(shot, "target"), 2, "the enemy behind was selected as the target");

@@ -20,6 +20,24 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int SPLASH = 9;
     private static final int CHARACTER_PAGE_SIZE = 8;
 
+    /**
+     * Gameplay key bindings.
+     *
+     * <p>The basic attack lives on 5, on FIRE, and on the GAME_A game action. All three reach the
+     * world as a single boolean, so one physical press produces exactly one attack dispatch and a
+     * handset that maps GAME_A to a different physical key than 5 or FIRE still works. 1 is kept as
+     * an explicit numeric fallback for handsets whose GAME_A is unusable.
+     *
+     * <p>Pause moved off FIRE to 0, because FIRE is now the primary attack and one key cannot be
+     * both. Menu confirm, level-up confirm, cancel/back and the d-pad are untouched. 8 took over the
+     * skill binding from 5, which is now the attack; 9 keeps the special.
+     */
+    private static final int KEY_ATTACK = '5';
+    private static final int KEY_ATTACK_ALT = '1';
+    private static final int KEY_PAUSE = '0';
+    private static final int KEY_SKILL = '8';
+    private static final int KEY_SPECIAL = '9';
+
     // Shared HoloJava UI palette. The page and the panel are both light, so every piece of menu
     // text is drawn in MENU_INK: white only reaches 1.66:1 on MENU_BG and 1.35:1 on MENU_PANEL,
     // while the ink reaches 3.48:1 and 4.27:1. MENU_ACCENT is reserved for non-text selection marks
@@ -76,6 +94,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private volatile boolean specialPressed;
     private boolean attackWasDown;
     private volatile boolean attackPulse;
+    private volatile boolean pausePressed;
     private int characterPage;
     private final Viewport viewport = new Viewport();
     private RunWorld world;
@@ -137,10 +156,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     public void keyPressed(int key) {
-        // Numeric action keys are deliberately explicit: 5 = skill, 9 = special.
-        if (key == '5') skillPressed = true;
-        if (key == '9') specialPressed = true;
-        if (key == '1') attackPulse = true;
+        // Numeric action keys, declared as constants so the CONTROLS page, the in-game hint and
+        // this dispatch cannot drift apart. Every binding here is a one-shot latch consumed by the
+        // next update() on the game thread; keyPressed itself runs on the device event thread.
+        if (key == KEY_ATTACK) attackPulse = true;
+        if (key == KEY_ATTACK_ALT) attackPulse = true;
+        if (key == KEY_SKILL) skillPressed = true;
+        if (key == KEY_SPECIAL) specialPressed = true;
+        if (key == KEY_PAUSE) pausePressed = true;
     }
 
     private void update(long now) {
@@ -168,11 +191,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             if (world.state() == RunWorld.STATE_PAUSED) {
                 // The simulation is frozen, so the pause menu owns the navigation keys here. L and R
                 // are deliberately not read on this path: they stay player movement in gameplay.
-                updatePause(upEdge, downEdge, fireEdge);
+                updatePause(upEdge, downEdge, fireEdge || pausePulse());
             } else {
-                if (fireEdge && world.state() == RunWorld.STATE_RUNNING) { world.pause(); pauseIndex = 0; }
+                if (pausePulse() && world.state() == RunWorld.STATE_RUNNING) { world.pause(); pauseIndex = 0; }
                 if (world.state() != RunWorld.STATE_PAUSED) {
-                    world.update(keys, attackHeld || attackEdge || attackPulse,
+                    // FIRE is the primary attack during gameplay as well as the confirm key: it is
+                    // the one control every MIDP handset is guaranteed to have. The level-up screen
+                    // below still confirms on FIRE, and RunWorld.update ignores a non-running state,
+                    // so a confirm there never also fires a weapon.
+                    world.update(keys, attackHeld || attackEdge || attackPulse || fire,
                             skillPressed, specialPressed, now);
                 }
                 if (world.state() == RunWorld.STATE_LEVEL_UP) {
@@ -190,6 +217,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             attackPulse = false;
             skillPressed = false;
             specialPressed = false;
+            pausePressed = false;
             return;
         }
         // L/R map onto the two menu roles the d-pad directions do not already own. A direction is
@@ -462,10 +490,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * still-held FIRE from manufacturing a fresh edge on the next update tick, which would
      * otherwise carry the splash press straight into a Main Menu selection.
      */
+    /**
+     * Consumes the pause key press latch, exactly like the other one-shot latches.
+     */
+    private boolean pausePulse() {
+        boolean p = pausePressed;
+        pausePressed = false;
+        return p;
+    }
+
     private void clearInputLatches(int keys) {
         skillPressed = false;
         specialPressed = false;
         attackPulse = false;
+        pausePressed = false;
         fireWasDown = (keys & FIRE_PRESSED) != 0;
         upWasDown = (keys & UP_PRESSED) != 0;
         downWasDown = (keys & DOWN_PRESSED) != 0;
@@ -701,10 +739,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         title(g, x, y, "CONTROLS");
         ink(g);
         drawText(g, x + 24, y + 60, "D-pad: move / menu navigation", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 82, "GAME A or 1: manual basic attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 104, "FIRE: select / pause menu / resume", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 82, "GAME A / FIRE / 5 / 1: basic attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 104, "0: pause   FIRE: select / confirm", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 126, "L and R are extra select / back keys in menus", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 148, "5: skill   9: special attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 148, "8: skill   9: special attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 180, "Orbiting and passive weapons may fire autonomously.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 

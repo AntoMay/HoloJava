@@ -1,0 +1,215 @@
+Compiled from "MathUtil.java"
+final class me.holojava.fullgame.MathUtil {
+  private me.holojava.fullgame.MathUtil();
+    Code:
+       0: aload_0
+       1: invokespecial #15                 // Method java/lang/Object."<init>":()V
+       4: return
+
+  static double clamp(double, double, double);
+    Code:
+       0: dload_0
+       1: dload_2
+       2: dcmpg
+       3: ifge          8
+       6: dload_2
+       7: dreturn
+       8: dload_0
+       9: dload         4
+      11: dcmpl
+      12: ifle          18
+      15: dload         4
+      17: dreturn
+      18: dload_0
+      19: dreturn
+
+  static int clampInt(int, int, int);
+    Code:
+       0: iload_0
+       1: iload_1
+       2: if_icmpge     7
+       5: iload_1
+       6: ireturn
+       7: iload_0
+       8: iload_2
+       9: if_icmple     14
+      12: iload_2
+      13: ireturn
+      14: iload_0
+      15: ireturn
+
+  static int roundEven(double);
+    Code:
+       0: dload_0
+       1: invokestatic  #14                 // Method java/lang/Math.floor:(D)D
+       4: dstore_2
+       5: dload_0
+       6: dload_2
+       7: dsub
+       8: dstore        4
+      10: dload         4
+      12: ldc2_w        #6                  // double 0.5d
+      15: dcmpl
+      16: ifle          24
+      19: dload_2
+      20: dconst_1
+      21: dadd
+      22: d2i
+      23: ireturn
+      24: dload         4
+      26: ldc2_w        #6                  // double 0.5d
+      29: dcmpg
+      30: ifge          36
+      33: dload_2
+      34: d2i
+      35: ireturn
+      36: dload_2
+      37: d2i
+      38: istore        6
+      40: iload         6
+      42: iconst_1
+      43: iand
+      44: ifne          52
+      47: iload         6
+      49: goto          56
+      52: iload         6
+      54: iconst_1
+      55: iadd
+      56: ireturn
+
+  static double power(double, double);
+    Code:
+       0: dload_0
+       1: dconst_0
+       2: dcmpg
+       3: ifgt          8
+       6: dconst_0
+       7: dreturn
+       8: dload_2
+       9: dconst_0
+      10: dcmpl
+      11: ifne          16
+      14: dconst_1
+      15: dreturn
+      16: dload_0
+      17: invokestatic  #17                 // Method logApprox:(D)D
+      20: dload_2
+      21: dmul
+      22: dstore        4
+      24: dload         4
+      26: ldc2_w        #12                 // double 20.0d
+      29: dcmpl
+      30: ifle          38
+      33: ldc2_w        #12                 // double 20.0d
+      36: dstore        4
+      38: dload         4
+      40: ldc2_w        #4                  // double -20.0d
+      43: dcmpg
+      44: ifge          52
+      47: ldc2_w        #4                  // double -20.0d
+      50: dstore        4
+      52: dload         4
+      54: invokestatic  #16                 // Method expApprox:(D)D
+      57: dreturn
+
+  private static double logApprox(double);
+    Code:
+       0: dload_0
+       1: dconst_0
+       2: dcmpg
+       3: ifgt          8
+       6: dconst_0
+       7: dreturn
+       8: iconst_0
+       9: istore_2
+      10: dload_0
+      11: ldc2_w        #10                 // double 2.0d
+      14: dcmpl
+      15: iflt          30
+      18: dload_0
+      19: ldc2_w        #6                  // double 0.5d
+      22: dmul
+      23: dstore_0
+      24: iinc          2, 1
+      27: goto          10
+      30: dload_0
+      31: dconst_1
+      32: dcmpg
+      33: ifge          48
+      36: dload_0
+      37: ldc2_w        #10                 // double 2.0d
+      40: dmul
+      41: dstore_0
+      42: iinc          2, -1
+      45: goto          30
+      48: dload_0
+      49: dconst_1
+      50: dsub
+      51: dload_0
+      52: dconst_1
+      53: dadd
+      54: ddiv
+      55: dstore_3
+      56: dload_3
+      57: dload_3
+      58: dmul
+      59: dstore        5
+      61: dconst_0
+      62: dstore        7
+      64: dload_3
+      65: dstore        9
+      67: iconst_1
+      68: istore        11
+      70: iload         11
+      72: bipush        19
+      74: if_icmpgt     101
+      77: dload         7
+      79: dload         9
+      81: iload         11
+      83: i2d
+      84: ddiv
+      85: dadd
+      86: dstore        7
+      88: dload         9
+      90: dload         5
+      92: dmul
+      93: dstore        9
+      95: iinc          11, 2
+      98: goto          70
+     101: ldc2_w        #10                 // double 2.0d
+     104: dload         7
+     106: dmul
+     107: iload_2
+     108: i2d
+     109: ldc2_w        #8                  // double 0.6931471805599453d
+     112: dmul
+     113: dadd
+     114: dreturn
+
+  private static double expApprox(double);
+    Code:
+       0: dconst_1
+       1: dstore_2
+       2: dconst_1
+       3: dstore        4
+       5: iconst_1
+       6: istore        6
+       8: iload         6
+      10: bipush        18
+      12: if_icmpgt     35
+      15: dload_2
+      16: dload_0
+      17: iload         6
+      19: i2d
+      20: ddiv
+      21: dmul
+      22: dstore_2
+      23: dload         4
+      25: dload_2
+      26: dadd
+      27: dstore        4
+      29: iinc          6, 1
+      32: goto          8
+      35: dload         4
+      37: dreturn
+}

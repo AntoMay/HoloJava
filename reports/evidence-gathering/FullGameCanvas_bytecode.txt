@@ -1,0 +1,2396 @@
+Compiled from "FullGameCanvas.java"
+public class me.holojava.fullgame.FullGameCanvas extends javax.microedition.lcdui.game.GameCanvas implements java.lang.Runnable {
+  private static final int MENU;
+
+  private static final int MODES;
+
+  private static final int CHARACTERS;
+
+  private static final int STAGES;
+
+  private static final int SETTINGS;
+
+  private static final int PREP;
+
+  private static final int GAME;
+
+  private static final int RESULTS;
+
+  private final me.holojava.fullgame.AssetLibrary assets;
+
+  private final me.holojava.fullgame.SaveStore save;
+
+  private final me.holojava.fullgame.FullGameCanvas$ShutdownRequest shutdownRequest;
+
+  private volatile boolean stopped;
+
+  private volatile boolean threadRunning;
+
+  private volatile boolean applicationPaused;
+
+  private volatile boolean exitRequested;
+
+  private int screen;
+
+  private int menuIndex;
+
+  private int modeIndex;
+
+  private int characterIndex;
+
+  private int stageIndex;
+
+  private int resultIndex;
+
+  private int lastMenuScreen;
+
+  private boolean fireWasDown;
+
+  private boolean upWasDown;
+
+  private boolean downWasDown;
+
+  private boolean leftWasDown;
+
+  private boolean skillPressed;
+
+  private boolean specialPressed;
+
+  private me.holojava.fullgame.RunWorld world;
+
+  private boolean worldWasVictory;
+
+  private java.lang.String validationError;
+
+  public me.holojava.fullgame.FullGameCanvas(me.holojava.fullgame.AssetLibrary, me.holojava.fullgame.SaveStore, java.lang.String, me.holojava.fullgame.FullGameCanvas$ShutdownRequest);
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: invokespecial #167                // Method javax/microedition/lcdui/game/GameCanvas."<init>":(Z)V
+       5: aload_0
+       6: iconst_0
+       7: putfield      #137                // Field screen:I
+      10: aload_0
+      11: iconst_0
+      12: putfield      #131                // Field lastMenuScreen:I
+      15: aload_0
+      16: aload_1
+      17: putfield      #126                // Field assets:Lme/holojava/fullgame/AssetLibrary;
+      20: aload_0
+      21: aload_2
+      22: putfield      #136                // Field save:Lme/holojava/fullgame/SaveStore;
+      25: aload_0
+      26: aload         4
+      28: putfield      #138                // Field shutdownRequest:Lme/holojava/fullgame/FullGameCanvas$ShutdownRequest;
+      31: aload_0
+      32: aload_3
+      33: putfield      #145                // Field validationError:Ljava/lang/String;
+      36: aload_0
+      37: iconst_1
+      38: invokevirtual #191                // Method setFullScreenMode:(Z)V
+      41: aload_0
+      42: aload_2
+      43: invokevirtual #226                // Method me/holojava/fullgame/SaveStore.selectedCharacter:()I
+      46: putfield      #127                // Field characterIndex:I
+      49: aload_0
+      50: getfield      #127                // Field characterIndex:I
+      53: iflt          67
+      56: aload_0
+      57: getfield      #127                // Field characterIndex:I
+      60: getstatic     #107                // Field me/holojava/fullgame/ContentCatalog.CHARACTERS:[Lme/holojava/fullgame/ContentCatalog$CharacterDef;
+      63: arraylength
+      64: if_icmplt     72
+      67: aload_0
+      68: iconst_0
+      69: putfield      #127                // Field characterIndex:I
+      72: aload_0
+      73: iconst_0
+      74: putfield      #134                // Field modeIndex:I
+      77: aload_0
+      78: iconst_0
+      79: putfield      #141                // Field stageIndex:I
+      82: return
+
+  public boolean isRunning();
+    Code:
+       0: aload_0
+       1: getfield      #143                // Field threadRunning:Z
+       4: ireturn
+
+  public boolean exitRequested();
+    Code:
+       0: aload_0
+       1: getfield      #129                // Field exitRequested:Z
+       4: ireturn
+
+  public void pauseApplication();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: putfield      #125                // Field applicationPaused:Z
+       5: aload_0
+       6: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+       9: ifnull        19
+      12: aload_0
+      13: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+      16: invokevirtual #217                // Method me/holojava/fullgame/RunWorld.pause:()V
+      19: return
+
+  public void resumeApplication();
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: putfield      #125                // Field applicationPaused:Z
+       5: aload_0
+       6: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+       9: ifnull        19
+      12: aload_0
+      13: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+      16: invokevirtual #219                // Method me/holojava/fullgame/RunWorld.resume:()V
+      19: return
+
+  public void stopApplication();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: putfield      #142                // Field stopped:Z
+       5: return
+
+  public void run();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: putfield      #143                // Field threadRunning:Z
+       5: invokestatic  #157                // Method java/lang/System.currentTimeMillis:()J
+       8: lstore_1
+       9: lconst_0
+      10: lstore_3
+      11: aload_0
+      12: getfield      #142                // Field stopped:Z
+      15: ifne          135
+      18: aload_0
+      19: getfield      #125                // Field applicationPaused:Z
+      22: ifeq          39
+      25: aload_0
+      26: ldc2_w        #99                 // long 40l
+      29: invokespecial #192                // Method sleep:(J)V
+      32: invokestatic  #157                // Method java/lang/System.currentTimeMillis:()J
+      35: lstore_1
+      36: goto          11
+      39: invokestatic  #157                // Method java/lang/System.currentTimeMillis:()J
+      42: lstore        5
+      44: lload         5
+      46: lload_1
+      47: lsub
+      48: lstore        7
+      50: lload         7
+      52: lconst_0
+      53: lcmp
+      54: ifge          60
+      57: lconst_0
+      58: lstore        7
+      60: lload         7
+      62: ldc2_w        #103                // long 200l
+      65: lcmp
+      66: ifle          74
+      69: ldc2_w        #103                // long 200l
+      72: lstore        7
+      74: lload         5
+      76: lstore_1
+      77: lload_3
+      78: lload         7
+      80: ladd
+      81: lstore_3
+      82: iconst_0
+      83: istore        9
+      85: lload_3
+      86: ldc2_w        #99                 // long 40l
+      89: lcmp
+      90: iflt          117
+      93: iload         9
+      95: iconst_3
+      96: if_icmpge     117
+      99: aload_0
+     100: lload         5
+     102: invokespecial #198                // Method update:(J)V
+     105: lload_3
+     106: ldc2_w        #99                 // long 40l
+     109: lsub
+     110: lstore_3
+     111: iinc          9, 1
+     114: goto          85
+     117: aload_0
+     118: invokespecial #190                // Method render:()V
+     121: aload_0
+     122: invokevirtual #184                // Method flushGraphics:()V
+     125: aload_0
+     126: ldc2_w        #97                 // long 16l
+     129: invokespecial #192                // Method sleep:(J)V
+     132: goto          11
+     135: aload_0
+     136: iconst_0
+     137: putfield      #143                // Field threadRunning:Z
+     140: return
+
+  public void keyPressed(int);
+    Code:
+       0: iload_1
+       1: bipush        53
+       3: if_icmpne     11
+       6: aload_0
+       7: iconst_1
+       8: putfield      #139                // Field skillPressed:Z
+      11: iload_1
+      12: bipush        57
+      14: if_icmpne     22
+      17: aload_0
+      18: iconst_1
+      19: putfield      #140                // Field specialPressed:Z
+      22: return
+
+  private void update(long);
+    Code:
+       0: aload_0
+       1: invokevirtual #187                // Method getKeyStates:()I
+       4: istore_3
+       5: iload_3
+       6: sipush        256
+       9: iand
+      10: ifeq          17
+      13: iconst_1
+      14: goto          18
+      17: iconst_0
+      18: istore        4
+      20: iload_3
+      21: iconst_2
+      22: iand
+      23: ifeq          30
+      26: iconst_1
+      27: goto          31
+      30: iconst_0
+      31: istore        5
+      33: iload_3
+      34: bipush        64
+      36: iand
+      37: ifeq          44
+      40: iconst_1
+      41: goto          45
+      44: iconst_0
+      45: istore        6
+      47: iload_3
+      48: iconst_4
+      49: iand
+      50: ifeq          57
+      53: iconst_1
+      54: goto          58
+      57: iconst_0
+      58: istore        7
+      60: iload         4
+      62: ifeq          76
+      65: aload_0
+      66: getfield      #130                // Field fireWasDown:Z
+      69: ifne          76
+      72: iconst_1
+      73: goto          77
+      76: iconst_0
+      77: istore        8
+      79: iload         5
+      81: ifeq          95
+      84: aload_0
+      85: getfield      #144                // Field upWasDown:Z
+      88: ifne          95
+      91: iconst_1
+      92: goto          96
+      95: iconst_0
+      96: istore        9
+      98: iload         6
+     100: ifeq          114
+     103: aload_0
+     104: getfield      #128                // Field downWasDown:Z
+     107: ifne          114
+     110: iconst_1
+     111: goto          115
+     114: iconst_0
+     115: istore        10
+     117: iload         7
+     119: ifeq          133
+     122: aload_0
+     123: getfield      #132                // Field leftWasDown:Z
+     126: ifne          133
+     129: iconst_1
+     130: goto          134
+     133: iconst_0
+     134: istore        11
+     136: aload_0
+     137: iload         4
+     139: putfield      #130                // Field fireWasDown:Z
+     142: aload_0
+     143: iload         5
+     145: putfield      #144                // Field upWasDown:Z
+     148: aload_0
+     149: iload         6
+     151: putfield      #128                // Field downWasDown:Z
+     154: aload_0
+     155: iload         7
+     157: putfield      #132                // Field leftWasDown:Z
+     160: aload_0
+     161: getfield      #145                // Field validationError:Ljava/lang/String;
+     164: ifnull        178
+     167: aload_0
+     168: getfield      #145                // Field validationError:Ljava/lang/String;
+     171: invokevirtual #150                // Method java/lang/String.length:()I
+     174: ifle          178
+     177: return
+     178: aload_0
+     179: getfield      #137                // Field screen:I
+     182: bipush        6
+     184: if_icmpne     411
+     187: iload         8
+     189: ifeq          212
+     192: aload_0
+     193: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     196: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     199: ifne          212
+     202: aload_0
+     203: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     206: invokevirtual #217                // Method me/holojava/fullgame/RunWorld.pause:()V
+     209: goto          235
+     212: iload         8
+     214: ifeq          235
+     217: aload_0
+     218: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     221: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     224: iconst_1
+     225: if_icmpne     235
+     228: aload_0
+     229: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     232: invokevirtual #219                // Method me/holojava/fullgame/RunWorld.resume:()V
+     235: aload_0
+     236: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     239: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     242: iconst_1
+     243: if_icmpeq     273
+     246: aload_0
+     247: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     250: iload_3
+     251: aload_0
+     252: getfield      #139                // Field skillPressed:Z
+     255: aload_0
+     256: getfield      #140                // Field specialPressed:Z
+     259: lload_1
+     260: invokevirtual #223                // Method me/holojava/fullgame/RunWorld.update:(IZZJ)V
+     263: aload_0
+     264: iconst_0
+     265: putfield      #139                // Field skillPressed:Z
+     268: aload_0
+     269: iconst_0
+     270: putfield      #140                // Field specialPressed:Z
+     273: aload_0
+     274: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     277: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     280: iconst_2
+     281: if_icmpne     322
+     284: iload         9
+     286: ifeq          297
+     289: aload_0
+     290: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     293: iconst_m1
+     294: invokevirtual #213                // Method me/holojava/fullgame/RunWorld.moveOffer:(I)V
+     297: iload         10
+     299: ifeq          310
+     302: aload_0
+     303: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     306: iconst_1
+     307: invokevirtual #213                // Method me/holojava/fullgame/RunWorld.moveOffer:(I)V
+     310: iload         8
+     312: ifeq          322
+     315: aload_0
+     316: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     319: invokevirtual #220                // Method me/holojava/fullgame/RunWorld.selectOffer:()V
+     322: aload_0
+     323: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     326: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     329: iconst_3
+     330: if_icmpeq     344
+     333: aload_0
+     334: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     337: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     340: iconst_4
+     341: if_icmpne     410
+     344: aload_0
+     345: aload_0
+     346: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     349: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     352: iconst_4
+     353: if_icmpne     360
+     356: iconst_1
+     357: goto          361
+     360: iconst_0
+     361: putfield      #147                // Field worldWasVictory:Z
+     364: aload_0
+     365: getfield      #147                // Field worldWasVictory:Z
+     368: ifeq          399
+     371: aload_0
+     372: getfield      #134                // Field modeIndex:I
+     375: ifne          399
+     378: aload_0
+     379: getfield      #136                // Field save:Lme/holojava/fullgame/SaveStore;
+     382: aload_0
+     383: getfield      #127                // Field characterIndex:I
+     386: aload_0
+     387: getfield      #141                // Field stageIndex:I
+     390: invokestatic  #170                // Method me/holojava/fullgame/ContentCatalog.stage:(I)Lme/holojava/fullgame/ContentCatalog$StageDef;
+     393: getfield      #121                // Field me/holojava/fullgame/ContentCatalog$StageDef.order:I
+     396: invokevirtual #227                // Method me/holojava/fullgame/SaveStore.setCompleted:(II)V
+     399: aload_0
+     400: bipush        7
+     402: putfield      #137                // Field screen:I
+     405: aload_0
+     406: iconst_0
+     407: putfield      #135                // Field resultIndex:I
+     410: return
+     411: aload_0
+     412: getfield      #137                // Field screen:I
+     415: ifne          431
+     418: aload_0
+     419: iload         9
+     421: iload         10
+     423: iload         8
+     425: invokespecial #200                // Method updateMain:(ZZZ)V
+     428: goto          563
+     431: aload_0
+     432: getfield      #137                // Field screen:I
+     435: iconst_1
+     436: if_icmpne     452
+     439: aload_0
+     440: iload         9
+     442: iload         10
+     444: iload         8
+     446: invokespecial #201                // Method updateModes:(ZZZ)V
+     449: goto          563
+     452: aload_0
+     453: getfield      #137                // Field screen:I
+     456: iconst_2
+     457: if_icmpne     475
+     460: aload_0
+     461: iload         9
+     463: iload         10
+     465: iload         8
+     467: iload         11
+     469: invokespecial #199                // Method updateCharacters:(ZZZZ)V
+     472: goto          563
+     475: aload_0
+     476: getfield      #137                // Field screen:I
+     479: iconst_3
+     480: if_icmpne     498
+     483: aload_0
+     484: iload         9
+     486: iload         10
+     488: iload         8
+     490: iload         11
+     492: invokespecial #205                // Method updateStages:(ZZZZ)V
+     495: goto          563
+     498: aload_0
+     499: getfield      #137                // Field screen:I
+     502: iconst_4
+     503: if_icmpne     521
+     506: aload_0
+     507: iload         9
+     509: iload         10
+     511: iload         8
+     513: iload         11
+     515: invokespecial #204                // Method updateSettings:(ZZZZ)V
+     518: goto          563
+     521: aload_0
+     522: getfield      #137                // Field screen:I
+     525: iconst_5
+     526: if_icmpne     544
+     529: aload_0
+     530: iload         9
+     532: iload         10
+     534: iload         8
+     536: iload         11
+     538: invokespecial #202                // Method updatePrep:(ZZZZ)V
+     541: goto          563
+     544: aload_0
+     545: getfield      #137                // Field screen:I
+     548: bipush        7
+     550: if_icmpne     563
+     553: aload_0
+     554: iload         9
+     556: iload         10
+     558: iload         8
+     560: invokespecial #203                // Method updateResults:(ZZZ)V
+     563: return
+
+  private void updateMain(boolean, boolean, boolean);
+    Code:
+       0: iload_1
+       1: ifne          8
+       4: iload_2
+       5: ifeq          32
+       8: aload_0
+       9: aload_0
+      10: aload_0
+      11: getfield      #133                // Field menuIndex:I
+      14: iload_1
+      15: ifeq          22
+      18: iconst_m1
+      19: goto          23
+      22: iconst_1
+      23: iadd
+      24: bipush        6
+      26: invokespecial #206                // Method wrap:(II)I
+      29: putfield      #133                // Field menuIndex:I
+      32: iload_3
+      33: ifne          37
+      36: return
+      37: aload_0
+      38: getfield      #133                // Field menuIndex:I
+      41: tableswitch   { // 0 to 5
+                     0: 80
+                     1: 93
+                     2: 109
+                     3: 125
+                     4: 138
+                     5: 151
+               default: 173
+          }
+      80: aload_0
+      81: iconst_2
+      82: putfield      #137                // Field screen:I
+      85: aload_0
+      86: iconst_0
+      87: putfield      #133                // Field menuIndex:I
+      90: goto          173
+      93: aload_0
+      94: iconst_1
+      95: putfield      #137                // Field screen:I
+      98: aload_0
+      99: aload_0
+     100: getfield      #134                // Field modeIndex:I
+     103: putfield      #133                // Field menuIndex:I
+     106: goto          173
+     109: aload_0
+     110: iconst_2
+     111: putfield      #137                // Field screen:I
+     114: aload_0
+     115: aload_0
+     116: getfield      #127                // Field characterIndex:I
+     119: putfield      #133                // Field menuIndex:I
+     122: goto          173
+     125: aload_0
+     126: iconst_3
+     127: putfield      #137                // Field screen:I
+     130: aload_0
+     131: iconst_0
+     132: putfield      #133                // Field menuIndex:I
+     135: goto          173
+     138: aload_0
+     139: iconst_4
+     140: putfield      #137                // Field screen:I
+     143: aload_0
+     144: iconst_0
+     145: putfield      #133                // Field menuIndex:I
+     148: goto          173
+     151: aload_0
+     152: iconst_1
+     153: putfield      #129                // Field exitRequested:Z
+     156: aload_0
+     157: iconst_1
+     158: putfield      #142                // Field stopped:Z
+     161: aload_0
+     162: getfield      #138                // Field shutdownRequest:Lme/holojava/fullgame/FullGameCanvas$ShutdownRequest;
+     165: invokeinterface #230,  1          // InterfaceMethod me/holojava/fullgame/FullGameCanvas$ShutdownRequest.requestShutdown:()V
+     170: goto          173
+     173: return
+
+  private void updateModes(boolean, boolean, boolean);
+    Code:
+       0: iload_1
+       1: ifne          8
+       4: iload_2
+       5: ifeq          31
+       8: aload_0
+       9: aload_0
+      10: aload_0
+      11: getfield      #133                // Field menuIndex:I
+      14: iload_1
+      15: ifeq          22
+      18: iconst_m1
+      19: goto          23
+      22: iconst_1
+      23: iadd
+      24: iconst_4
+      25: invokespecial #206                // Method wrap:(II)I
+      28: putfield      #133                // Field menuIndex:I
+      31: iload_3
+      32: ifne          36
+      35: return
+      36: aload_0
+      37: getfield      #133                // Field menuIndex:I
+      40: iconst_3
+      41: if_icmpne     57
+      44: aload_0
+      45: iconst_0
+      46: putfield      #137                // Field screen:I
+      49: aload_0
+      50: iconst_1
+      51: putfield      #133                // Field menuIndex:I
+      54: goto          78
+      57: aload_0
+      58: aload_0
+      59: getfield      #133                // Field menuIndex:I
+      62: putfield      #134                // Field modeIndex:I
+      65: aload_0
+      66: iconst_2
+      67: putfield      #137                // Field screen:I
+      70: aload_0
+      71: aload_0
+      72: getfield      #127                // Field characterIndex:I
+      75: putfield      #133                // Field menuIndex:I
+      78: return
+
+  private void updateCharacters(boolean, boolean, boolean, boolean);
+    Code:
+       0: iload_1
+       1: ifne          8
+       4: iload_2
+       5: ifeq          36
+       8: aload_0
+       9: aload_0
+      10: aload_0
+      11: getfield      #133                // Field menuIndex:I
+      14: iload_1
+      15: ifeq          22
+      18: iconst_m1
+      19: goto          23
+      22: iconst_1
+      23: iadd
+      24: getstatic     #107                // Field me/holojava/fullgame/ContentCatalog.CHARACTERS:[Lme/holojava/fullgame/ContentCatalog$CharacterDef;
+      27: arraylength
+      28: iconst_1
+      29: iadd
+      30: invokespecial #206                // Method wrap:(II)I
+      33: putfield      #133                // Field menuIndex:I
+      36: iload         4
+      38: ifeq          52
+      41: aload_0
+      42: iconst_0
+      43: putfield      #137                // Field screen:I
+      46: aload_0
+      47: iconst_0
+      48: putfield      #133                // Field menuIndex:I
+      51: return
+      52: iload_3
+      53: ifne          57
+      56: return
+      57: aload_0
+      58: getfield      #133                // Field menuIndex:I
+      61: getstatic     #107                // Field me/holojava/fullgame/ContentCatalog.CHARACTERS:[Lme/holojava/fullgame/ContentCatalog$CharacterDef;
+      64: arraylength
+      65: if_icmpne     79
+      68: aload_0
+      69: iconst_0
+      70: putfield      #137                // Field screen:I
+      73: aload_0
+      74: iconst_2
+      75: putfield      #133                // Field menuIndex:I
+      78: return
+      79: aload_0
+      80: aload_0
+      81: getfield      #133                // Field menuIndex:I
+      84: putfield      #127                // Field characterIndex:I
+      87: aload_0
+      88: getfield      #136                // Field save:Lme/holojava/fullgame/SaveStore;
+      91: aload_0
+      92: getfield      #127                // Field characterIndex:I
+      95: invokevirtual #229                // Method me/holojava/fullgame/SaveStore.setSelectedCharacter:(I)V
+      98: aload_0
+      99: iconst_3
+     100: putfield      #137                // Field screen:I
+     103: aload_0
+     104: iconst_0
+     105: putfield      #133                // Field menuIndex:I
+     108: return
+
+  private void updateStages(boolean, boolean, boolean, boolean);
+    Code:
+       0: getstatic     #109                // Field me/holojava/fullgame/ContentCatalog.STAGES:[Lme/holojava/fullgame/ContentCatalog$StageDef;
+       3: arraylength
+       4: iconst_1
+       5: iadd
+       6: istore        5
+       8: iload_1
+       9: ifne          16
+      12: iload_2
+      13: ifeq          40
+      16: aload_0
+      17: aload_0
+      18: aload_0
+      19: getfield      #133                // Field menuIndex:I
+      22: iload_1
+      23: ifeq          30
+      26: iconst_m1
+      27: goto          31
+      30: iconst_1
+      31: iadd
+      32: iload         5
+      34: invokespecial #206                // Method wrap:(II)I
+      37: putfield      #133                // Field menuIndex:I
+      40: iload         4
+      42: ifeq          59
+      45: aload_0
+      46: iconst_2
+      47: putfield      #137                // Field screen:I
+      50: aload_0
+      51: aload_0
+      52: getfield      #127                // Field characterIndex:I
+      55: putfield      #133                // Field menuIndex:I
+      58: return
+      59: iload_3
+      60: ifne          64
+      63: return
+      64: aload_0
+      65: getfield      #133                // Field menuIndex:I
+      68: getstatic     #109                // Field me/holojava/fullgame/ContentCatalog.STAGES:[Lme/holojava/fullgame/ContentCatalog$StageDef;
+      71: arraylength
+      72: if_icmpne     89
+      75: aload_0
+      76: aload_0
+      77: invokespecial #172                // Method MAIN_SAFE:()I
+      80: putfield      #137                // Field screen:I
+      83: aload_0
+      84: iconst_3
+      85: putfield      #133                // Field menuIndex:I
+      88: return
+      89: aload_0
+      90: getfield      #133                // Field menuIndex:I
+      93: istore        6
+      95: aload_0
+      96: iload         6
+      98: invokespecial #194                // Method stageUnlocked:(I)Z
+     101: ifeq          113
+     104: aload_0
+     105: iload         6
+     107: invokespecial #193                // Method stageAllowed:(I)Z
+     110: ifne          114
+     113: return
+     114: aload_0
+     115: iload         6
+     117: putfield      #141                // Field stageIndex:I
+     120: aload_0
+     121: iconst_5
+     122: putfield      #137                // Field screen:I
+     125: return
+
+  private int MAIN_SAFE();
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  private void updateSettings(boolean, boolean, boolean, boolean);
+    Code:
+       0: iload_1
+       1: ifne          8
+       4: iload_2
+       5: ifeq          31
+       8: aload_0
+       9: aload_0
+      10: aload_0
+      11: getfield      #133                // Field menuIndex:I
+      14: iload_1
+      15: ifeq          22
+      18: iconst_m1
+      19: goto          23
+      22: iconst_1
+      23: iadd
+      24: iconst_3
+      25: invokespecial #206                // Method wrap:(II)I
+      28: putfield      #133                // Field menuIndex:I
+      31: iload         4
+      33: ifeq          47
+      36: aload_0
+      37: iconst_0
+      38: putfield      #137                // Field screen:I
+      41: aload_0
+      42: iconst_4
+      43: putfield      #133                // Field menuIndex:I
+      46: return
+      47: iload_3
+      48: ifne          52
+      51: return
+      52: aload_0
+      53: getfield      #133                // Field menuIndex:I
+      56: ifne          84
+      59: aload_0
+      60: getfield      #136                // Field save:Lme/holojava/fullgame/SaveStore;
+      63: aload_0
+      64: getfield      #136                // Field save:Lme/holojava/fullgame/SaveStore;
+      67: invokevirtual #224                // Method me/holojava/fullgame/SaveStore.hardcore:()Z
+      70: ifne          77
+      73: iconst_1
+      74: goto          78
+      77: iconst_0
+      78: invokevirtual #228                // Method me/holojava/fullgame/SaveStore.setHardcore:(Z)V
+      81: goto          100
+      84: aload_0
+      85: getfield      #133                // Field menuIndex:I
+      88: iconst_1
+      89: if_icmpne     95
+      92: goto          100
+      95: aload_0
+      96: iconst_0
+      97: putfield      #137                // Field screen:I
+     100: return
+
+  private void updatePrep(boolean, boolean, boolean, boolean);
+    Code:
+       0: iload         4
+       2: ifeq          19
+       5: aload_0
+       6: iconst_3
+       7: putfield      #137                // Field screen:I
+      10: aload_0
+      11: aload_0
+      12: getfield      #141                // Field stageIndex:I
+      15: putfield      #133                // Field menuIndex:I
+      18: return
+      19: iload_3
+      20: ifeq          27
+      23: aload_0
+      24: invokespecial #195                // Method startRun:()V
+      27: return
+
+  private void updateResults(boolean, boolean, boolean);
+    Code:
+       0: iload_1
+       1: ifne          8
+       4: iload_2
+       5: ifeq          31
+       8: aload_0
+       9: aload_0
+      10: aload_0
+      11: getfield      #135                // Field resultIndex:I
+      14: iload_1
+      15: ifeq          22
+      18: iconst_m1
+      19: goto          23
+      22: iconst_1
+      23: iadd
+      24: iconst_2
+      25: invokespecial #206                // Method wrap:(II)I
+      28: putfield      #135                // Field resultIndex:I
+      31: iload_3
+      32: ifne          36
+      35: return
+      36: aload_0
+      37: getfield      #135                // Field resultIndex:I
+      40: ifne          50
+      43: aload_0
+      44: invokespecial #195                // Method startRun:()V
+      47: goto          65
+      50: aload_0
+      51: iconst_0
+      52: putfield      #137                // Field screen:I
+      55: aload_0
+      56: iconst_0
+      57: putfield      #133                // Field menuIndex:I
+      60: aload_0
+      61: aconst_null
+      62: putfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+      65: return
+
+  private void startRun();
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #141                // Field stageIndex:I
+       5: invokespecial #194                // Method stageUnlocked:(I)Z
+       8: ifeq          22
+      11: aload_0
+      12: aload_0
+      13: getfield      #141                // Field stageIndex:I
+      16: invokespecial #193                // Method stageAllowed:(I)Z
+      19: ifne          28
+      22: aload_0
+      23: iconst_3
+      24: putfield      #137                // Field screen:I
+      27: return
+      28: aload_0
+      29: new           #93                 // class me/holojava/fullgame/RunWorld
+      32: dup
+      33: aload_0
+      34: getfield      #126                // Field assets:Lme/holojava/fullgame/AssetLibrary;
+      37: aload_0
+      38: getfield      #136                // Field save:Lme/holojava/fullgame/SaveStore;
+      41: aload_0
+      42: getfield      #127                // Field characterIndex:I
+      45: aload_0
+      46: getfield      #134                // Field modeIndex:I
+      49: aload_0
+      50: getfield      #141                // Field stageIndex:I
+      53: invokespecial #208                // Method me/holojava/fullgame/RunWorld."<init>":(Lme/holojava/fullgame/AssetLibrary;Lme/holojava/fullgame/SaveStore;III)V
+      56: putfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+      59: aload_0
+      60: bipush        6
+      62: putfield      #137                // Field screen:I
+      65: return
+
+  private boolean stageAllowed(int);
+    Code:
+       0: iload_1
+       1: invokestatic  #170                // Method me/holojava/fullgame/ContentCatalog.stage:(I)Lme/holojava/fullgame/ContentCatalog$StageDef;
+       4: astore_2
+       5: getstatic     #108                // Field me/holojava/fullgame/ContentCatalog.MODES:[Lme/holojava/fullgame/ContentCatalog$ModeDef;
+       8: aload_0
+       9: getfield      #134                // Field modeIndex:I
+      12: aaload
+      13: getfield      #117                // Field me/holojava/fullgame/ContentCatalog$ModeDef.completion:I
+      16: iconst_2
+      17: if_icmpne     25
+      20: aload_2
+      21: getfield      #122                // Field me/holojava/fullgame/ContentCatalog$StageDef.timeStage:Z
+      24: ireturn
+      25: aload_2
+      26: getfield      #122                // Field me/holojava/fullgame/ContentCatalog$StageDef.timeStage:Z
+      29: ifne          36
+      32: iconst_1
+      33: goto          37
+      36: iconst_0
+      37: ireturn
+
+  private boolean stageUnlocked(int);
+    Code:
+       0: iload_1
+       1: invokestatic  #170                // Method me/holojava/fullgame/ContentCatalog.stage:(I)Lme/holojava/fullgame/ContentCatalog$StageDef;
+       4: astore_2
+       5: aload_2
+       6: getfield      #123                // Field me/holojava/fullgame/ContentCatalog$StageDef.unlockRequirement:I
+       9: iconst_m1
+      10: if_icmpeq     22
+      13: aload_2
+      14: getfield      #123                // Field me/holojava/fullgame/ContentCatalog$StageDef.unlockRequirement:I
+      17: bipush        99
+      19: if_icmpne     24
+      22: iconst_1
+      23: ireturn
+      24: aload_2
+      25: getfield      #122                // Field me/holojava/fullgame/ContentCatalog$StageDef.timeStage:Z
+      28: ifeq          44
+      31: aload_0
+      32: getfield      #136                // Field save:Lme/holojava/fullgame/SaveStore;
+      35: aload_0
+      36: getfield      #127                // Field characterIndex:I
+      39: iconst_2
+      40: invokevirtual #225                // Method me/holojava/fullgame/SaveStore.isCompleted:(II)Z
+      43: ireturn
+      44: aload_0
+      45: getfield      #136                // Field save:Lme/holojava/fullgame/SaveStore;
+      48: aload_0
+      49: getfield      #127                // Field characterIndex:I
+      52: aload_2
+      53: getfield      #123                // Field me/holojava/fullgame/ContentCatalog$StageDef.unlockRequirement:I
+      56: invokevirtual #225                // Method me/holojava/fullgame/SaveStore.isCompleted:(II)Z
+      59: ireturn
+
+  private void render();
+    Code:
+       0: aload_0
+       1: invokevirtual #185                // Method getGraphics:()Ljavax/microedition/lcdui/Graphics;
+       4: astore_1
+       5: aload_1
+       6: ifnonnull     10
+       9: return
+      10: aload_0
+      11: invokevirtual #188                // Method getWidth:()I
+      14: istore_2
+      15: aload_0
+      16: invokevirtual #186                // Method getHeight:()I
+      19: istore_3
+      20: aload_1
+      21: iconst_0
+      22: iconst_0
+      23: iconst_0
+      24: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+      27: aload_1
+      28: iconst_0
+      29: iconst_0
+      30: iload_2
+      31: iload_3
+      32: invokevirtual #164                // Method javax/microedition/lcdui/Graphics.fillRect:(IIII)V
+      35: iload_2
+      36: sipush        320
+      39: isub
+      40: iconst_2
+      41: idiv
+      42: istore        4
+      44: iload_3
+      45: sipush        240
+      48: isub
+      49: iconst_2
+      50: idiv
+      51: istore        5
+      53: iload         4
+      55: ifge          61
+      58: iconst_0
+      59: istore        4
+      61: iload         5
+      63: ifge          69
+      66: iconst_0
+      67: istore        5
+      69: aload_0
+      70: getfield      #145                // Field validationError:Ljava/lang/String;
+      73: ifnull        128
+      76: aload_0
+      77: getfield      #145                // Field validationError:Ljava/lang/String;
+      80: invokevirtual #150                // Method java/lang/String.length:()I
+      83: ifle          128
+      86: aload_0
+      87: aload_1
+      88: iload         4
+      90: bipush        12
+      92: iadd
+      93: iload         5
+      95: bipush        30
+      97: iadd
+      98: ldc           #27                 // String CONTENT VALIDATION ERROR
+     100: iconst_1
+     101: iconst_0
+     102: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     105: aload_0
+     106: aload_1
+     107: iload         4
+     109: bipush        12
+     111: iadd
+     112: iload         5
+     114: bipush        70
+     116: iadd
+     117: aload_0
+     118: getfield      #145                // Field validationError:Ljava/lang/String;
+     121: iconst_0
+     122: bipush        8
+     124: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     127: return
+     128: aload_0
+     129: getfield      #137                // Field screen:I
+     132: bipush        6
+     134: if_icmpne     224
+     137: aload_0
+     138: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     141: ifnull        224
+     144: aload_0
+     145: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     148: aload_1
+     149: iload         4
+     151: iload         5
+     153: invokestatic  #157                // Method java/lang/System.currentTimeMillis:()J
+     156: invokevirtual #210                // Method me/holojava/fullgame/RunWorld.draw:(Ljavax/microedition/lcdui/Graphics;IIJ)V
+     159: aload_0
+     160: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     163: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     166: iconst_2
+     167: if_icmpne     179
+     170: aload_0
+     171: aload_1
+     172: iload         4
+     174: iload         5
+     176: invokespecial #174                // Method drawLevelUp:(Ljavax/microedition/lcdui/Graphics;II)V
+     179: aload_0
+     180: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     183: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     186: iconst_1
+     187: if_icmpne     199
+     190: aload_0
+     191: aload_1
+     192: iload         4
+     194: iload         5
+     196: invokespecial #178                // Method drawPause:(Ljavax/microedition/lcdui/Graphics;II)V
+     199: aload_0
+     200: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     203: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     206: iconst_3
+     207: if_icmpeq     254
+     210: aload_0
+     211: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     214: invokevirtual #222                // Method me/holojava/fullgame/RunWorld.state:()I
+     217: iconst_4
+     218: if_icmpne     254
+     221: goto          254
+     224: aload_0
+     225: getfield      #137                // Field screen:I
+     228: bipush        7
+     230: if_icmpne     245
+     233: aload_0
+     234: aload_1
+     235: iload         4
+     237: iload         5
+     239: invokespecial #180                // Method drawResults:(Ljavax/microedition/lcdui/Graphics;II)V
+     242: goto          254
+     245: aload_0
+     246: aload_1
+     247: iload         4
+     249: iload         5
+     251: invokespecial #176                // Method drawMenuScreen:(Ljavax/microedition/lcdui/Graphics;II)V
+     254: return
+
+  private void drawMenuScreen(javax.microedition.lcdui.Graphics, int, int);
+    Code:
+       0: aload_1
+       1: bipush        14
+       3: bipush        20
+       5: bipush        38
+       7: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+      10: aload_1
+      11: iload_2
+      12: iload_3
+      13: sipush        320
+      16: sipush        240
+      19: invokevirtual #164                // Method javax/microedition/lcdui/Graphics.fillRect:(IIII)V
+      22: aload_0
+      23: getfield      #137                // Field screen:I
+      26: ifne          39
+      29: aload_0
+      30: aload_1
+      31: iload_2
+      32: iload_3
+      33: invokespecial #175                // Method drawMainMenu:(Ljavax/microedition/lcdui/Graphics;II)V
+      36: goto          126
+      39: aload_0
+      40: getfield      #137                // Field screen:I
+      43: iconst_1
+      44: if_icmpne     57
+      47: aload_0
+      48: aload_1
+      49: iload_2
+      50: iload_3
+      51: invokespecial #177                // Method drawModes:(Ljavax/microedition/lcdui/Graphics;II)V
+      54: goto          126
+      57: aload_0
+      58: getfield      #137                // Field screen:I
+      61: iconst_2
+      62: if_icmpne     75
+      65: aload_0
+      66: aload_1
+      67: iload_2
+      68: iload_3
+      69: invokespecial #173                // Method drawCharacters:(Ljavax/microedition/lcdui/Graphics;II)V
+      72: goto          126
+      75: aload_0
+      76: getfield      #137                // Field screen:I
+      79: iconst_3
+      80: if_icmpne     93
+      83: aload_0
+      84: aload_1
+      85: iload_2
+      86: iload_3
+      87: invokespecial #182                // Method drawStages:(Ljavax/microedition/lcdui/Graphics;II)V
+      90: goto          126
+      93: aload_0
+      94: getfield      #137                // Field screen:I
+      97: iconst_4
+      98: if_icmpne     111
+     101: aload_0
+     102: aload_1
+     103: iload_2
+     104: iload_3
+     105: invokespecial #181                // Method drawSettings:(Ljavax/microedition/lcdui/Graphics;II)V
+     108: goto          126
+     111: aload_0
+     112: getfield      #137                // Field screen:I
+     115: iconst_5
+     116: if_icmpne     126
+     119: aload_0
+     120: aload_1
+     121: iload_2
+     122: iload_3
+     123: invokespecial #179                // Method drawPrep:(Ljavax/microedition/lcdui/Graphics;II)V
+     126: return
+
+  private void drawMainMenu(javax.microedition.lcdui.Graphics, int, int);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: iload_3
+       4: ldc           #39                 // String HOLOJAVA
+       6: invokespecial #197                // Method title:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;)V
+       9: bipush        6
+      11: anewarray     #76                 // class java/lang/String
+      14: dup
+      15: iconst_0
+      16: ldc           #52                 // String Play
+      18: aastore
+      19: dup
+      20: iconst_1
+      21: ldc           #38                 // String Game Mode
+      23: aastore
+      24: dup
+      25: iconst_2
+      26: ldc           #29                 // String Characters
+      28: aastore
+      29: dup
+      30: iconst_3
+      31: ldc           #64                 // String Stage Select
+      33: aastore
+      34: dup
+      35: iconst_4
+      36: ldc           #59                 // String Settings
+      38: aastore
+      39: dup
+      40: iconst_5
+      41: ldc           #32                 // String Exit
+      43: aastore
+      44: astore        4
+      46: aload_0
+      47: aload_1
+      48: iload_2
+      49: iload_3
+      50: bipush        65
+      52: iadd
+      53: aload         4
+      55: aload_0
+      56: getfield      #133                // Field menuIndex:I
+      59: invokespecial #189                // Method list:(Ljavax/microedition/lcdui/Graphics;II[Ljava/lang/String;I)V
+      62: aload_0
+      63: aload_1
+      64: iload_2
+      65: bipush        20
+      67: iadd
+      68: iload_3
+      69: sipush        210
+      72: iadd
+      73: ldc           #30                 // String D-pad move   FIRE select
+      75: iconst_0
+      76: bipush        8
+      78: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      81: return
+
+  private void drawModes(javax.microedition.lcdui.Graphics, int, int);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: iload_3
+       4: ldc           #36                 // String GAME MODE
+       6: invokespecial #197                // Method title:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;)V
+       9: iconst_4
+      10: anewarray     #76                 // class java/lang/String
+      13: dup
+      14: iconst_0
+      15: ldc           #62                 // String Stage Mode
+      17: aastore
+      18: dup
+      19: iconst_1
+      20: ldc           #31                 // String Endless Mode
+      22: aastore
+      23: dup
+      24: iconst_2
+      25: ldc           #67                 // String Time Mode
+      27: aastore
+      28: dup
+      29: iconst_3
+      30: ldc           #24                 // String Back
+      32: aastore
+      33: astore        4
+      35: aload_0
+      36: aload_1
+      37: iload_2
+      38: iload_3
+      39: bipush        60
+      41: iadd
+      42: aload         4
+      44: aload_0
+      45: getfield      #133                // Field menuIndex:I
+      48: invokespecial #189                // Method list:(Ljavax/microedition/lcdui/Graphics;II[Ljava/lang/String;I)V
+      51: aload_0
+      52: aload_1
+      53: iload_2
+      54: bipush        20
+      56: iadd
+      57: iload_3
+      58: sipush        195
+      61: iadd
+      62: getstatic     #108                // Field me/holojava/fullgame/ContentCatalog.MODES:[Lme/holojava/fullgame/ContentCatalog$ModeDef;
+      65: aload_0
+      66: getfield      #134                // Field modeIndex:I
+      69: aaload
+      70: getfield      #119                // Field me/holojava/fullgame/ContentCatalog$ModeDef.objective:Ljava/lang/String;
+      73: iconst_0
+      74: bipush        8
+      76: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      79: aload_0
+      80: aload_1
+      81: iload_2
+      82: bipush        20
+      84: iadd
+      85: iload_3
+      86: sipush        210
+      89: iadd
+      90: ldc           #63                 // String Stage Mode: final boss   Endless: until death   Time: 4000 fans
+      92: iconst_0
+      93: bipush        8
+      95: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      98: return
+
+  private void drawCharacters(javax.microedition.lcdui.Graphics, int, int);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: iload_3
+       4: ldc           #26                 // String CHARACTER SELECT
+       6: invokespecial #197                // Method title:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;)V
+       9: bipush        44
+      11: istore        4
+      13: iconst_0
+      14: istore        5
+      16: iload         5
+      18: getstatic     #107                // Field me/holojava/fullgame/ContentCatalog.CHARACTERS:[Lme/holojava/fullgame/ContentCatalog$CharacterDef;
+      21: arraylength
+      22: if_icmpge     194
+      25: getstatic     #107                // Field me/holojava/fullgame/ContentCatalog.CHARACTERS:[Lme/holojava/fullgame/ContentCatalog$CharacterDef;
+      28: iload         5
+      30: aaload
+      31: astore        6
+      33: aload_1
+      34: iload         5
+      36: aload_0
+      37: getfield      #133                // Field menuIndex:I
+      40: if_icmpne     49
+      43: sipush        255
+      46: goto          52
+      49: sipush        190
+      52: iload         5
+      54: aload_0
+      55: getfield      #133                // Field menuIndex:I
+      58: if_icmpne     67
+      61: sipush        220
+      64: goto          70
+      67: sipush        190
+      70: iload         5
+      72: aload_0
+      73: getfield      #133                // Field menuIndex:I
+      76: if_icmpne     84
+      79: bipush        60
+      81: goto          87
+      84: sipush        190
+      87: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+      90: new           #91                 // class me/holojava/fullgame/FullGameCanvas$ImageHolder
+      93: dup
+      94: aload_0
+      95: getfield      #126                // Field assets:Lme/holojava/fullgame/AssetLibrary;
+      98: getfield      #105                // Field me/holojava/fullgame/AssetLibrary.characters:[Lme/holojava/fullgame/AssetLibrary$CharacterAssets;
+     101: iload         5
+     103: aaload
+     104: getfield      #106                // Field me/holojava/fullgame/AssetLibrary$CharacterAssets.portrait:Ljavax/microedition/lcdui/Image;
+     107: invokespecial #207                // Method me/holojava/fullgame/FullGameCanvas$ImageHolder."<init>":(Ljavax/microedition/lcdui/Image;)V
+     110: astore        7
+     112: aload         7
+     114: getfield      #148                // Field me/holojava/fullgame/FullGameCanvas$ImageHolder.image:Ljavax/microedition/lcdui/Image;
+     117: ifnull        148
+     120: aload_1
+     121: aload         7
+     123: getfield      #148                // Field me/holojava/fullgame/FullGameCanvas$ImageHolder.image:Ljavax/microedition/lcdui/Image;
+     126: iload_2
+     127: bipush        12
+     129: iadd
+     130: iload_3
+     131: iload         4
+     133: iadd
+     134: iload         5
+     136: bipush        26
+     138: imul
+     139: iadd
+     140: bipush        15
+     142: isub
+     143: bipush        20
+     145: invokevirtual #162                // Method javax/microedition/lcdui/Graphics.drawImage:(Ljavax/microedition/lcdui/Image;III)V
+     148: aload_0
+     149: aload_1
+     150: iload_2
+     151: bipush        62
+     153: iadd
+     154: iload_3
+     155: iload         4
+     157: iadd
+     158: iload         5
+     160: bipush        26
+     162: imul
+     163: iadd
+     164: aload         6
+     166: getfield      #113                // Field me/holojava/fullgame/ContentCatalog$CharacterDef.name:Ljava/lang/String;
+     169: iload         5
+     171: aload_0
+     172: getfield      #133                // Field menuIndex:I
+     175: if_icmpne     182
+     178: iconst_1
+     179: goto          183
+     182: iconst_0
+     183: bipush        8
+     185: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     188: iinc          5, 1
+     191: goto          16
+     194: getstatic     #107                // Field me/holojava/fullgame/ContentCatalog.CHARACTERS:[Lme/holojava/fullgame/ContentCatalog$CharacterDef;
+     197: aload_0
+     198: getfield      #133                // Field menuIndex:I
+     201: getstatic     #107                // Field me/holojava/fullgame/ContentCatalog.CHARACTERS:[Lme/holojava/fullgame/ContentCatalog$CharacterDef;
+     204: arraylength
+     205: iconst_1
+     206: isub
+     207: invokestatic  #149                // Method java/lang/Math.min:(II)I
+     210: aaload
+     211: astore        5
+     213: aload_1
+     214: sipush        255
+     217: sipush        255
+     220: sipush        255
+     223: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+     226: aload_0
+     227: aload_1
+     228: iload_2
+     229: bipush        62
+     231: iadd
+     232: iload_3
+     233: sipush        190
+     236: iadd
+     237: new           #77                 // class java/lang/StringBuilder
+     240: dup
+     241: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     244: ldc           #40                 // String HP
+     246: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     249: aload         5
+     251: getfield      #111                // Field me/holojava/fullgame/ContentCatalog$CharacterDef.hp:I
+     254: invokevirtual #153                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     257: ldc           #13                 // String   ATK
+     259: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     262: aload         5
+     264: getfield      #110                // Field me/holojava/fullgame/ContentCatalog$CharacterDef.atkPercent:I
+     267: invokevirtual #153                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     270: ldc           #19                 // String %  SPD
+     272: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     275: aload         5
+     277: getfield      #115                // Field me/holojava/fullgame/ContentCatalog$CharacterDef.spdPercent:I
+     280: invokevirtual #153                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     283: ldc           #18                 // String %
+     285: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     288: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     291: iconst_0
+     292: bipush        8
+     294: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     297: aload_0
+     298: aload_1
+     299: iload_2
+     300: bipush        62
+     302: iadd
+     303: iload_3
+     304: sipush        205
+     307: iadd
+     308: new           #77                 // class java/lang/StringBuilder
+     311: dup
+     312: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     315: ldc           #71                 // String Weapon:
+     317: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     320: aload         5
+     322: getfield      #112                // Field me/holojava/fullgame/ContentCatalog$CharacterDef.mainWeapon:Ljava/lang/String;
+     325: invokestatic  #171                // Method me/holojava/fullgame/ContentCatalog.weapon:(Ljava/lang/String;)Lme/holojava/fullgame/ContentCatalog$WeaponDef;
+     328: getfield      #124                // Field me/holojava/fullgame/ContentCatalog$WeaponDef.name:Ljava/lang/String;
+     331: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     334: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     337: iconst_0
+     338: bipush        8
+     340: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     343: aload_0
+     344: aload_1
+     345: iload_2
+     346: bipush        62
+     348: iadd
+     349: iload_3
+     350: sipush        220
+     353: iadd
+     354: new           #77                 // class java/lang/StringBuilder
+     357: dup
+     358: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     361: ldc           #60                 // String Special:
+     363: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     366: aload         5
+     368: getfield      #116                // Field me/holojava/fullgame/ContentCatalog$CharacterDef.special:Ljava/lang/String;
+     371: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     374: ldc           #12                 // String    Skill:
+     376: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     379: aload         5
+     381: getfield      #114                // Field me/holojava/fullgame/ContentCatalog$CharacterDef.skill:Ljava/lang/String;
+     384: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     387: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     390: iconst_0
+     391: bipush        8
+     393: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     396: aload_0
+     397: aload_1
+     398: iload_2
+     399: bipush        12
+     401: iadd
+     402: iload_3
+     403: sipush        220
+     406: iadd
+     407: new           #77                 // class java/lang/StringBuilder
+     410: dup
+     411: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     414: ldc           #53                 // String Playable:
+     416: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     419: getstatic     #107                // Field me/holojava/fullgame/ContentCatalog.CHARACTERS:[Lme/holojava/fullgame/ContentCatalog$CharacterDef;
+     422: arraylength
+     423: invokevirtual #153                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     426: ldc           #14                 // String  /
+     428: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     431: bipush        47
+     433: invokevirtual #153                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     436: ldc           #17                 // String  documented
+     438: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     441: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     444: iconst_0
+     445: bipush        8
+     447: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     450: aload_0
+     451: aload_1
+     452: iload_2
+     453: bipush        12
+     455: iadd
+     456: iload_3
+     457: sipush        232
+     460: iadd
+     461: ldc           #49                 // String Other roster entries are cataloged but locked pending verified assets
+     463: iconst_0
+     464: bipush        8
+     466: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     469: return
+
+  private void drawStages(javax.microedition.lcdui.Graphics, int, int);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: iload_3
+       4: ldc           #58                 // String STAGE SELECT
+       6: invokespecial #197                // Method title:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;)V
+       9: bipush        40
+      11: istore        4
+      13: iconst_0
+      14: istore        5
+      16: iload         5
+      18: getstatic     #109                // Field me/holojava/fullgame/ContentCatalog.STAGES:[Lme/holojava/fullgame/ContentCatalog$StageDef;
+      21: arraylength
+      22: if_icmpge     205
+      25: getstatic     #109                // Field me/holojava/fullgame/ContentCatalog.STAGES:[Lme/holojava/fullgame/ContentCatalog$StageDef;
+      28: iload         5
+      30: aaload
+      31: astore        6
+      33: aload_0
+      34: iload         5
+      36: invokespecial #193                // Method stageAllowed:(I)Z
+      39: istore        7
+      41: aload_0
+      42: iload         5
+      44: invokespecial #194                // Method stageUnlocked:(I)Z
+      47: istore        8
+      49: iload         5
+      51: aload_0
+      52: getfield      #133                // Field menuIndex:I
+      55: if_icmpne     64
+      58: sipush        255
+      61: goto          82
+      64: iload         7
+      66: ifeq          80
+      69: iload         8
+      71: ifeq          80
+      74: sipush        200
+      77: goto          82
+      80: bipush        90
+      82: istore        9
+      84: iload         5
+      86: aload_0
+      87: getfield      #133                // Field menuIndex:I
+      90: if_icmpne     98
+      93: ldc           #22                 // String >
+      95: goto          100
+      98: ldc           #10                 // String
+     100: astore        10
+     102: iload         7
+     104: ifne          112
+     107: ldc           #16                 // String  [mode]
+     109: goto          124
+     112: iload         8
+     114: ifne          122
+     117: ldc           #15                 // String  [locked]
+     119: goto          124
+     122: ldc           #9                  // String
+     124: astore        11
+     126: aload_0
+     127: aload_1
+     128: iload_2
+     129: bipush        12
+     131: iadd
+     132: iload_3
+     133: iload         4
+     135: iadd
+     136: iload         5
+     138: bipush        16
+     140: imul
+     141: iadd
+     142: new           #77                 // class java/lang/StringBuilder
+     145: dup
+     146: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     149: aload         10
+     151: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     154: aload         6
+     156: getfield      #120                // Field me/holojava/fullgame/ContentCatalog$StageDef.name:Ljava/lang/String;
+     159: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     162: aload         11
+     164: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     167: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     170: iload         5
+     172: aload_0
+     173: getfield      #133                // Field menuIndex:I
+     176: if_icmpne     183
+     179: iconst_1
+     180: goto          184
+     183: iconst_0
+     184: bipush        8
+     186: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     189: aload_1
+     190: iload         9
+     192: iload         9
+     194: iload         9
+     196: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+     199: iinc          5, 1
+     202: goto          16
+     205: aload_0
+     206: aload_1
+     207: iload_2
+     208: bipush        12
+     210: iadd
+     211: iload_3
+     212: sipush        214
+     215: iadd
+     216: ldc           #61                 // String Stage / Endless use Normal + Hard. Time uses Concert Stage.
+     218: iconst_0
+     219: bipush        8
+     221: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     224: aload_0
+     225: aload_1
+     226: iload_2
+     227: bipush        12
+     229: iadd
+     230: iload_3
+     231: sipush        228
+     234: iadd
+     235: ldc           #43                 // String LEFT back   FIRE confirm
+     237: iconst_0
+     238: bipush        8
+     240: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     243: return
+
+  private void drawSettings(javax.microedition.lcdui.Graphics, int, int);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: iload_3
+       4: ldc           #57                 // String SETTINGS
+       6: invokespecial #197                // Method title:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;)V
+       9: iconst_3
+      10: anewarray     #76                 // class java/lang/String
+      13: dup
+      14: iconst_0
+      15: new           #77                 // class java/lang/StringBuilder
+      18: dup
+      19: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+      22: ldc           #42                 // String Hardcore:
+      24: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      27: aload_0
+      28: getfield      #136                // Field save:Lme/holojava/fullgame/SaveStore;
+      31: invokevirtual #224                // Method me/holojava/fullgame/SaveStore.hardcore:()Z
+      34: ifeq          42
+      37: ldc           #48                 // String ON
+      39: goto          44
+      42: ldc           #47                 // String OFF
+      44: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      47: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      50: aastore
+      51: dup
+      52: iconst_1
+      53: ldc           #23                 // String Audio: OFF (runtime not verified)
+      55: aastore
+      56: dup
+      57: iconst_2
+      58: ldc           #24                 // String Back
+      60: aastore
+      61: astore        4
+      63: aload_0
+      64: aload_1
+      65: iload_2
+      66: iload_3
+      67: bipush        65
+      69: iadd
+      70: aload         4
+      72: aload_0
+      73: getfield      #133                // Field menuIndex:I
+      76: invokespecial #189                // Method list:(Ljavax/microedition/lcdui/Graphics;II[Ljava/lang/String;I)V
+      79: aload_0
+      80: aload_1
+      81: iload_2
+      82: bipush        20
+      84: iadd
+      85: iload_3
+      86: sipush        190
+      89: iadd
+      90: ldc           #41                 // String Hardcore sets Endless player HP to 1.
+      92: iconst_0
+      93: bipush        8
+      95: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      98: aload_0
+      99: aload_1
+     100: iload_2
+     101: bipush        20
+     103: iadd
+     104: iload_3
+     105: sipush        210
+     108: iadd
+     109: ldc           #51                 // String Persistence is optional RMS storage.
+     111: iconst_0
+     112: bipush        8
+     114: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     117: return
+
+  private void drawPrep(javax.microedition.lcdui.Graphics, int, int);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: iload_3
+       4: ldc           #54                 // String RUN PREPARATION
+       6: invokespecial #197                // Method title:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;)V
+       9: aload_0
+      10: aload_1
+      11: iload_2
+      12: bipush        24
+      14: iadd
+      15: iload_3
+      16: bipush        62
+      18: iadd
+      19: new           #77                 // class java/lang/StringBuilder
+      22: dup
+      23: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+      26: ldc           #28                 // String Character:
+      28: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      31: aload_0
+      32: getfield      #127                // Field characterIndex:I
+      35: invokestatic  #168                // Method me/holojava/fullgame/ContentCatalog.character:(I)Lme/holojava/fullgame/ContentCatalog$CharacterDef;
+      38: getfield      #113                // Field me/holojava/fullgame/ContentCatalog$CharacterDef.name:Ljava/lang/String;
+      41: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      44: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      47: iconst_0
+      48: bipush        8
+      50: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      53: aload_0
+      54: aload_1
+      55: iload_2
+      56: bipush        24
+      58: iadd
+      59: iload_3
+      60: bipush        82
+      62: iadd
+      63: new           #77                 // class java/lang/StringBuilder
+      66: dup
+      67: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+      70: ldc           #46                 // String Mode:
+      72: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      75: aload_0
+      76: getfield      #134                // Field modeIndex:I
+      79: invokestatic  #169                // Method me/holojava/fullgame/ContentCatalog.mode:(I)Lme/holojava/fullgame/ContentCatalog$ModeDef;
+      82: getfield      #118                // Field me/holojava/fullgame/ContentCatalog$ModeDef.name:Ljava/lang/String;
+      85: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      88: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      91: iconst_0
+      92: bipush        8
+      94: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      97: aload_0
+      98: aload_1
+      99: iload_2
+     100: bipush        24
+     102: iadd
+     103: iload_3
+     104: bipush        102
+     106: iadd
+     107: new           #77                 // class java/lang/StringBuilder
+     110: dup
+     111: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     114: ldc           #66                 // String Stage:
+     116: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     119: aload_0
+     120: getfield      #141                // Field stageIndex:I
+     123: invokestatic  #170                // Method me/holojava/fullgame/ContentCatalog.stage:(I)Lme/holojava/fullgame/ContentCatalog$StageDef;
+     126: getfield      #120                // Field me/holojava/fullgame/ContentCatalog$StageDef.name:Ljava/lang/String;
+     129: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     132: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     135: iconst_0
+     136: bipush        8
+     138: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     141: aload_0
+     142: aload_1
+     143: iload_2
+     144: bipush        24
+     146: iadd
+     147: iload_3
+     148: sipush        132
+     151: iadd
+     152: aload_0
+     153: getfield      #134                // Field modeIndex:I
+     156: invokestatic  #169                // Method me/holojava/fullgame/ContentCatalog.mode:(I)Lme/holojava/fullgame/ContentCatalog$ModeDef;
+     159: getfield      #119                // Field me/holojava/fullgame/ContentCatalog$ModeDef.objective:Ljava/lang/String;
+     162: iconst_0
+     163: bipush        8
+     165: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     168: aload_0
+     169: aload_1
+     170: iload_2
+     171: bipush        24
+     173: iadd
+     174: iload_3
+     175: sipush        160
+     178: iadd
+     179: ldc           #25                 // String Boss schedule and enemy pool will load on start.
+     181: iconst_0
+     182: bipush        8
+     184: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     187: aload_0
+     188: aload_1
+     189: iload_2
+     190: bipush        24
+     192: iadd
+     193: iload_3
+     194: sipush        200
+     197: iadd
+     198: ldc           #34                 // String FIRE start   LEFT back
+     200: iconst_0
+     201: bipush        8
+     203: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     206: return
+
+  private void drawLevelUp(javax.microedition.lcdui.Graphics, int, int);
+    Code:
+       0: aload_1
+       1: iconst_0
+       2: iconst_0
+       3: iconst_0
+       4: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+       7: aload_1
+       8: iload_2
+       9: iload_3
+      10: sipush        320
+      13: sipush        240
+      16: invokevirtual #164                // Method javax/microedition/lcdui/Graphics.fillRect:(IIII)V
+      19: aload_0
+      20: aload_1
+      21: iload_2
+      22: bipush        100
+      24: iadd
+      25: iload_3
+      26: bipush        14
+      28: iadd
+      29: ldc           #44                 // String LEVEL UP
+      31: iconst_1
+      32: iconst_0
+      33: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      36: iconst_0
+      37: istore        4
+      39: iload         4
+      41: aload_0
+      42: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+      45: invokevirtual #214                // Method me/holojava/fullgame/RunWorld.offerCount:()I
+      48: if_icmpge     230
+      51: iload_3
+      52: bipush        46
+      54: iadd
+      55: iload         4
+      57: bipush        24
+      59: imul
+      60: iadd
+      61: istore        5
+      63: aload_1
+      64: iload         4
+      66: aload_0
+      67: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+      70: invokevirtual #221                // Method me/holojava/fullgame/RunWorld.selectedOffer:()I
+      73: if_icmpne     82
+      76: sipush        255
+      79: goto          85
+      82: sipush        190
+      85: iload         4
+      87: aload_0
+      88: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+      91: invokevirtual #221                // Method me/holojava/fullgame/RunWorld.selectedOffer:()I
+      94: if_icmpne     103
+      97: sipush        230
+     100: goto          106
+     103: sipush        190
+     106: iload         4
+     108: aload_0
+     109: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     112: invokevirtual #221                // Method me/holojava/fullgame/RunWorld.selectedOffer:()I
+     115: if_icmpne     123
+     118: bipush        60
+     120: goto          126
+     123: sipush        190
+     126: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+     129: aload_0
+     130: aload_1
+     131: iload_2
+     132: bipush        24
+     134: iadd
+     135: iload         5
+     137: new           #77                 // class java/lang/StringBuilder
+     140: dup
+     141: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     144: iload         4
+     146: aload_0
+     147: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     150: invokevirtual #221                // Method me/holojava/fullgame/RunWorld.selectedOffer:()I
+     153: if_icmpne     161
+     156: ldc           #22                 // String >
+     158: goto          163
+     161: ldc           #10                 // String
+     163: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     166: aload_0
+     167: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     170: iload         4
+     172: invokevirtual #215                // Method me/holojava/fullgame/RunWorld.offerLabel:(I)Ljava/lang/String;
+     175: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     178: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     181: iconst_0
+     182: bipush        8
+     184: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     187: aload_1
+     188: sipush        130
+     191: sipush        130
+     194: sipush        130
+     197: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+     200: aload_0
+     201: aload_1
+     202: iload_2
+     203: sipush        240
+     206: iadd
+     207: iload         5
+     209: aload_0
+     210: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     213: iload         4
+     215: invokevirtual #216                // Method me/holojava/fullgame/RunWorld.offerType:(I)Ljava/lang/String;
+     218: iconst_0
+     219: bipush        8
+     221: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     224: iinc          4, 1
+     227: goto          39
+     230: aload_0
+     231: aload_1
+     232: iload_2
+     233: bipush        24
+     235: iadd
+     236: iload_3
+     237: sipush        200
+     240: iadd
+     241: ldc           #69                 // String UP/DOWN select   FIRE confirm
+     243: iconst_0
+     244: bipush        8
+     246: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     249: return
+
+  private void drawPause(javax.microedition.lcdui.Graphics, int, int);
+    Code:
+       0: aload_1
+       1: iconst_0
+       2: iconst_0
+       3: iconst_0
+       4: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+       7: aload_1
+       8: iload_2
+       9: bipush        80
+      11: iadd
+      12: iload_3
+      13: bipush        88
+      15: iadd
+      16: sipush        160
+      19: bipush        62
+      21: invokevirtual #164                // Method javax/microedition/lcdui/Graphics.fillRect:(IIII)V
+      24: aload_0
+      25: aload_1
+      26: iload_2
+      27: sipush        130
+      30: iadd
+      31: iload_3
+      32: bipush        108
+      34: iadd
+      35: ldc           #50                 // String PAUSED
+      37: iconst_1
+      38: iconst_0
+      39: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      42: aload_0
+      43: aload_1
+      44: iload_2
+      45: bipush        100
+      47: iadd
+      48: iload_3
+      49: sipush        132
+      52: iadd
+      53: ldc           #33                 // String FIRE resume
+      55: iconst_0
+      56: bipush        8
+      58: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      61: return
+
+  private void drawResults(javax.microedition.lcdui.Graphics, int, int);
+    Code:
+       0: aload_1
+       1: bipush        14
+       3: bipush        20
+       5: bipush        38
+       7: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+      10: aload_1
+      11: iload_2
+      12: iload_3
+      13: sipush        320
+      16: sipush        240
+      19: invokevirtual #164                // Method javax/microedition/lcdui/Graphics.fillRect:(IIII)V
+      22: aload_0
+      23: aload_1
+      24: iload_2
+      25: iload_3
+      26: aload_0
+      27: getfield      #147                // Field worldWasVictory:Z
+      30: ifeq          38
+      33: ldc           #70                 // String VICTORY
+      35: goto          40
+      38: ldc           #37                 // String GAME OVER
+      40: invokespecial #197                // Method title:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;)V
+      43: aload_0
+      44: aload_1
+      45: iload_2
+      46: bipush        26
+      48: iadd
+      49: iload_3
+      50: bipush        62
+      52: iadd
+      53: new           #77                 // class java/lang/StringBuilder
+      56: dup
+      57: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+      60: ldc           #28                 // String Character:
+      62: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      65: aload_0
+      66: getfield      #127                // Field characterIndex:I
+      69: invokestatic  #168                // Method me/holojava/fullgame/ContentCatalog.character:(I)Lme/holojava/fullgame/ContentCatalog$CharacterDef;
+      72: getfield      #113                // Field me/holojava/fullgame/ContentCatalog$CharacterDef.name:Ljava/lang/String;
+      75: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      78: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      81: iconst_0
+      82: bipush        8
+      84: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      87: aload_0
+      88: aload_1
+      89: iload_2
+      90: bipush        26
+      92: iadd
+      93: iload_3
+      94: bipush        82
+      96: iadd
+      97: new           #77                 // class java/lang/StringBuilder
+     100: dup
+     101: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     104: ldc           #66                 // String Stage:
+     106: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     109: aload_0
+     110: getfield      #141                // Field stageIndex:I
+     113: invokestatic  #170                // Method me/holojava/fullgame/ContentCatalog.stage:(I)Lme/holojava/fullgame/ContentCatalog$StageDef;
+     116: getfield      #120                // Field me/holojava/fullgame/ContentCatalog$StageDef.name:Ljava/lang/String;
+     119: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     122: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     125: iconst_0
+     126: bipush        8
+     128: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     131: aload_0
+     132: aload_1
+     133: iload_2
+     134: bipush        26
+     136: iadd
+     137: iload_3
+     138: bipush        102
+     140: iadd
+     141: new           #77                 // class java/lang/StringBuilder
+     144: dup
+     145: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     148: ldc           #35                 // String Fans defeated:
+     150: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     153: aload_0
+     154: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     157: invokevirtual #212                // Method me/holojava/fullgame/RunWorld.kills:()I
+     160: invokevirtual #153                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     163: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     166: iconst_0
+     167: bipush        8
+     169: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     172: aload_0
+     173: aload_1
+     174: iload_2
+     175: bipush        26
+     177: iadd
+     178: iload_3
+     179: bipush        122
+     181: iadd
+     182: new           #77                 // class java/lang/StringBuilder
+     185: dup
+     186: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     189: ldc           #45                 // String Level:
+     191: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     194: aload_0
+     195: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     198: invokevirtual #218                // Method me/holojava/fullgame/RunWorld.playerLevel:()I
+     201: invokevirtual #153                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     204: ldc           #11                 // String    Coins:
+     206: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     209: aload_0
+     210: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     213: invokevirtual #209                // Method me/holojava/fullgame/RunWorld.coins:()I
+     216: invokevirtual #153                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     219: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     222: iconst_0
+     223: bipush        8
+     225: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     228: aload_0
+     229: aload_1
+     230: iload_2
+     231: bipush        26
+     233: iadd
+     234: iload_3
+     235: sipush        142
+     238: iadd
+     239: new           #77                 // class java/lang/StringBuilder
+     242: dup
+     243: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+     246: ldc           #68                 // String Time:
+     248: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     251: aload_0
+     252: aload_0
+     253: getfield      #146                // Field world:Lme/holojava/fullgame/RunWorld;
+     256: invokevirtual #211                // Method me/holojava/fullgame/RunWorld.elapsedSeconds:()J
+     259: invokespecial #196                // Method timeString:(J)Ljava/lang/String;
+     262: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     265: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     268: iconst_0
+     269: bipush        8
+     271: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     274: aload_0
+     275: getfield      #147                // Field worldWasVictory:Z
+     278: ifeq          307
+     281: aload_0
+     282: getfield      #134                // Field modeIndex:I
+     285: ifne          307
+     288: aload_0
+     289: aload_1
+     290: iload_2
+     291: bipush        26
+     293: iadd
+     294: iload_3
+     295: sipush        168
+     298: iadd
+     299: ldc           #65                 // String Stage clear recorded for this character.
+     301: iconst_0
+     302: bipush        8
+     304: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     307: iconst_2
+     308: anewarray     #76                 // class java/lang/String
+     311: dup
+     312: iconst_0
+     313: ldc           #55                 // String Replay
+     315: aastore
+     316: dup
+     317: iconst_1
+     318: ldc           #56                 // String Return to Menu
+     320: aastore
+     321: astore        4
+     323: aload_0
+     324: aload_1
+     325: iload_2
+     326: iload_3
+     327: sipush        185
+     330: iadd
+     331: aload         4
+     333: aload_0
+     334: getfield      #135                // Field resultIndex:I
+     337: invokespecial #189                // Method list:(Ljavax/microedition/lcdui/Graphics;II[Ljava/lang/String;I)V
+     340: return
+
+  private void title(javax.microedition.lcdui.Graphics, int, int, java.lang.String);
+    Code:
+       0: aload_1
+       1: sipush        255
+       4: sipush        240
+       7: bipush        120
+       9: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+      12: aload_0
+      13: aload_1
+      14: iload_2
+      15: bipush        90
+      17: iadd
+      18: iload_3
+      19: bipush        18
+      21: iadd
+      22: aload         4
+      24: iconst_1
+      25: bipush        16
+      27: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+      30: return
+
+  private void list(javax.microedition.lcdui.Graphics, int, int, java.lang.String[], int);
+    Code:
+       0: iconst_0
+       1: istore        6
+       3: iload         6
+       5: aload         4
+       7: arraylength
+       8: if_icmpge     133
+      11: aload_1
+      12: iload         6
+      14: iload         5
+      16: if_icmpne     25
+      19: sipush        255
+      22: goto          28
+      25: sipush        180
+      28: iload         6
+      30: iload         5
+      32: if_icmpne     41
+      35: sipush        230
+      38: goto          44
+      41: sipush        180
+      44: iload         6
+      46: iload         5
+      48: if_icmpne     56
+      51: bipush        60
+      53: goto          59
+      56: sipush        180
+      59: invokevirtual #165                // Method javax/microedition/lcdui/Graphics.setColor:(III)V
+      62: aload_0
+      63: aload_1
+      64: iload_2
+      65: bipush        36
+      67: iadd
+      68: iload_3
+      69: iload         6
+      71: bipush        22
+      73: imul
+      74: iadd
+      75: new           #77                 // class java/lang/StringBuilder
+      78: dup
+      79: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+      82: iload         6
+      84: iload         5
+      86: if_icmpne     94
+      89: ldc           #22                 // String >
+      91: goto          96
+      94: ldc           #10                 // String
+      96: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      99: aload         4
+     101: iload         6
+     103: aaload
+     104: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     107: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     110: iload         6
+     112: iload         5
+     114: if_icmpne     121
+     117: iconst_1
+     118: goto          122
+     121: iconst_0
+     122: bipush        8
+     124: invokespecial #183                // Method drawText:(Ljavax/microedition/lcdui/Graphics;IILjava/lang/String;II)V
+     127: iinc          6, 1
+     130: goto          3
+     133: return
+
+  private void drawText(javax.microedition.lcdui.Graphics, int, int, java.lang.String, int, int);
+    Code:
+       0: aload_1
+       1: iconst_0
+       2: iload         5
+       4: iload         6
+       6: invokestatic  #161                // Method javax/microedition/lcdui/Font.getFont:(III)Ljavax/microedition/lcdui/Font;
+       9: invokevirtual #166                // Method javax/microedition/lcdui/Graphics.setFont:(Ljavax/microedition/lcdui/Font;)V
+      12: aload_1
+      13: aload         4
+      15: iload_2
+      16: iload_3
+      17: bipush        20
+      19: invokevirtual #163                // Method javax/microedition/lcdui/Graphics.drawString:(Ljava/lang/String;III)V
+      22: return
+
+  private java.lang.String timeString(long);
+    Code:
+       0: lload_1
+       1: ldc2_w        #101                // long 60l
+       4: ldiv
+       5: lstore_3
+       6: lload_1
+       7: ldc2_w        #101                // long 60l
+      10: lrem
+      11: lstore        5
+      13: new           #77                 // class java/lang/StringBuilder
+      16: dup
+      17: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+      20: lload_3
+      21: invokevirtual #154                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      24: ldc           #21                 // String :
+      26: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: lload         5
+      31: ldc2_w        #95                 // long 10l
+      34: lcmp
+      35: ifge          61
+      38: new           #77                 // class java/lang/StringBuilder
+      41: dup
+      42: invokespecial #152                // Method java/lang/StringBuilder."<init>":()V
+      45: ldc           #20                 // String 0
+      47: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      50: lload         5
+      52: invokevirtual #154                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      55: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      58: goto          66
+      61: lload         5
+      63: invokestatic  #151                // Method java/lang/String.valueOf:(J)Ljava/lang/String;
+      66: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      69: invokevirtual #156                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      72: areturn
+
+  private int wrap(int, int);
+    Code:
+       0: iload_1
+       1: ifge          8
+       4: iload_2
+       5: iconst_1
+       6: isub
+       7: ireturn
+       8: iload_1
+       9: iload_2
+      10: if_icmplt     15
+      13: iconst_0
+      14: ireturn
+      15: iload_1
+      16: ireturn
+
+  private void sleep(long);
+    Code:
+       0: lload_1
+       1: invokestatic  #160                // Method java/lang/Thread.sleep:(J)V
+       4: goto          14
+       7: astore_3
+       8: invokestatic  #158                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      11: invokevirtual #159                // Method java/lang/Thread.interrupt:()V
+      14: return
+    Exception table:
+       from    to  target type
+           0     4     7   Class java/lang/InterruptedException
+}

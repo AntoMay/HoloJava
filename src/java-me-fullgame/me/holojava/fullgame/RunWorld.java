@@ -169,7 +169,7 @@ final class RunWorld {
     private String cachedCoinsString;
     private String cachedFansString;
     private String cachedBossName;
-    private String cachedControlsHint = "5 Skill  9 Special";
+    private String cachedControlsHint = "5/FIRE/1 Attack  8 Skill  9 Special  0 Pause";
 
     private int lastPlayerHp = -1;
     private int lastPlayerMaxHp = -1;
