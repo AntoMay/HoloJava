@@ -194,7 +194,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                 // are deliberately not read on this path: they stay player movement in gameplay.
                 updatePause(upEdge, downEdge, fireEdge || pausePulse());
             } else {
-                if (pausePulse() && world.state() == RunWorld.STATE_RUNNING) { world.pause(); pauseIndex = 0; }
+                if (world.state() == RunWorld.STATE_RUNNING) {
+                    // Pause trigger: FIRE edge or numeric '5' or KEY_PAUSE ('0')
+                    boolean pauseTrigger = fireEdge || pauseFrom5 || pausePressed;
+                    pauseFrom5 = false;  // consume '5' latch
+                    pausePressed = false; // consume '0' latch
+                    if (pauseTrigger) {
+                        world.pause();
+                        pauseIndex = 0;
+                    }
+                }
                 if (world.state() != RunWorld.STATE_PAUSED) {
                     // FIRE is Pause (reverted from interactive basic attack)
                     // Attack: 5 and 1 only; this control is now used for pause
@@ -212,15 +221,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                 if (world.state() == RunWorld.STATE_GAME_OVER || world.state() == RunWorld.STATE_VICTORY) {
                     handleRunEnd();
                 }
-            }
-            // Pause handling: FIRE edge or numeric '5' (pauseFrom5) triggers pause/resume in gameplay only
-            boolean pauseTrigger = fireEdge || pauseFrom5;
-            pauseFrom5 = false;  // consume '5' latch
-            if (pauseTrigger && world.state() == RunWorld.STATE_RUNNING) {
-                world.pause();
-                pauseIndex = 0;
-            } else if (pauseTrigger && world.state() == RunWorld.STATE_PAUSED) {
-                world.resume();
             }
             // One-shot latches are dropped on every exit from gameplay. While paused the simulation
             // is not ticked, so 5, 9 and 1 would otherwise survive the pause and fire on the first
