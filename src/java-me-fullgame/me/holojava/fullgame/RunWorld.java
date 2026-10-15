@@ -248,10 +248,18 @@ final class RunWorld {
         generateOffers();
     }
 
+    /**
+     * Resolves the playfield size against the current viewport.
+     *
+     * The stage owns the world size; the viewport only supplies it for axes the stage leaves
+     * unspecified (worldW/worldH <= 0). Every stage is still unspecified today, so each axis
+     * resolves exactly as before and this method stays behaviour-neutral. Owning the size on
+     * StageDef is what later lets a stage be larger than the screen and lets a camera scroll it.
+     */
     void setViewport(Viewport viewport) {
         if (viewport == null) return;
-        worldWidth = viewport.worldW;
-        worldHeight = viewport.worldH;
+        if (stage.worldW <= 0) worldWidth = viewport.worldW;
+        if (stage.worldH <= 0) worldHeight = viewport.worldH;
         if (!viewportInitialized) {
             px = (worldWidth - 24) / 2;
             py = (worldHeight - 24) / 2;

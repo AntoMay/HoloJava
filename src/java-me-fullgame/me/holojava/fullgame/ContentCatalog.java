@@ -154,6 +154,12 @@ final class ContentCatalog {
         int bossBTimeSec;
         String documentedSource;
         String coverage;
+        // Stage-owned playfield size. 0 on either axis means "unspecified": the run then takes
+        // that axis from the viewport, which is the historical behaviour for every stage today.
+        // The fields exist so world size stops being overwritten by the screen size on every
+        // frame (see RunWorld.setViewport); no stage sets a value yet.
+        int worldW;
+        int worldH;
     }
 
     static final class CollabDef {
