@@ -201,9 +201,22 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else if (screen == CHARACTERS) updateCharacters(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == STAGES) updateStages(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
         else if (screen == SETTINGS) updateSettings(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
-        else if (screen == CONTROLS) { if (leftEdge || rightEdge || fireEdge) screen = SETTINGS; }
+        else if (screen == CONTROLS) handleControlsInput(leftEdge || rightEdge, fireEdge);
         else if (screen == PREP) updatePrep(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
         else if (screen == RESULTS) updateResults(upEdge, downEdge, fireEdge || leftEdge, rightEdge);
+    }
+
+    /**
+     * The controls page has nothing to navigate, so any of the three confirming inputs returns to
+     * settings. Split out of {@code update()} unchanged, for the same reason as
+     * {@link #handleRunEnd()}: the inline branch sat behind the MIDP {@code getKeyStates()} call
+     * and could not otherwise be executed off-device.
+     *
+     * @param back left or right pressed
+     * @param confirm fire pressed
+     */
+    private void handleControlsInput(boolean back, boolean confirm) {
+        if (back || confirm) screen = SETTINGS;
     }
 
     private void updateMain(boolean up, boolean down, boolean fire) {
