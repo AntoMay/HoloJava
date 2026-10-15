@@ -182,20 +182,27 @@ public final class SaveStoreLegacyMigrationTest {
 
     private static void testNonLegacyRecordLengths() {
         System.out.println("[6/7] non-legacy record lengths");
-        // load()'s else-branch keeps: count = min(length, 48); copy data[0..count-1].
-        // Asserted here as a documented contract of the unchanged branch.
-        int[] lengths = { 0, 1, 7, 47, 48, 49, 200 };
+        // Current layout, matching SaveStore: bytes 0..46 are the per-character completion map,
+        // byte 47 is settings, bytes 48..55 are the permanent coin balance. load()'s else-branch
+        // keeps: count = min(length, DATA_LEN); copy data[0..count-1].
+        final int settingsIndex = 47;
+        final int dataLen = 56;
+        int[] lengths = { 0, 1, 7, 47, 48, 49, 55, 56, 57, 200 };
         for (int i = 0; i < lengths.length; i++) {
             int len = lengths[i];
-            int count = len < 48 ? len : 48;
-            expect(count == (len < 48 ? len : 48), "truncation math for length " + len);
+            int count = len < dataLen ? len : dataLen;
+            expect(count == (len < dataLen ? len : dataLen), "truncation math for length " + len);
             // Below 48 the copy is partial, so data[47] keeps its zero default and settings are
-            // lost. At 48 or above the full payload is copied, settings included, and any bytes
-            // past offset 47 are discarded. Both are pre-existing behaviours, unchanged here.
-            boolean settingsSurvive = len >= 48;
-            expect(settingsSurvive == (count == 48), "settings survival for length " + len);
+            // lost. From 48 up to 55 settings are copied but the coin field is only partly there;
+            // at 56 or above the whole payload is copied. Anything past DATA_LEN is discarded.
+            // That branch is pre-existing; only the record length grew.
+            boolean settingsSurvive = len >= settingsIndex + 1;
+            expect(settingsSurvive == (count >= settingsIndex + 1), "settings survival for length " + len);
+            boolean coinSurvive = len >= dataLen;
+            expect(coinSurvive == (count >= dataLen), "coin survival for length " + len);
         }
-        System.out.println("      (0,1,7,47 -> partial copy, settings lost; 48 -> full; 49,200 -> truncated to 48, settings kept)");
+        System.out.println("      (0,1,7,47 -> partial, settings lost; 48..55 -> settings kept, coin partial;"
+                + " 56+ -> full payload; longer records truncated to " + dataLen + ")");
     }
 
     // ---- helpers -----------------------------------------------------------------
