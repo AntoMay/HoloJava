@@ -477,12 +477,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         Image logo = assets.logo();
         if (logo != null) g.drawImage(logo, x + SPLASH_LOGO_X, y + SPLASH_LOGO_Y, Graphics.TOP | Graphics.LEFT);
 
-        // Both labels fall on the outer band only, where the shared ink measures 4.27:1. White would
-        // be 1.35:1 there, so it is not used.
+        // Prompt centered horizontally, near bottom with margin. Smaller text per design.
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        drawText(g, x + Viewport.MIN_W / 2, y + 12, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_LARGE);
-        drawText(g, x + Viewport.MIN_W / 2, y + SPLASH_PROMPT_Y, "PRESS FIRE TO START",
-                Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        g.setFont(Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL));
+        g.drawString("PRESS 5 TO START", x + Viewport.MIN_W / 2, y + Viewport.MIN_H - 25,
+                Graphics.TOP | Graphics.HCENTER);
     }
 
     /**
