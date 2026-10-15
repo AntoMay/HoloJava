@@ -10,6 +10,13 @@ import javax.microedition.lcdui.game.GameCanvas;
 final class RunWorld {
     private int worldWidth = 320;
     private int worldHeight = 240;
+    // Size of the visible playfield box, taken from Viewport.worldW/worldH. This is the
+    // screen-space area the HUD and overlays anchor to, so it is deliberately not worldWidth:
+    // a world may later be wider than the view, and a HUD element anchored to the far edge of
+    // the world would then be drawn off screen. Both start equal to the world while every stage
+    // still leaves its world size unspecified, which is why this changes no drawing today.
+    private int viewWidth = Viewport.MIN_W;
+    private int viewHeight = Viewport.MIN_H;
     private boolean viewportInitialized;
     static final int STATE_RUNNING = 0;
     static final int STATE_PAUSED = 1;
@@ -258,6 +265,8 @@ final class RunWorld {
      */
     void setViewport(Viewport viewport) {
         if (viewport == null) return;
+        viewWidth = viewport.worldW;
+        viewHeight = viewport.worldH;
         if (stage.worldW <= 0) worldWidth = viewport.worldW;
         if (stage.worldH <= 0) worldHeight = viewport.worldH;
         if (!viewportInitialized) {
@@ -1639,9 +1648,10 @@ final class RunWorld {
             lastItemCount = itemCount;
         }
 
-        // Status run block, top-right. Graphics.RIGHT anchors each line to the world edge, so
-        // the block tracks worldWidth on wider screens without any width estimation.
-        int statusX = offX + worldWidth - STATUS_MARGIN;
+        // Status run block, top-right. Graphics.RIGHT anchors each line to the right edge of the
+        // visible playfield, so the block tracks the viewport rather than the world: a world wider
+        // than the view would otherwise push the whole block off screen.
+        int statusX = offX + viewWidth - STATUS_MARGIN;
         g.setColor(0, 0, 0);
         g.drawString("Status run", statusX, offY + STATUS_TITLE_Y, Graphics.TOP | Graphics.RIGHT);
         g.drawString(cachedLevelExpString, statusX, offY + STATUS_TITLE_Y + STATUS_ROW_H,
@@ -1660,10 +1670,10 @@ final class RunWorld {
             g.drawString(cachedFansString, statusX, offY + FANS_LINE_Y, Graphics.TOP | Graphics.RIGHT);
         }
 
-        // Boss HP bar and name. The bar is centred on the same axis as the HCENTER name text,
-        // so both stay aligned on world widths wider than the 320px design resolution.
+        // Boss HP bar and name. The bar is centred on the visible playfield, the same axis as the
+        // HCENTER name text, so both stay aligned and stay on screen for any view size.
         if (boss.active) {
-            int bossBarX = offX + (worldWidth - BOSS_BAR_W) / 2;
+            int bossBarX = offX + (viewWidth - BOSS_BAR_W) / 2;
             g.setColor(40, 0, 0); g.fillRect(bossBarX, offY + 92, BOSS_BAR_W, BOSS_BAR_H);
             g.setColor(220, 30, 30);
             g.fillRect(bossBarX + BOSS_BAR_INSET, offY + 95,
@@ -1674,12 +1684,12 @@ final class RunWorld {
                 cachedBossName = bossName();
                 lastBossName = cachedBossName;
             }
-            g.drawString(cachedBossName, offX + worldWidth / 2, offY + 96, Graphics.TOP | Graphics.HCENTER);
+            g.drawString(cachedBossName, offX + viewWidth / 2, offY + 96, Graphics.TOP | Graphics.HCENTER);
         }
 
         // Controls hint (constant string, no cache needed but kept for consistency)
         g.setColor(200, 200, 200);
-        g.drawString(cachedControlsHint, offX + worldWidth - 105, offY + worldHeight - 14, Graphics.TOP | Graphics.LEFT);
+        g.drawString(cachedControlsHint, offX + viewWidth - 105, offY + viewHeight - 14, Graphics.TOP | Graphics.LEFT);
     }
 
     /**
@@ -1698,12 +1708,15 @@ final class RunWorld {
         g.fillRect(sx + SLOT_INSET, sy + SLOT_INSET, SLOT_W - 2 * SLOT_INSET, SLOT_H - 2 * SLOT_INSET);
     }
 
+    /** Superseded by FullGameCanvas.drawLevelUp, which already draws this overlay in screen space.
+     *  Kept in step with it: like every other overlay the panel and its title anchor to the
+     *  visible playfield, never to the world. */
     private void drawLevelUp(Graphics g, int offX, int offY) {
-        g.setColor(0, 0, 0); g.fillRect(offX, offY, worldWidth, worldHeight);
+        g.setColor(0, 0, 0); g.fillRect(offX, offY, viewWidth, viewHeight);
         Font small = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         Font medium = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
         g.setFont(medium); g.setColor(255, 255, 255);
-        g.drawString("LEVEL UP", offX + worldWidth / 2, offY + 12, Graphics.TOP | Graphics.HCENTER);
+        g.drawString("LEVEL UP", offX + viewWidth / 2, offY + 12, Graphics.TOP | Graphics.HCENTER);
         g.setFont(small);
         int y = 44;
         for (int i = 0; i < offerCount; i++) {
