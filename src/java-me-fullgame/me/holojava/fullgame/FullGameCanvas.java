@@ -23,18 +23,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     /**
      * Gameplay key bindings.
      *
-     * <p>The basic attack lives on 5, on FIRE, and on the GAME_A game action. All three reach the
-     * world as a single boolean, so one physical press produces exactly one attack dispatch and a
-     * handset that maps GAME_A to a different physical key than 5 or FIRE still works. 1 is kept as
-     * an explicit numeric fallback for handsets whose GAME_A is unusable.
-     *
-     * <p>Pause moved off FIRE to 0, because FIRE is now the primary attack and one key cannot be
-     * both. Menu confirm, level-up confirm, cancel/back and the d-pad are untouched. 8 took over the
-     * skill binding from 5, which is now the attack; 9 keeps the special.
+     * <p>Basic attack lives on GAME_A and 1. FIRE and 5 are pause in gameplay.
+     * Menu confirm uses FIRE, L, R. Level-up confirm uses FIRE.
+     * 8 is skill, 9 is special, 0 is alternate pause.
      */
-    private static final int KEY_ATTACK = '5';
-    private static final int KEY_ATTACK_ALT = '1';
-    private static final int KEY_PAUSE = '0';
+    private static final int KEY_ATTACK = '5';       // pause in gameplay (also attack alt in old scheme)
+    private static final int KEY_ATTACK_ALT = '1';   // basic attack
+    private static final int KEY_PAUSE = '0';        // alternate pause
     private static final int KEY_SKILL = '8';
     private static final int KEY_SPECIAL = '9';
 
@@ -95,6 +90,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private boolean attackWasDown;
     private volatile boolean attackPulse;
     private volatile boolean pausePressed;
+    private volatile boolean pauseFrom5;  // latch for numeric '5' key press (pause in gameplay)
     private int characterPage;
     private final Viewport viewport = new Viewport();
     private RunWorld world;
@@ -159,7 +155,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         // Numeric action keys, declared as constants so the CONTROLS page, the in-game hint and
         // this dispatch cannot drift apart. Every binding here is a one-shot latch consumed by the
         // next update() on the game thread; keyPressed itself runs on the device event thread.
-        if (key == KEY_ATTACK) attackPulse = true;
+        if (key == KEY_ATTACK) {
+            attackPulse = true;      // attack in gameplay
+            pauseFrom5 = true;       // pause in gameplay (FIRE/5 both pause)
+        }
         if (key == KEY_ATTACK_ALT) attackPulse = true;
         if (key == KEY_SKILL) skillPressed = true;
         if (key == KEY_SPECIAL) specialPressed = true;
@@ -171,7 +170,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         // Attack comes from keys 5 and 1 only; FIRE triggers pause
         int keys = getKeyStates();
         boolean fire = (keys & FIRE_PRESSED) != 0;
-        if (fire) pausePressed = true;
         boolean up = (keys & UP_PRESSED) != 0;
         boolean down = (keys & DOWN_PRESSED) != 0;
         boolean left = (keys & LEFT_PRESSED) != 0;
@@ -215,6 +213,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                     handleRunEnd();
                 }
             }
+            // Pause handling: FIRE edge or numeric '5' (pauseFrom5) triggers pause/resume in gameplay only
+            boolean pauseTrigger = fireEdge || pauseFrom5;
+            pauseFrom5 = false;  // consume '5' latch
+            if (pauseTrigger && world.state() == RunWorld.STATE_RUNNING) {
+                world.pause();
+                pauseIndex = 0;
+            } else if (pauseTrigger && world.state() == RunWorld.STATE_PAUSED) {
+                world.resume();
+            }
             // One-shot latches are dropped on every exit from gameplay. While paused the simulation
             // is not ticked, so 5, 9 and 1 would otherwise survive the pause and fire on the first
             // tick after resuming.
@@ -222,6 +229,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             skillPressed = false;
             specialPressed = false;
             pausePressed = false;
+            pauseFrom5 = false;
             return;
         }
         // L/R map onto the two menu roles the d-pad directions do not already own. A direction is
@@ -376,6 +384,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         world = new RunWorld(assets, save, characterIndex, modeIndex, stageIndex);
         world.setViewport(viewport);
         screen = GAME;
+        pauseFrom5 = false;  // clear '5' latch so it doesn't trigger pause immediately after start
     }
 
     /**
@@ -508,6 +517,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         specialPressed = false;
         attackPulse = false;
         pausePressed = false;
+        pauseFrom5 = false;
         fireWasDown = (keys & FIRE_PRESSED) != 0;
         upWasDown = (keys & UP_PRESSED) != 0;
         downWasDown = (keys & DOWN_PRESSED) != 0;
@@ -743,9 +753,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         title(g, x, y, "CONTROLS");
         ink(g);
         drawText(g, x + 24, y + 60, "D-pad: move / menu navigation", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 82, "GAME A / FIRE / 5 / 1: basic attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 104, "0: pause   FIRE: select / confirm", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 126, "L and R are extra select / back keys in menus", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 82, "GAME A / 1: basic attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 104, "FIRE / 5: pause in gameplay", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 126, "0: pause (alt)   FIRE: select / confirm in menus", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 148, "8: skill   9: special attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 180, "Orbiting and passive weapons may fire autonomously.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }

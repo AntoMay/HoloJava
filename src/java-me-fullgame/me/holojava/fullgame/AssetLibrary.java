@@ -100,12 +100,7 @@ final class AssetLibrary {
         tentacle = image("/assets/fullgame/projectiles/tentacle.png");
         pickupIcon = image("/assets/fullgame/ui/pickup_icon.png");
 
-        // Load melee animations for each character
-        meleeAnims[0] = loadMeleeAnim("Gura", 11, 14); // Gura: 11 frames, ~14ms per frame (160ms total)
-        meleeAnims[1] = loadMeleeAnim("Ame", 2, 80);    // Ame: 2 frames (bullet), 80ms per frame
-        meleeAnims[2] = loadMeleeAnim("Calli", 20, 8);  // Calli: 20 frames (10+10), 8ms per frame
-        meleeAnims[3] = loadMeleeAnim("Kiara", 22, 7);  // Kiara: 22 frames (12+10), ~7ms per frame
-        meleeAnims[4] = loadMeleeAnim("Ina", 13, 12);   // Ina: 13 frames (12+1), ~12ms per frame
+        // Melee animations loaded lazily on first use to avoid startup memory pressure
     }
 
     private MeleeAnimation loadMeleeAnim(String group, int frameCount, int frameDuration) {
@@ -113,10 +108,66 @@ final class AssetLibrary {
         anim.frames = new Image[frameCount];
         anim.frameDuration = frameDuration;
         String dir = "/assets/fullgame/melee/" + group + "/";
-        String prefix = "";
         for (int i = 0; i < frameCount; i++) {
             anim.frames[i] = image(dir + i + ".png");
         }
+        return anim;
+    }
+
+    private MeleeAnimation loadGuraMelee() {
+        MeleeAnimation anim = new MeleeAnimation();
+        anim.frames = new Image[11];
+        anim.frameDuration = 14;
+        for (int i = 0; i < 11; i++) {
+            anim.frames[i] = image("/assets/fullgame/melee/Gura/spr_GuraTridentThrust_" + i + ".png");
+        }
+        return anim;
+    }
+
+    private MeleeAnimation loadAmeMelee() {
+        MeleeAnimation anim = new MeleeAnimation();
+        anim.frames = new Image[2];
+        anim.frameDuration = 80;
+        for (int i = 0; i < 2; i++) {
+            anim.frames[i] = image("/assets/fullgame/melee/Ame/spr_Ame_bullet_" + i + ".png");
+        }
+        return anim;
+    }
+
+    private MeleeAnimation loadCalliMelee() {
+        MeleeAnimation anim = new MeleeAnimation();
+        anim.frames = new Image[20];
+        anim.frameDuration = 8;
+        for (int i = 0; i < 10; i++) {
+            anim.frames[i] = image("/assets/fullgame/melee/Calli/spr_CalliSlash1_" + i + ".png");
+        }
+        for (int i = 0; i < 10; i++) {
+            anim.frames[10 + i] = image("/assets/fullgame/melee/Calli/spr_CalliSlash2_" + i + ".png");
+        }
+        return anim;
+    }
+
+    private MeleeAnimation loadKiaraMelee() {
+        MeleeAnimation anim = new MeleeAnimation();
+        anim.frames = new Image[22];
+        anim.frameDuration = 7;
+        for (int i = 0; i < 12; i++) {
+            anim.frames[i] = image("/assets/fullgame/melee/Kiara/spr_KiaraFireSlash_" + i + ".png");
+        }
+        for (int i = 0; i < 10; i++) {
+            anim.frames[12 + i] = image("/assets/fullgame/melee/Kiara/spr_KiaraSlash_" + i + ".png");
+        }
+        return anim;
+    }
+
+    private MeleeAnimation loadInaMelee() {
+        MeleeAnimation anim = new MeleeAnimation();
+        anim.frames = new Image[13];
+        anim.frameDuration = 12;
+        for (int i = 0; i < 12; i++) {
+            anim.frames[i] = image("/assets/fullgame/melee/Ina/spr_InaAttackFX_" + i + ".png");
+        }
+        anim.frames[12] = image("/assets/fullgame/melee/Ina/spr_InaWeapon_0.png");
         return anim;
     }
 
@@ -220,6 +271,15 @@ final class AssetLibrary {
 
     MeleeAnimation meleeAnim(int characterIndex) {
         if (characterIndex < 0 || characterIndex >= meleeAnims.length) return null;
+        if (meleeAnims[characterIndex] == null) {
+            switch (characterIndex) {
+                case 0: meleeAnims[0] = loadGuraMelee(); break;  // Gura: 11 frames, ~14ms/frame
+                case 1: meleeAnims[1] = loadAmeMelee(); break;   // Ame: 2 frames, 80ms/frame
+                case 2: meleeAnims[2] = loadCalliMelee(); break; // Calli: 20 frames, 8ms/frame
+                case 3: meleeAnims[3] = loadKiaraMelee(); break; // Kiara: 22 frames, ~7ms/frame
+                case 4: meleeAnims[4] = loadInaMelee(); break;   // Ina: 13 frames, ~12ms/frame
+            }
+        }
         return meleeAnims[characterIndex];
     }
 
