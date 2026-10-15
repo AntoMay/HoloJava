@@ -267,13 +267,33 @@ final class RunWorld {
         if (viewport == null) return;
         viewWidth = viewport.worldW;
         viewHeight = viewport.worldH;
-        if (stage.worldW <= 0) worldWidth = viewport.worldW;
+        if (stage.scrollW > 0) worldWidth = viewWidth * stage.scrollW;
+        else if (stage.worldW > 0) worldWidth = stage.worldW;
         if (stage.worldH <= 0) worldHeight = viewport.worldH;
         if (!viewportInitialized) {
             px = (worldWidth - 24) / 2;
             py = (worldHeight - 24) / 2;
             viewportInitialized = true;
         }
+    }
+
+    /**
+     * The single horizontal camera value: the world x coordinate shown at the left edge of the
+     * visible playfield. It is derived only from the player position and clamped to the world, so
+     * the view can never show anything outside the playfield, and it stays 0 whenever the world is
+     * not wider than the view. Every stage except Holo Office has an equal world and view today,
+     * so those keep an exactly zero offset and render exactly as before.
+     *
+     * <p>Deliberately not a field: reading it at draw time keeps it consistent with the current
+     * px even on the first frame and while the simulation is frozen.
+     */
+    private int cameraX() {
+        int travel = worldWidth - viewWidth;
+        if (travel <= 0) return 0;
+        int target = playerCenterX() - viewWidth / 2;
+        if (target < 0) return 0;
+        if (target > travel) return travel;
+        return target;
     }
 
     int worldWidth() { return worldWidth; }
@@ -1491,11 +1511,15 @@ final class RunWorld {
     }
 
     void draw(Graphics g, int offX, int offY, long now) {
-        drawBackground(g, offX, offY);
+        // offX/offY are screen-space viewport offsets (Viewport.offsetX/offsetY). Only the world
+        // layers shift by the camera; the HUD below keeps the untouched screen offsets.
+        int cameraX = cameraX();
+        int worldOffX = offX - cameraX;
+        drawBackground(g, worldOffX, offY, cameraX);
         for (int i = 0; i < pickups.length; i++) {
             Pickup p = pickups[i];
             if (!p.active) continue;
-            int x = offX + p.x; int y = offY + p.y;
+            int x = worldOffX + p.x; int y = offY + p.y;
             if (p.type == 0) {
                 Image frame = frame(assets.expFrames, (int) ((now - p.born) / 80L));
                 if (frame != null) g.drawImage(frame, x, y, Graphics.TOP | Graphics.LEFT);
@@ -1515,7 +1539,7 @@ final class RunWorld {
             Shot s = shots[i];
             if (!s.active) continue;
             Image im = s.fromPlayer ? assets.projectile(s.sprite) : assets.bullet;
-            int x = offX + s.x; int y = offY + s.y;
+            int x = worldOffX + s.x; int y = offY + s.y;
             if (im != null) g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
             else { g.setColor(s.fromPlayer ? 255 : 255, 255, s.fromPlayer ? 255 : 120); g.fillRect(x, y, 7, 7); }
         }
@@ -1524,7 +1548,7 @@ final class RunWorld {
             if (!e.active) continue;
             Image[] frames = assets.enemyFrames(e.defIndex);
             Image im = frame(frames, e.anim);
-            int x = offX + e.x; int y = offY + e.y;
+            int x = worldOffX + e.x; int y = offY + e.y;
             if (im != null) g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
             else { g.setColor(180, 0, 0); g.fillRect(x, y, enemyWidth(e.defIndex), enemyHeight(e.defIndex)); }
             if (e.defIndex == 3 || e.defIndex == 4 || e.defIndex == 11) {
@@ -1534,28 +1558,39 @@ final class RunWorld {
         if (boss.active) {
             Image[] frames = assets.bossFrames(boss.defIndex);
             Image im = frame(frames, boss.anim);
-            int x = offX + boss.x; int y = offY + boss.y;
+            int x = worldOffX + boss.x; int y = offY + boss.y;
             if (im != null) g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
             else { g.setColor(140, 0, 0); g.fillRect(x, y, bossWidth(), bossHeight()); }
-            drawPlayer(g, offX, offY, now);
+            drawPlayer(g, worldOffX, offY, now);
             drawHud(g, offX, offY, now);
             return;
         }
-        drawPlayer(g, offX, offY, now);
+        drawPlayer(g, worldOffX, offY, now);
         drawHud(g, offX, offY, now);
     }
 
-    private void drawBackground(Graphics g, int offX, int offY) {
+    /**
+     * Paints the palette base over exactly the visible playfield, then repeats the stage floor
+     * tile across only the columns the camera can see. The first column is snapped down to a tile
+     * boundary so a partial tile still lands on its own boundary and the repetition stays seamless;
+     * because cameraX is clamped to worldWidth - viewWidth, the visible range can never run past
+     * the world, so no tile is ever drawn outside it. Vertical extent is unchanged: rows are still
+     * laid over the playfield height, so there is no vertical scrolling.
+     */
+    private void drawBackground(Graphics g, int offX, int offY, int cameraX) {
         int[][] colors = { { 22, 48, 30 }, { 42, 44, 54 }, { 46, 28, 34 }, { 58, 42, 30 },
                 { 28, 52, 62 }, { 16, 24, 40 }, { 54, 34, 40 }, { 42, 20, 30 },
                 { 18, 18, 34 }, { 36, 20, 52 } };
         int c = stage.palette % colors.length;
         g.setColor(colors[c][0], colors[c][1], colors[c][2]);
-        g.fillRect(offX, offY, worldWidth, worldHeight);
+        g.fillRect(offX + cameraX, offY, viewWidth, viewHeight);
         Image tile = assets.tile(stage.tile);
         if (tile != null) {
             int tw = tile.getWidth(); int th = tile.getHeight();
-            for (int y = 0; y < worldHeight; y += th) for (int x = 0; x < worldWidth; x += tw) g.drawImage(tile, offX + x, offY + y, Graphics.TOP | Graphics.LEFT);
+            int firstX = cameraX - (cameraX % tw);
+            int lastX = cameraX + viewWidth;
+            for (int y = 0; y < viewHeight; y += th)
+                for (int x = firstX; x < lastX; x += tw) g.drawImage(tile, offX + x, offY + y, Graphics.TOP | Graphics.LEFT);
         }
     }
 

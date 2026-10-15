@@ -160,6 +160,12 @@ final class ContentCatalog {
         // frame (see RunWorld.setViewport); no stage sets a value yet.
         int worldW;
         int worldH;
+        // Horizontal playfield width as a multiple of the visible width (Viewport.worldW).
+        // 0 means no horizontal scrolling: the world width then comes from worldW above, which
+        // in turn falls back to the viewport. A stage only sets this when its playfield is
+        // genuinely wider than the screen; the width then adapts to the screen instead of being
+        // pinned to one constant, so the world stays wider than the view on any display.
+        int scrollW;
     }
 
     static final class CollabDef {
@@ -278,6 +284,18 @@ final class ContentCatalog {
         stage("stage4h", "Gelora Bung Yagoo (Night)", true, false, 8, "yagoo", 8, "moonafic_vip", "moonafic", "moonafic_vip", 800, 38, 50000, 7, "udin", 600, "goriela", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m Goriela uses fallback asset"),
         stage("time1", "Concert Stage", false, true, 9, "concert", 9, "otaku", "otaku", "otaku", 650, 40, 0, 2, "", 0, "", 0, "https://holocure.wiki.gg/wiki/Stage", "Time Mode target 4000; collabs and super items disabled")
     };
+
+    static {
+        // Holo Office is the one stage whose playfield is wider than the screen. The source room
+        // (HoloCure_Unpacked/index/Rooms_Detail.txt, rm_HoloOffice) is 6400x2248, i.e. far wider
+        // than tall, which is why this stage scrolls sideways only. That original width cannot be
+        // used literally: 6400 px does not fit a 320 px screen and MIDP 2.0 cannot scale images at
+        // runtime, so the world is expressed as a multiple of the visible width instead. Two
+        // screens of horizontal travel is the smallest value that still gives a real exploration
+        // area while keeping the world twice, not many times, the view. stage2h (Evening) is
+        // deliberately left alone and keeps the viewport-sized world.
+        for (int i = 0; i < STAGES.length; i++) if ("stage2".equals(STAGES[i].id)) STAGES[i].scrollW = 2;
+    }
 
     static final CollabDef[] COLLABS;
 
