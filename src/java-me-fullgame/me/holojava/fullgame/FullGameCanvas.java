@@ -167,8 +167,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void update(long now) {
+        // FIRE is now Pause (reverted from interactive basic attack)
+        // Attack comes from keys 5 and 1 only; FIRE triggers pause
         int keys = getKeyStates();
         boolean fire = (keys & FIRE_PRESSED) != 0;
+        if (fire) pausePressed = true;
         boolean up = (keys & UP_PRESSED) != 0;
         boolean down = (keys & DOWN_PRESSED) != 0;
         boolean left = (keys & LEFT_PRESSED) != 0;
@@ -195,11 +198,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             } else {
                 if (pausePulse() && world.state() == RunWorld.STATE_RUNNING) { world.pause(); pauseIndex = 0; }
                 if (world.state() != RunWorld.STATE_PAUSED) {
-                    // FIRE is the primary attack during gameplay as well as the confirm key: it is
+                    // FIRE is Pause (reverted from interactive basic attack)
+                    // Attack: 5 and 1 only; this control is now used for pause
                     // the one control every MIDP handset is guaranteed to have. The level-up screen
                     // below still confirms on FIRE, and RunWorld.update ignores a non-running state,
                     // so a confirm there never also fires a weapon.
-                    world.update(keys, attackHeld || attackEdge || attackPulse || fire,
+                    world.update(keys, attackHeld || attackEdge || attackPulse,
                             skillPressed, specialPressed, now);
                 }
                 if (world.state() == RunWorld.STATE_LEVEL_UP) {

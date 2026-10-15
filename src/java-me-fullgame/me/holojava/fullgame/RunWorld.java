@@ -798,8 +798,7 @@ final class RunWorld {
             int wid = weaponSlots[s];
             if (wid < 0 || now < weaponReadyAt[s]) continue;
             ContentCatalog.WeaponDef def = ContentCatalog.weapon(wid);
-            boolean autonomous = def.pattern == ContentCatalog.PATTERN_ORBIT;
-            if (!attackPressed && !autonomous) continue;
+            // Weapons fire when cooldown ready;
             fireWeapon(s, def, now);
             int haste = 100 + hastePercent + (weaponLevels[s] - 1) * 5;
             int cooldown = Math.max(80, def.cooldownMs * 100 / Math.max(50, haste));
@@ -1276,7 +1275,7 @@ final class RunWorld {
     private int chooseOfferType(int slot) {
         int r = rand(20);
         if (slot < 2) {
-            if (r < 7 && !skillAcquired) return OFFER_SKILL;
+            if (r < 20 && !skillAcquired) return OFFER_SKILL;
             if (r < 14) return OFFER_WEAPON;
             if (r < 19) return OFFER_ITEM;
             return OFFER_STAT;
