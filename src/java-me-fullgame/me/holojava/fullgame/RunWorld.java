@@ -882,6 +882,9 @@ final class RunWorld {
             m.damage = damage; m.critical = crit; m.knockback = def.knockback;
             m.weaponIndex = def.id.hashCode();
             m.hitMask = 0L; m.bossHit = false;
+            m.animFrame = 0;
+            m.animTimer = System.currentTimeMillis();
+            m.animDir = facingX >= 0 ? 1 : -1;
             return;
         }
     }
@@ -1587,10 +1590,12 @@ final class RunWorld {
             if (im != null) g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
             else { g.setColor(140, 0, 0); g.fillRect(x, y, bossWidth(), bossHeight()); }
             drawPlayer(g, worldOffX, offY, now);
+            drawMelee(g, worldOffX, offY, now);
             drawHud(g, offX, offY, now);
             return;
         }
         drawPlayer(g, worldOffX, offY, now);
+        drawMelee(g, worldOffX, offY, now);
         drawHud(g, offX, offY, now);
     }
 
@@ -1633,6 +1638,35 @@ final class RunWorld {
             int wx = x + (facingX >= 0 ? 18 : -6);
             int wy = y + 8;
             g.drawImage(ca.weapon, wx, wy, Graphics.TOP | Graphics.LEFT);
+        }
+    }
+
+    private void drawMelee(Graphics g, int offX, int offY, long now) {
+        for (int i = 0; i < melee.length; i++) {
+            Melee m = melee[i];
+            if (!m.active) continue;
+            // Get the melee animation for this character
+            AssetLibrary.MeleeAnimation anim = assets.meleeAnim(characterIndex);
+            if (anim == null || anim.frames == null || anim.frames.length == 0) continue;
+
+            // Update animation frame
+            long elapsed = now - m.animTimer;
+            int frameIndex = (int) (elapsed / anim.frameDuration);
+            if (frameIndex >= anim.frames.length) {
+                frameIndex = anim.frames.length - 1;
+            }
+            m.animFrame = frameIndex;
+
+            Image frame = anim.frames[frameIndex];
+            if (frame == null) continue;
+
+            // Position the melee animation relative to player
+            int x = offX + px;
+            int y = offY + py;
+            int mx = x + (m.animDir >= 0 ? 18 : -6 - frame.getWidth());
+            int my = py + 8;
+
+            g.drawImage(frame, mx, my, Graphics.TOP | Graphics.LEFT);
         }
     }
 
@@ -1811,6 +1845,7 @@ final class RunWorld {
     private static final class Melee {
         boolean active; boolean critical; long until; int x; int y; int range; int area; int damage;
         int knockback; int weaponIndex; long hitMask; boolean bossHit;
+        int animFrame; long animTimer; int animDir; int animWeaponType;
     }
     private static final class Pickup {
         boolean active; int type; int value; int x; int y; long born;

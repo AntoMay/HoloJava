@@ -15,9 +15,15 @@ final class AssetLibrary {
         Image[] frames;
     }
 
+    static final class MeleeAnimation {
+        Image[] frames;
+        int frameDuration; // ms per frame
+    }
+
     final CharacterAssets[] characters = new CharacterAssets[ContentCatalog.CHARACTERS.length];
     final AnimationSet[] enemies = new AnimationSet[ContentCatalog.ENEMIES.length];
     final AnimationSet[] bosses = new AnimationSet[ContentCatalog.BOSSES.length];
+    final MeleeAnimation[] meleeAnims = new MeleeAnimation[ContentCatalog.CHARACTERS.length];
     Image[] expFrames;
     Image coin;
     Image bullet;
@@ -93,6 +99,25 @@ final class AssetLibrary {
         phoenix = image("/assets/fullgame/projectiles/phoenix.png");
         tentacle = image("/assets/fullgame/projectiles/tentacle.png");
         pickupIcon = image("/assets/fullgame/ui/pickup_icon.png");
+
+        // Load melee animations for each character
+        meleeAnims[0] = loadMeleeAnim("Gura", 11, 14); // Gura: 11 frames, ~14ms per frame (160ms total)
+        meleeAnims[1] = loadMeleeAnim("Ame", 2, 80);    // Ame: 2 frames (bullet), 80ms per frame
+        meleeAnims[2] = loadMeleeAnim("Calli", 20, 8);  // Calli: 20 frames (10+10), 8ms per frame
+        meleeAnims[3] = loadMeleeAnim("Kiara", 22, 7);  // Kiara: 22 frames (12+10), ~7ms per frame
+        meleeAnims[4] = loadMeleeAnim("Ina", 13, 12);   // Ina: 13 frames (12+1), ~12ms per frame
+    }
+
+    private MeleeAnimation loadMeleeAnim(String group, int frameCount, int frameDuration) {
+        MeleeAnimation anim = new MeleeAnimation();
+        anim.frames = new Image[frameCount];
+        anim.frameDuration = frameDuration;
+        String dir = "/assets/fullgame/melee/" + group + "/";
+        String prefix = "";
+        for (int i = 0; i < frameCount; i++) {
+            anim.frames[i] = image(dir + i + ".png");
+        }
+        return anim;
     }
 
     /** Releases stage-scoped enemy/boss images and loads only the selected stage's families. */
@@ -191,6 +216,11 @@ final class AssetLibrary {
     Image[] enemyFrames(int index) {
         if (enemies[index].frames == null) loadEnemy(ContentCatalog.ENEMIES[index].id);
         return enemies[index].frames;
+    }
+
+    MeleeAnimation meleeAnim(int characterIndex) {
+        if (characterIndex < 0 || characterIndex >= meleeAnims.length) return null;
+        return meleeAnims[characterIndex];
     }
 
     Image[] bossFrames(int index) {
