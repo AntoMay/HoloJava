@@ -1539,6 +1539,30 @@ final class RunWorld {
         return ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah;
     }
 
+    /**
+     * Visual-only melee effect anchors. The effect's leading edge starts at
+     * the player center and extends toward the facing direction; both sides
+     * use the same frame (MIDP 2.0 has no mirror primitive). Package-visible
+     * for deterministic visual-contract tests; hitbox code does not use these.
+     */
+    static int meleeDrawX(int cx, int frameW, boolean facingRight) {
+        return facingRight ? cx : cx - frameW;
+    }
+
+    static int meleeDrawY(int cy, int frameH) {
+        return cy - frameH / 2;
+    }
+
+    /** Overhead-weapon lunge in pixels while a melee effect is active. */
+    static int weaponLungePx(boolean meleeActive) {
+        return meleeActive ? 6 : 0;
+    }
+
+    private boolean anyMeleeActive() {
+        for (int i = 0; i < melee.length; i++) if (melee[i].active) return true;
+        return false;
+    }
+
     private void clampEnemy(Enemy e, int w, int h) {
         if (e.x < -w) e.x = -w; if (e.y < -h) e.y = -h;
         if (e.x > worldWidth) e.x = worldWidth; if (e.y > worldHeight) e.y = worldHeight;
@@ -1641,7 +1665,11 @@ final class RunWorld {
             else { g.setColor(30, 160, 60); g.fillRect(x, y, 24, 24); }
         }
         if (ca.weapon != null) {
-            int wx = x + (facingX >= 0 ? 18 : -6);
+            // The overhead weapon lunges toward the facing direction while a
+            // melee effect is active, so it moves in phase with the effect
+            // instead of sitting static. Read-only use of melee state.
+            int lunge = weaponLungePx(anyMeleeActive());
+            int wx = x + (facingX >= 0 ? 18 + lunge : -6 - lunge);
             int wy = y + 8;
             g.drawImage(ca.weapon, wx, wy, Graphics.TOP | Graphics.LEFT);
         }
@@ -1666,21 +1694,16 @@ final class RunWorld {
             Image frame = anim.frames[frameIndex];
             if (frame == null) continue;
 
-            // Center the melee animation on the collision box center (player center)
-            // Collision box is m.area x m.area centered on player center (px+12, py+12)
+            // Front-anchored to the facing direction: the effect extends ahead
+            // of the character instead of straddling the center, and the left
+            // side mirrors the right side. MIDP 2.0 cannot mirror images, so
+            // the same frame is anchored to the correct edge. Hitbox untouched.
             int cx = offX + px + 12;
             int cy = offY + py + 12;
             int frameW = frame.getWidth();
             int frameH = frame.getHeight();
-            int mx = cx - frameW / 2;
-            int my = cy - frameH / 2;
-
-            // Adjust for facing direction: flip horizontally by offset when facing left
-            if (m.animDir < 0) {
-                // For left-facing, shift left by frame width to simulate flip
-                // Since MIDP can't flip images, we draw from the right edge
-                mx = cx + frameW / 2;
-            }
+            int mx = meleeDrawX(cx, frameW, m.animDir >= 0);
+            int my = meleeDrawY(cy, frameH);
 
             g.drawImage(frame, mx, my, Graphics.TOP | Graphics.LEFT);
         }

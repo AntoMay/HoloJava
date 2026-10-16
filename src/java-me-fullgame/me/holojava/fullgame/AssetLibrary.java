@@ -119,7 +119,7 @@ final class AssetLibrary {
         anim.frames = new Image[11];
         anim.frameDuration = 14;
         for (int i = 0; i < 11; i++) {
-            anim.frames[i] = image("/assets/fullgame/melee/Gura/spr_GuraTridentThrust_" + i + ".png");
+            anim.frames[i] = downscale(image("/assets/fullgame/melee/Gura/spr_GuraTridentThrust_" + i + ".png"));
         }
         return anim;
     }
@@ -139,10 +139,10 @@ final class AssetLibrary {
         anim.frames = new Image[20];
         anim.frameDuration = 8;
         for (int i = 0; i < 10; i++) {
-            anim.frames[i] = image("/assets/fullgame/melee/Calli/spr_CalliSlash1_" + i + ".png");
+            anim.frames[i] = downscale(image("/assets/fullgame/melee/Calli/spr_CalliSlash1_" + i + ".png"));
         }
         for (int i = 0; i < 10; i++) {
-            anim.frames[10 + i] = image("/assets/fullgame/melee/Calli/spr_CalliSlash2_" + i + ".png");
+            anim.frames[10 + i] = downscale(image("/assets/fullgame/melee/Calli/spr_CalliSlash2_" + i + ".png"));
         }
         return anim;
     }
@@ -152,10 +152,10 @@ final class AssetLibrary {
         anim.frames = new Image[22];
         anim.frameDuration = 7;
         for (int i = 0; i < 12; i++) {
-            anim.frames[i] = image("/assets/fullgame/melee/Kiara/spr_KiaraFireSlash_" + i + ".png");
+            anim.frames[i] = downscale(image("/assets/fullgame/melee/Kiara/spr_KiaraFireSlash_" + i + ".png"));
         }
         for (int i = 0; i < 10; i++) {
-            anim.frames[12 + i] = image("/assets/fullgame/melee/Kiara/spr_KiaraSlash_" + i + ".png");
+            anim.frames[12 + i] = downscale(image("/assets/fullgame/melee/Kiara/spr_KiaraSlash_" + i + ".png"));
         }
         return anim;
     }
@@ -165,9 +165,9 @@ final class AssetLibrary {
         anim.frames = new Image[13];
         anim.frameDuration = 12;
         for (int i = 0; i < 12; i++) {
-            anim.frames[i] = image("/assets/fullgame/melee/Ina/spr_InaAttackFX_" + i + ".png");
+            anim.frames[i] = downscale(image("/assets/fullgame/melee/Ina/spr_InaAttackFX_" + i + ".png"));
         }
-        anim.frames[12] = image("/assets/fullgame/melee/Ina/spr_InaWeapon_0.png");
+        anim.frames[12] = downscale(image("/assets/fullgame/melee/Ina/spr_InaWeapon_0.png"));
         return anim;
     }
 
@@ -380,6 +380,62 @@ final class AssetLibrary {
             failures++;
             if (firstFailure.length() == 0) firstFailure = path;
             return null;
+        }
+    }
+
+    /**
+     * Longest-side ceiling for melee effect frames, in pixels. Measured source
+     * frames reach 141-182 px on the long side (player collision box is 24 px),
+     * so 64 keeps effects readable at ~1.5x character width without dominating
+     * the 320x240 playfield. Each shape keeps its own aspect ratio, hence its
+     * own effective factor (0.35-0.55). Source assets are never modified.
+     */
+    static final int MELEE_EFFECT_CAP_PX = 64;
+
+    /**
+     * Target size preserving aspect ratio under the longest-side cap.
+     * Pure integer math (CLDC-safe). Returns {width, height}; inputs at or
+     * under the cap, and 1x1 empty markers, pass through unchanged.
+     */
+    static int[] fitWithin(int sw, int sh, int cap) {
+        if (sw <= cap && sh <= cap) return new int[] { sw, sh };
+        int longest = Math.max(sw, sh);
+        int dw = Math.max(1, sw * cap / longest);
+        int dh = Math.max(1, sh * cap / longest);
+        return new int[] { dw, dh };
+    }
+
+    /**
+     * Load-time nearest-neighbor downscale for melee effect frames only.
+     * MIDP 2.0 has no runtime image scaling, so oversized frames are reduced
+     * once at load; gameplay code, hitboxes, and frame counts are untouched.
+     * Falls back to the source image when pixels are unavailable.
+     */
+    private Image downscale(Image src) {
+        if (src == null) return null;
+        int sw = src.getWidth();
+        int sh = src.getHeight();
+        int[] size = fitWithin(sw, sh, MELEE_EFFECT_CAP_PX);
+        if (size[0] == sw && size[1] == sh) return src;
+        int dw = size[0];
+        int dh = size[1];
+        int[] pixels = new int[sw * sh];
+        try {
+            src.getRGB(pixels, 0, sw, 0, 0, sw, sh);
+        } catch (Exception e) {
+            return src;
+        }
+        int[] out = new int[dw * dh];
+        for (int y = 0; y < dh; y++) {
+            int sy = y * sh / dh;
+            for (int x = 0; x < dw; x++) {
+                out[y * dw + x] = pixels[sy * sw + x * sw / dw];
+            }
+        }
+        try {
+            return Image.createRGBImage(out, dw, dh, true);
+        } catch (Exception e) {
+            return src;
         }
     }
 }
