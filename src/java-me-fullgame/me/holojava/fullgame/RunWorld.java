@@ -1553,6 +1553,22 @@ final class RunWorld {
         return cy - frameH / 2;
     }
 
+    /**
+     * Visual-only attack lunge in pixels: while a melee effect is active the
+     * whole character (whose frames already hold the weapon) shifts a few
+     * pixels toward the facing direction, so the held weapon moves with the
+     * swing instead of standing static under the effect. Positive means
+     * toward the right; the caller negates for left. Hitbox untouched.
+     */
+    static int playerLungePx(boolean meleeActive) {
+        return meleeActive ? 3 : 0;
+    }
+
+    private boolean anyMeleeActive() {
+        for (int i = 0; i < melee.length; i++) if (melee[i].active) return true;
+        return false;
+    }
+
     private void clampEnemy(Enemy e, int w, int h) {
         if (e.x < -w) e.x = -w; if (e.y < -h) e.y = -h;
         if (e.x > worldWidth) e.x = worldWidth; if (e.y > worldHeight) e.y = worldHeight;
@@ -1648,7 +1664,11 @@ final class RunWorld {
         AssetLibrary.CharacterAssets ca = assets.character(characterIndex);
         Image[] frames = moving ? ca.run : ca.idle;
         Image im = frame(frames, (int) (now / (moving ? 90L : 150L)));
-        int x = offX + px; int y = offY + py;
+        // Attack lunge: the held weapon lives inside the character frames, so
+        // the body shifts with the swing while a melee effect is active.
+        int lunge = playerLungePx(anyMeleeActive());
+        int x = offX + px + (facingX >= 0 ? lunge : -lunge);
+        int y = offY + py;
         boolean blink = now < invulUntil && ((now / 100L) % 2L == 0L);
         if (!blink) {
             if (im != null) g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);

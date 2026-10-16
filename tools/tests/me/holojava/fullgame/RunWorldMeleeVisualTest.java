@@ -27,6 +27,7 @@ public final class RunWorldMeleeVisualTest {
         testFitWithinMeasuredFrames();
         testFitWithinLeavesSmallFrames();
         testAnchorSymmetry();
+        testBodyLunge();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -82,6 +83,12 @@ public final class RunWorldMeleeVisualTest {
         expectEq(right + left, 2 * cx - fw, "anchors mirror around the offset center");
         expectEq(RunWorld.meleeDrawY(80, 50), 55, "vertical stays centered");
         expectEq(RunWorld.meleeDrawX(cx, 1, false), 99, "degenerate 1px frame anchors sanely");
+    }
+
+    private static void testBodyLunge() {
+        System.out.println("[5] body lunges with the swing");
+        expectEq(RunWorld.playerLungePx(false), 0, "rest body has no offset");
+        expectEq(RunWorld.playerLungePx(true), 3, "attack shifts the body 3 px");
     }
 
     // ---------------------------------------------------------------- helpers
