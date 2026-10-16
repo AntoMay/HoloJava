@@ -1540,9 +1540,27 @@ final class RunWorld {
     }
 
     /**
+     * Facing convention, shared by character and effect rendering: only
+     * strictly-negative horizontal facing counts as left, matching every
+     * existing {@code facingX >= 0} use. Package-visible for tests.
+     */
+    static boolean facingLeft(int facingX) {
+        return facingX < 0;
+    }
+
+    /**
+     * Picks the mirrored frame set when facing left, falling back to the
+     * normal set when no mirror is available. Visual only.
+     */
+    static Image[] facingFrames(Image[] normal, Image[] mirrored, int facingX) {
+        if (facingLeft(facingX) && mirrored != null) return mirrored;
+        return normal;
+    }
+
+    /**
      * Visual-only melee effect anchors. The effect's leading edge starts at
-     * the player center and extends toward the facing direction; both sides
-     * use the same frame (MIDP 2.0 has no mirror primitive). Package-visible
+     * the player center and extends toward the facing direction; the left
+     * side uses the load-time mirrored frame. Package-visible
      * for deterministic visual-contract tests; hitbox code does not use these.
      */
     static int meleeDrawX(int cx, int frameW, boolean facingRight) {
@@ -1662,7 +1680,9 @@ final class RunWorld {
 
     private void drawPlayer(Graphics g, int offX, int offY, long now) {
         AssetLibrary.CharacterAssets ca = assets.character(characterIndex);
-        Image[] frames = moving ? ca.run : ca.idle;
+        Image[] idle = facingFrames(ca.idle, ca.idleM, facingX);
+        Image[] run = facingFrames(ca.run, ca.runM, facingX);
+        Image[] frames = moving ? run : idle;
         Image im = frame(frames, (int) (now / (moving ? 90L : 150L)));
         // Attack lunge: the held weapon lives inside the character frames, so
         // the body shifts with the swing while a melee effect is active.
@@ -1695,7 +1715,8 @@ final class RunWorld {
             }
             m.animFrame = frameIndex;
 
-            Image frame = anim.frames[frameIndex];
+            Image[] set = (m.animDir < 0 && anim.framesM != null) ? anim.framesM : anim.frames;
+            Image frame = frameIndex < set.length ? set[frameIndex] : null;
             if (frame == null) continue;
 
             // Front-anchored to the facing direction: the effect extends ahead

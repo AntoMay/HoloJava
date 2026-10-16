@@ -28,6 +28,8 @@ public final class RunWorldMeleeVisualTest {
         testFitWithinLeavesSmallFrames();
         testAnchorSymmetry();
         testBodyLunge();
+        testMirrorPixels();
+        testFacingSelection();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -89,6 +91,34 @@ public final class RunWorldMeleeVisualTest {
         System.out.println("[5] body lunges with the swing");
         expectEq(RunWorld.playerLungePx(false), 0, "rest body has no offset");
         expectEq(RunWorld.playerLungePx(true), 3, "attack shifts the body 3 px");
+    }
+
+    private static void testMirrorPixels() {
+        System.out.println("[6] raw rows mirror horizontally");
+        int[] src = {1, 2, 3, 4, 5, 6};
+        int[] got = AssetLibrary.mirrorPixels(src, 3, 2);
+        int[] want = {3, 2, 1, 6, 5, 4};
+        expectEq(got.length, want.length, "mirrored row length kept");
+        for (int i = 0; i < want.length; i++) {
+            expectEq(got[i], want[i], "pixel " + i + " mirrored");
+        }
+        int[] single = {9};
+        expectEq(AssetLibrary.mirrorPixels(single, 1, 1)[0], 9, "1px row is a fixed point");
+    }
+
+    private static void testFacingSelection() {
+        System.out.println("[7] left facing picks the mirrored set");
+        javax.microedition.lcdui.Image[] normal =
+            new javax.microedition.lcdui.Image[1];
+        javax.microedition.lcdui.Image[] mirrored =
+            new javax.microedition.lcdui.Image[1];
+        expect(RunWorld.facingFrames(normal, mirrored, 1) == normal, "right uses normal frames");
+        expect(RunWorld.facingFrames(normal, mirrored, 0) == normal, "neutral uses normal frames");
+        expect(RunWorld.facingFrames(normal, mirrored, -1) == mirrored, "left uses mirrored frames");
+        expect(RunWorld.facingFrames(normal, null, -1) == normal, "left falls back without mirrors");
+        expect(!RunWorld.facingLeft(0), "neutral is not left");
+        expect(!RunWorld.facingLeft(1), "right is not left");
+        expect(RunWorld.facingLeft(-1), "negative is left");
     }
 
     // ---------------------------------------------------------------- helpers

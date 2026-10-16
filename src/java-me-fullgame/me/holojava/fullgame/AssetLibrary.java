@@ -7,6 +7,8 @@ final class AssetLibrary {
     static final class CharacterAssets {
         Image[] idle;
         Image[] run;
+        Image[] idleM;
+        Image[] runM;
         Image portrait;
         Image weapon;
     }
@@ -17,6 +19,7 @@ final class AssetLibrary {
 
     static final class MeleeAnimation {
         Image[] frames;
+        Image[] framesM;
         int frameDuration; // ms per frame
     }
 
@@ -84,6 +87,8 @@ final class AssetLibrary {
             String runName = "Gura".equals(groups[i]) ? "Run" : "run";
             a.idle = frames("/assets/fullgame/characters/" + groups[i] + "/idle/", idleCounts[i], spritePrefix + idleName + "_");
             a.run = frames("/assets/fullgame/characters/" + groups[i] + "/run/", 6, spritePrefix + runName + "_");
+            a.idleM = mirrorAll(a.idle);
+            a.runM = mirrorAll(a.run);
             a.portrait = null; // loaded lazily from the stable character-id portrait path.
             a.weapon = image("/assets/fullgame/projectiles/" + weaponFiles[i] + ".png");
         }
@@ -121,6 +126,7 @@ final class AssetLibrary {
         for (int i = 0; i < 11; i++) {
             anim.frames[i] = downscale(image("/assets/fullgame/melee/Gura/spr_GuraTridentThrust_" + i + ".png"));
         }
+        anim.framesM = mirrorAll(anim.frames);
         return anim;
     }
 
@@ -144,6 +150,7 @@ final class AssetLibrary {
         for (int i = 0; i < 10; i++) {
             anim.frames[10 + i] = downscale(image("/assets/fullgame/melee/Calli/spr_CalliSlash2_" + i + ".png"));
         }
+        anim.framesM = mirrorAll(anim.frames);
         return anim;
     }
 
@@ -157,6 +164,7 @@ final class AssetLibrary {
         for (int i = 0; i < 10; i++) {
             anim.frames[12 + i] = downscale(image("/assets/fullgame/melee/Kiara/spr_KiaraSlash_" + i + ".png"));
         }
+        anim.framesM = mirrorAll(anim.frames);
         return anim;
     }
 
@@ -168,6 +176,7 @@ final class AssetLibrary {
             anim.frames[i] = downscale(image("/assets/fullgame/melee/Ina/spr_InaAttackFX_" + i + ".png"));
         }
         anim.frames[12] = downscale(image("/assets/fullgame/melee/Ina/spr_InaWeapon_0.png"));
+        anim.framesM = mirrorAll(anim.frames);
         return anim;
     }
 
@@ -381,6 +390,47 @@ final class AssetLibrary {
             if (firstFailure.length() == 0) firstFailure = path;
             return null;
         }
+    }
+
+    /**
+     * Horizontal mirror of raw ARGB rows. Pure integer math, unit-testable
+     * headless. MIDP 2.0 has no image mirror primitive, so mirrored variants
+     * are baked once at load; gameplay and frame counts are untouched.
+     */
+    static int[] mirrorPixels(int[] pixels, int w, int h) {
+        int[] out = new int[pixels.length];
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                out[y * w + x] = pixels[y * w + (w - 1 - x)];
+            }
+        }
+        return out;
+    }
+
+    /** Mirrored copy of one image; falls back to the source when unavailable. */
+    private Image mirror(Image src) {
+        if (src == null) return null;
+        int sw = src.getWidth();
+        int sh = src.getHeight();
+        int[] pixels = new int[sw * sh];
+        try {
+            src.getRGB(pixels, 0, sw, 0, 0, sw, sh);
+        } catch (Exception e) {
+            return src;
+        }
+        try {
+            return Image.createRGBImage(mirrorPixels(pixels, sw, sh), sw, sh, true);
+        } catch (Exception e) {
+            return src;
+        }
+    }
+
+    /** Mirrored copy of a frame array; null entries stay null. */
+    private Image[] mirrorAll(Image[] frames) {
+        if (frames == null) return null;
+        Image[] out = new Image[frames.length];
+        for (int i = 0; i < frames.length; i++) out[i] = mirror(frames[i]);
+        return out;
     }
 
     /**
