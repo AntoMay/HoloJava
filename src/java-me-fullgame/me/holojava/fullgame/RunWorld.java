@@ -1553,16 +1553,6 @@ final class RunWorld {
         return cy - frameH / 2;
     }
 
-    /** Overhead-weapon lunge in pixels while a melee effect is active. */
-    static int weaponLungePx(boolean meleeActive) {
-        return meleeActive ? 6 : 0;
-    }
-
-    private boolean anyMeleeActive() {
-        for (int i = 0; i < melee.length; i++) if (melee[i].active) return true;
-        return false;
-    }
-
     private void clampEnemy(Enemy e, int w, int h) {
         if (e.x < -w) e.x = -w; if (e.y < -h) e.y = -h;
         if (e.x > worldWidth) e.x = worldWidth; if (e.y > worldHeight) e.y = worldHeight;
@@ -1664,15 +1654,9 @@ final class RunWorld {
             if (im != null) g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
             else { g.setColor(30, 160, 60); g.fillRect(x, y, 24, 24); }
         }
-        if (ca.weapon != null) {
-            // The overhead weapon lunges toward the facing direction while a
-            // melee effect is active, so it moves in phase with the effect
-            // instead of sitting static. Read-only use of melee state.
-            int lunge = weaponLungePx(anyMeleeActive());
-            int wx = x + (facingX >= 0 ? 18 + lunge : -6 - lunge);
-            int wy = y + 8;
-            g.drawImage(ca.weapon, wx, wy, Graphics.TOP | Graphics.LEFT);
-        }
+        // No floating overhead weapon: character frames already hold their
+        // weapon in hand, and the melee effect animation depicts the swing.
+        // (An earlier revision drew ca.weapon above the head; removed.)
     }
 
     private void drawMelee(Graphics g, int offX, int offY, long now) {

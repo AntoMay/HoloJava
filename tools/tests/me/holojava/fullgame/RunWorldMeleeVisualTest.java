@@ -8,9 +8,11 @@ package me.holojava.fullgame;
  *   <li>{@code fitWithin} caps the longest side at 64 px, preserves aspect
  *       within one pixel, and leaves small/empty frames untouched;</li>
  *   <li>effect anchors are front-sided and symmetric: right starts at the
- *       player center, left ends at it, vertical stays centered;</li>
- *   <li>the overhead weapon lunges only while a melee effect is active.</li>
+ *       player center, left ends at it, vertical stays centered.</li>
  * </ul>
+ *
+ * <p>No floating overhead weapon exists: character frames hold their weapon
+ * in hand and the melee effect depicts the swing.
  *
  * <p>Hitbox, damage, cooldown, and durations are not touched by these
  * helpers; gameplay suites pin those separately.
@@ -25,7 +27,6 @@ public final class RunWorldMeleeVisualTest {
         testFitWithinMeasuredFrames();
         testFitWithinLeavesSmallFrames();
         testAnchorSymmetry();
-        testLunge();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -81,12 +82,6 @@ public final class RunWorldMeleeVisualTest {
         expectEq(right + left, 2 * cx - fw, "anchors mirror around the offset center");
         expectEq(RunWorld.meleeDrawY(80, 50), 55, "vertical stays centered");
         expectEq(RunWorld.meleeDrawX(cx, 1, false), 99, "degenerate 1px frame anchors sanely");
-    }
-
-    private static void testLunge() {
-        System.out.println("[5] overhead weapon lunge follows effect state");
-        expectEq(RunWorld.weaponLungePx(false), 0, "rest position has no offset");
-        expectEq(RunWorld.weaponLungePx(true), 6, "active effect lunges 6 px");
     }
 
     // ---------------------------------------------------------------- helpers
