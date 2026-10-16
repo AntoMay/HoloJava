@@ -39,6 +39,11 @@ echo "== compiling production sources =="
 javac --release 8 -Xlint:-options -nowarn -cp "$CP" -d "$OUT" \
     $(find src/java-me-fullgame -name '*.java' | sort)
 
+# Mirror production packaging (tools/build_fullgame.sh): stage the collab
+# catalog at the runtime resource path so ContentCatalog reads CSV, not fallback.
+mkdir -p "$OUT/data/wiki"
+cp "$root/data/wiki/collabs.csv" "$OUT/data/wiki/collabs.csv"
+
 echo "== compiling test sources =="
 # shellcheck disable=SC2046
 javac --release 8 -Xlint:-options -nowarn -cp "$OUT:$CP" -d "$OUT" \

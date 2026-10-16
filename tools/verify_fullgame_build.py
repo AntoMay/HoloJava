@@ -42,6 +42,13 @@ def main():
                 fail("resource path mismatch: " + entry)
         if "me/holojava/fullgame/FullGameMIDlet.class" not in names:
             fail("MIDlet class missing from JAR")
+        collab_entry = "data/wiki/collabs.csv"
+        if collab_entry not in names:
+            fail("collab catalog missing from JAR: " + collab_entry)
+        jar_collabs = archive.read(collab_entry)
+        src_collabs = (ROOT / "data/wiki/collabs.csv").read_bytes()
+        if jar_collabs != src_collabs:
+            fail("collab catalog in JAR differs from data/wiki/collabs.csv")
     jad_size = None
     for line in JAD.read_text().splitlines():
         if line.startswith("MIDlet-Jar-Size:"):
@@ -101,7 +108,8 @@ def main():
             "public class CatalogCheck { public static void main(String[] a) {"
             " String e=ContentCatalog.validate(); if(e!=null) throw new RuntimeException(e);"
             " System.out.println(ContentCatalog.DOCUMENTED_CHARACTER_COUNT + \":\" +"
-            " ContentCatalog.DOCUMENTED_WEAPON_COUNT + \":\" + ContentCatalog.DOCUMENTED_ITEM_COUNT); } }\n",
+            " ContentCatalog.DOCUMENTED_WEAPON_COUNT + \":\" + ContentCatalog.DOCUMENTED_ITEM_COUNT"
+            " + \":\" + ContentCatalog.COLLABS.length); } }\n",
             encoding="utf-8",
         )
         class_dir = temp_path / "classes"
@@ -115,6 +123,11 @@ def main():
         subprocess.run(["javac", "--release", "8", "-cp", classpath, "-d", str(class_dir), *sources], check=True)
         result = subprocess.run(["java", "-cp", str(class_dir) + ":" + classpath, "me.holojava.fullgame.CatalogCheck"], check=True, text=True, capture_output=True)
         print("catalog:", result.stdout.strip())
+        parts = result.stdout.strip().split(":")
+        if len(parts) != 4:
+            fail("unexpected catalog check output: " + result.stdout.strip())
+        if int(parts[3]) != len(wiki_tables["collabs.csv"]):
+            fail("runtime COLLABS %s != collabs.csv rows %d" % (parts[3], len(wiki_tables["collabs.csv"])))
 
     print("PASS: JAR=%d bytes, assets=%d, wiki rows verified" % (jar_size, len(manifest_rows)))
 

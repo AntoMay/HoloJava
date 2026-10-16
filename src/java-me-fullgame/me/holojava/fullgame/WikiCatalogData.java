@@ -48,8 +48,14 @@ public class WikiCatalogData {
 
             String id = trim(fields[0]);
             String name = trim(fields[1]);
-            String weaponA = trim(fields[2]);
-            String weaponB = trim(fields[3]);
+            // data/wiki/collabs.csv stores display names (verified against the
+            // name column of data/wiki/weapons.csv, e.g. "Bounce Ball"), while
+            // the runtime catalog keys weapons by id (e.g. "bounce_ball").
+            // Normalize here so fillOffer matching and weaponLevelById work.
+            // The CSV itself is unchanged; unresolvable names stay as-is and
+            // are skipped by the offer gate instead of crashing.
+            String weaponA = toWeaponId(trim(fields[2]));
+            String weaponB = toWeaponId(trim(fields[3]));
             String type = trim(fields[4]);
             String source = fields.length > 5 ? trim(fields[5]) : "";
             String coverage = fields.length > 6 ? trim(fields[6]) : "";
@@ -104,6 +110,36 @@ public class WikiCatalogData {
     static String trim(String s) {
         if (s == null) return "";
         return s.trim();
+    }
+
+    /**
+     * Maps a wiki display name to a runtime weapon id.
+     * Verified mapping rule against data/wiki/weapons.csv: lowercase, drop
+     * apostrophes/quotes/dots, collapse spaces and hyphens to underscores
+     * ("Bounce Ball" -&gt; "bounce_ball", "EN's Curse" -&gt; "ens_curse",
+     * "X-Potato" -&gt; "x_potato"). Values already in id form pass through.
+     */
+    static String toWeaponId(String s) {
+        if (s == null) return "";
+        String t = s.trim().toLowerCase();
+        StringBuilder out = new StringBuilder();
+        boolean lastUnderscore = true;
+        for (int i = 0; i < t.length(); i++) {
+            char c = t.charAt(i);
+            if (c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_') {
+                out.append(c);
+                lastUnderscore = false;
+            } else if (c == ' ' || c == '-') {
+                if (!lastUnderscore) {
+                    out.append('_');
+                    lastUnderscore = true;
+                }
+            }
+            // any other character (apostrophe, quote, dot) is dropped
+        }
+        int n = out.length();
+        while (n > 0 && out.charAt(n - 1) == '_') n--;
+        return out.substring(0, n);
     }
 
     /**

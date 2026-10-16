@@ -824,7 +824,9 @@ final class RunWorld {
             s.active = true;
             s.fromPlayer = true;
             s.pattern = def.pattern;
-            s.weaponIndex = slot;
+            // Catalog index, not the inventory slot: updateShots resolves
+            // steering speed via ContentCatalog.weapon(s.weaponIndex).
+            s.weaponIndex = weaponSlots[slot];
             s.damage = damage;
             s.critical = crit;
             s.knockback = def.knockback;
@@ -1319,8 +1321,12 @@ final class RunWorld {
             if (weaponCount < 6 && mode.allowsCollabs) {
                 for (int c = 0; c < ContentCatalog.COLLABS.length; c++) {
                     ContentCatalog.CollabDef cd = ContentCatalog.COLLABS[c];
-                    int a = weaponLevelById(cd.weaponA); int b = weaponLevelById(cd.weaponB);
                     ContentCatalog.WeaponDef wd = ContentCatalog.weapon(cd.id);
+                    // Skip collab rows with no runtime weapon definition (e.g.
+                    // documented recipes beyond the implemented catalog) instead
+                    // of dereferencing null below.
+                    if (wd == null) continue;
+                    int a = weaponLevelById(cd.weaponA); int b = weaponLevelById(cd.weaponB);
                     if (a == wd.maxLevel && b == wd.maxLevel && !offerUsed[wd.id.hashCode() & 63]) {
                         offers[slot].type = OFFER_WEAPON; offers[slot].value = ContentCatalog.weaponIndex(wd.id);
                         offers[slot].existing = -1; offers[slot].newItem = true; offers[slot].collab = true;
