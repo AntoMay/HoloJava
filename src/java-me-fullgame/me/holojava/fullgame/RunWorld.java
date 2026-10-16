@@ -658,7 +658,15 @@ final class RunWorld {
         if (bossEncounterIndex < 0) {
             if (!encounterStarted[0] && elapsedSec >= stage.bossATimeSec) { spawnBoss(0); return; }
             if (!encounterStarted[1] && elapsedSec >= stage.bossBTimeSec) { spawnBoss(1); return; }
-            if (stage.hard && !encounterStarted[2] && elapsedSec >= 1800) { spawnBoss(2); return; }
+            // Hard second 10:00 boss (verified for Stage 1 Hard: Smol Ame).
+            // The single Boss slot cannot hold two bosses at once, so the
+            // second appears at 10:00 when free, otherwise right after the
+            // first falls. Other hard stages stay null until their stage page
+            // is verified; no new timings are invented here.
+            if (stage.hard && !encounterStarted[3] && elapsedSec >= 600) {
+                String second = hardSecondBoss(stageIndex);
+                if (second != null) { spawnBossById(second, 3); return; }
+            }
         }
         if (mode.completion == ContentCatalog.COMPLETE_ON_DEATH && elapsedSec >= 1200
                 && nextEndlessEncounter < 6) {
@@ -672,6 +680,10 @@ final class RunWorld {
         if (encounter == 0) bossId = stage.bossA;
         else if (encounter == 1) bossId = stage.bossB;
         else bossId = hardThirdBoss(stageIndex);
+        spawnBossById(bossId, encounter);
+    }
+
+    private void spawnBossById(String bossId, int encounter) {
         int index = bossIndex(bossId);
         if (index == -1) return;
         ContentCatalog.BossDef def = ContentCatalog.BOSSES[index];
@@ -777,7 +789,10 @@ final class RunWorld {
         dropPickup(boss.x + bossWidth() / 2, boss.y + bossHeight() / 2, 0, def.exp, System.currentTimeMillis());
         for (int i = 0; i < 5; i++) dropPickup(boss.x + bossWidth() / 2, boss.y + bossHeight() / 2, 1, 10, System.currentTimeMillis());
         if (mode.completion == ContentCatalog.COMPLETE_FINAL_BOSS) {
-            boolean finalDefeated = stage.hard ? encounterDefeated[2] : encounterDefeated[1];
+            // The final boss is the 20:00 encounter (slot 1) on every stage:
+            // the unsourced 30:00 duplicate was removed, so hard stages no
+            // longer need a third slot to win.
+            boolean finalDefeated = encounterDefeated[1];
             if (finalDefeated) {
                 // Decision C: the stage-clear reward joins the permanent balance, while the
                 // level-up +100 stays run-local. crediting is a transaction, so a refused write
@@ -1503,6 +1518,18 @@ final class RunWorld {
         if (stageIndex == 7) return "halloween_myth";
         if (stageIndex == 8) return "goriela";
         return stageIndex >= 0 && stageIndex < ContentCatalog.BOSSES.length ? "pekodam" : "pekodam";
+    }
+
+    /**
+     * Hard second 10:00 boss: the regular 20:00 boss advances to 10:00 on
+     * Hard (verified on the wiki Stage 1 (Hard) page: Fubuzilla and Smol Ame
+     * both at 10:00). Only Stage 1 Hard (index 5) is enabled; other hard
+     * stages return null until their stage page is verified. Null means the
+     * director skips the slot without recording it.
+     */
+    private String hardSecondBoss(int stageIndex) {
+        if (stageIndex == 5) return "smol_ame";
+        return null;
     }
 
     private int scaledEnemyHp(int base) {

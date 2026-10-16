@@ -250,8 +250,11 @@ final class ContentCatalog {
     };
 
     static final BossDef[] BOSSES = {
-        boss("fubuzilla", "Fubuzilla", 1200, 16, AI_SHOOTER, 1400, 40, "fubuzilla", false),
-        boss("smol_ame", "Smol Ame", 1800, 20, AI_CHASER, 1000, 55, "AchanBoss", true),
+        // Stage 1 Hard stats verified against the wiki Stage 1 (Hard) enemy
+        // composition (HP/ATK/SPD/EXP columns); SPD has no per-boss runtime
+        // field (boss.speed is derived), so only HP/ATK/EXP are applied here.
+        boss("fubuzilla", "Fubuzilla", 15000, 22, AI_SHOOTER, 1400, 1500, "fubuzilla", false),
+        boss("smol_ame", "Smol Ame", 12000, 20, AI_CHASER, 1000, 1500, "AchanBoss", true),
         boss("mikodanye", "Mikodanye", 2200, 24, AI_SHOOTER, 1300, 65, "Mikodanye", false),
         boss("achan", "A-chan", 2000, 22, AI_CHARGER, 850, 60, "AchanBoss", false),
         boss("shubangelion", "Shubangelion", 3200, 28, AI_CHARGER, 1200, 85, "Shubangelion_walk", false),
@@ -260,7 +263,7 @@ final class ContentCatalog {
         boss("area15", "Area 15", 4600, 36, AI_BOMBER, 1200, 120, "Pekodam", true),
         boss("nanora", "Nanora", 5000, 38, AI_CHASER, 900, 130, "Moonafic2", true),
         boss("pekodam", "Pekodam", 6000, 42, AI_SHOOTER, 850, 160, "Pekodam", false),
-        boss("halloween_bae", "Halloween Bae", 5200, 38, AI_BOMBER, 1000, 140, "Pekodam", true),
+        boss("halloween_bae", "Halloween Bae", 72000, 27, AI_BOMBER, 1000, 6000, "Pekodam", true),
         boss("nodoka", "Harusaki Nodoka", 5000, 40, AI_SHOOTER, 950, 140, "Mikodanye", true),
         boss("halloween_myth", "Halloween Myth", 6000, 44, AI_CHARGER, 1000, 160, "Pekodam", true),
         boss("goriela", "Goriela", 6500, 46, AI_SHOOTER, 900, 180, "Pekodam", true)

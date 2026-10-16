@@ -14,8 +14,9 @@ import java.lang.reflect.Method;
  *   <li>It appears once the gate is reached, and only one boss is live at a time.</li>
  *   <li>The same numbered encounter never starts twice.</li>
  *   <li>Defeating an encounter records it in {@code encounterDefeated}.</li>
- *   <li>Victory requires the stage's <em>final</em> encounter: slot 2 on a hard stage, slot 1
- *       otherwise. Clearing earlier encounters is not enough.</li>
+ *   <li>Victory requires the stage's <em>final</em> encounter: the 20:00
+ *       encounter (slot 1) on every stage. Clearing earlier encounters is
+ *       not enough, and no 30:00 encounter exists.</li>
  *   <li>Time stages never run a boss director.</li>
  * </ol>
  *
@@ -207,6 +208,7 @@ public final class RunWorldBossEncounterTest {
         testHardStageNeedsItsThirdEncounter();
         testTimeStageRunsNoDirector();
         testEndlessModeRepeatsEncountersUpToTheCap();
+        testStage1HardStatsAreVerified();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -291,26 +293,73 @@ public final class RunWorldBossEncounterTest {
         expectEq(getInt(w, "state"), RunWorld.STATE_VICTORY, "and the run ends in victory");
     }
 
-    /** A hard stage needs slot 2, so clearing only the first two must not win it. */
+    /** Stage 1 Hard runs the verified schedule: Fubuzilla and Smol Ame at
+     * 10:00 (sequentially through the single boss slot), Halloween Bae at
+     * 20:00 for the win, and nothing at 30:00 (the old duplicate is gone). */
     private static void testHardStageNeedsItsThirdEncounter() throws Exception {
-        System.out.println("[5] a hard stage needs its third encounter");
+        System.out.println("[5] stage 1 hard runs fubuzilla, smol ame, then halloween bae");
         int hardIndex = 5;                       // stage1h: hard = true
         expect(ContentCatalog.stage(hardIndex).hard, "the fixture stage is a hard variant");
 
         Object w = world(hardIndex, 0);
-        director(w, ContentCatalog.stage(hardIndex).bossATimeSec * 1000L);
+        director(w, 600L * 1000L);
+        expect(getBool(boss(w), "active"), "fubuzilla appears at 10:00");
+        expect(bossId(w).equals("fubuzilla"), "the 10:00 encounter is fubuzilla");
         defeat(w);
+
+        // The single boss slot cannot hold both 10:00 bosses at once, so the
+        // verified second one follows as soon as the first falls.
+        director(w, 600L * 1000L + 1L);
+        expect(getBool(boss(w), "active"), "smol ame follows at the same gate");
+        expect(bossId(w).equals("smol_ame"), "the second 10:00 encounter is smol ame");
+        defeat(w);
+
+        expect(!getBool(w, "won"), "two 10:00 encounters are not enough to win");
+        director(w, 601L * 1000L);
+        expect(!getBool(boss(w), "active"), "nothing else spawns right after");
+
         director(w, ContentCatalog.stage(hardIndex).bossBTimeSec * 1000L);
+        expect(getBool(boss(w), "active"), "the 20:00 encounter appears on time");
+        expect(bossId(w).equals("halloween_bae"), "the 20:00 encounter is halloween bae");
         defeat(w);
+        expect(getBool(w, "won"), "beating halloween bae wins the hard stage");
+        expectEq(getInt(w, "state"), RunWorld.STATE_VICTORY, "and the run ends in victory");
 
-        expect(!getBool(w, "won"), "two encounters are not enough on a hard stage");
-        expect(!bools(w, "encounterDefeated")[2], "the third encounter was never fought");
+        Object w2 = world(hardIndex, 0);
+        director(w2, 600L * 1000L);
+        defeat(w2);
+        director(w2, 600L * 1000L + 1L);
+        defeat(w2);
+        director(w2, 1200L * 1000L);
+        defeat(w2);
+        director(w2, 1800L * 1000L);
+        expect(!getBool(boss(w2), "active"), "no duplicate boss appears at 30:00");
+        expect(!bools(w2, "encounterStarted")[2], "slot 2 is never used");
+    }
 
-        director(w, 1800L * 1000L);
-        expect(getBool(boss(w), "active"), "the third encounter appears at the hard gate");
-        defeat(w);
-        expect(getBool(w, "won"), "and beating it wins the hard stage");
-        expect(bools(w, "encounterDefeated")[2], "the third encounter is recorded");
+    private static String bossId(Object w) throws Exception {
+        Object b = boss(w);
+        Field f = b.getClass().getDeclaredField("defIndex");
+        f.setAccessible(true);
+        return ContentCatalog.BOSSES[f.getInt(b)].id;
+    }
+
+    /** Stage 1 Hard HP/ATK/EXP verified against the wiki Stage 1 (Hard) page.
+     * SPD has no per-boss runtime field and is intentionally not asserted. */
+    private static void testStage1HardStatsAreVerified() throws Exception {
+        System.out.println("[8] stage 1 hard boss stats match the verified source");
+        expectBoss( "fubuzilla", 15000, 22, 1500);
+        expectBoss("smol_ame", 12000, 20, 1500);
+        expectBoss("halloween_bae", 72000, 27, 6000);
+    }
+
+    private static void expectBoss(String id, int hp, int atk, int exp) {
+        ContentCatalog.BossDef def = ContentCatalog.boss(id);
+        expect(def != null, id + " is defined");
+        if (def == null) return;
+        expectEq(def.hp, hp, id + " hp");
+        expectEq(def.atk, atk, id + " atk");
+        expectEq(def.exp, exp, id + " exp");
     }
 
     /** Time stages return before any director logic runs. */

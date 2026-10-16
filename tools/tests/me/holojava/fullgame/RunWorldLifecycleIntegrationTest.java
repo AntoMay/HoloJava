@@ -716,8 +716,9 @@ public final class RunWorldLifecycleIntegrationTest {
         RunWorld w = start(0, 0, 0);
         long now = System.currentTimeMillis() + 1000L;
 
-        // defeatBoss reads encounterDefeated[2] on a hard stage and encounterDefeated[1]
-        // otherwise, so the encounter that ends stage mode depends on the stage.
+        // defeatBoss reads encounterDefeated[1] as the final encounter on every
+        // stage (the unsourced hard 30:00 duplicate was removed), so the
+        // encounter that ends stage mode depends on the stage.
         expect(!ContentCatalog.STAGES[0].hard, "the first stage is not a hard stage");
         int finalEncounter = ContentCatalog.STAGES[0].hard ? 2 : 1;
         call(w, "spawnBoss", new Class<?>[] { int.class },
