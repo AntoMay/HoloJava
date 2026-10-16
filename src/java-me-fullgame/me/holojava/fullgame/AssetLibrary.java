@@ -15,6 +15,7 @@ final class AssetLibrary {
 
     static final class AnimationSet {
         Image[] frames;
+        Image[] framesM;
     }
 
     static final class MeleeAnimation {
@@ -204,6 +205,7 @@ final class AssetLibrary {
         int index = enemyIndex(id);
         if (index < 0 || enemies[index].frames != null) return;
         enemies[index].frames = frames("/assets/fullgame/enemies/" + enemyDirs[index] + "/", enemyCounts[index], enemyPrefixes[index]);
+        enemies[index].framesM = mirrorAll(enemies[index].frames);
     }
 
     private void loadBoss(String id) {
@@ -276,6 +278,11 @@ final class AssetLibrary {
     Image[] enemyFrames(int index) {
         if (enemies[index].frames == null) loadEnemy(ContentCatalog.ENEMIES[index].id);
         return enemies[index].frames;
+    }
+
+    Image[] enemyFramesM(int index) {
+        if (enemies[index].frames == null) loadEnemy(ContentCatalog.ENEMIES[index].id);
+        return enemies[index].framesM;
     }
 
     MeleeAnimation meleeAnim(int characterIndex) {

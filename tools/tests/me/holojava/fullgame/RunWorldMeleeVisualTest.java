@@ -30,6 +30,7 @@ public final class RunWorldMeleeVisualTest {
         testBodyLunge();
         testMirrorPixels();
         testFacingSelection();
+        testFaceToward();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -119,6 +120,13 @@ public final class RunWorldMeleeVisualTest {
         expect(!RunWorld.facingLeft(0), "neutral is not left");
         expect(!RunWorld.facingLeft(1), "right is not left");
         expect(RunWorld.facingLeft(-1), "negative is left");
+    }
+
+    private static void testFaceToward() {
+        System.out.println("[8] trackers face their target");
+        expectEq(RunWorld.faceToward(100, 200), 1, "target on the right faces right");
+        expectEq(RunWorld.faceToward(200, 100), -1, "target on the left faces left");
+        expectEq(RunWorld.faceToward(100, 100), 1, "tie faces right by convention");
     }
 
     // ---------------------------------------------------------------- helpers

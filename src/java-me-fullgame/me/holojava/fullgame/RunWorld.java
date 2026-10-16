@@ -1558,6 +1558,15 @@ final class RunWorld {
     }
 
     /**
+     * Horizontal direction from one point toward another, for visuals that
+     * track a target (enemies face the player). Ties go right, matching the
+     * {@code facingX >= 0} convention everywhere else. Visual only.
+     */
+    static int faceToward(int fromX, int toX) {
+        return toX < fromX ? -1 : 1;
+    }
+
+    /**
      * Visual-only melee effect anchors. The effect's leading edge starts at
      * the player center and extends toward the facing direction; the left
      * side uses the load-time mirrored frame. Package-visible
@@ -1628,7 +1637,9 @@ final class RunWorld {
         for (int i = 0; i < enemies.length; i++) {
             Enemy e = enemies[i];
             if (!e.active) continue;
-            Image[] frames = assets.enemyFrames(e.defIndex);
+            Image[] frames = facingFrames(assets.enemyFrames(e.defIndex),
+                assets.enemyFramesM(e.defIndex),
+                faceToward(e.x + enemyWidth(e.defIndex) / 2, playerCenterX()));
             Image im = frame(frames, e.anim);
             int x = worldOffX + e.x; int y = offY + e.y;
             if (im != null) g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
