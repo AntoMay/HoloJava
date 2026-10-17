@@ -303,6 +303,7 @@ public final class RunWorldLifecycleIntegrationTest {
         expectEq(w.itemCount(), 0, "no items");
 
         expect(!w.skillAcquired(), "no skill yet");
+        expectEq(w.skillStacks(), 0, "and no skill stacks on a fresh run");
         expect(!w.specialUsed(), "the special is unused");
         expectEq(getLong(w, "skillReadyAt"), 0L, "no skill cooldown running");
         expectEq(getInt(w, "shield"), 0, "no shield");
@@ -365,12 +366,16 @@ public final class RunWorldLifecycleIntegrationTest {
         boolean acquired = acquireSkillViaOffers(w, 12, now);
         expect(acquired, "the real offer generator produced a skill within 12 level-ups");
         expect(w.skillAcquired(), "and taking it granted the skill");
+        expect(w.skillStacks() >= 1, "with at least one stack (" + w.skillStacks() + ")");
+        expect(w.skillStacks() <= ContentCatalog.SKILL_MAX_STACKS,
+            "and never more than the cap (" + w.skillStacks() + ")");
         expectEq(w.state(), RunWorld.STATE_RUNNING, "the run resumed after the choice");
 
         // The label came from the character's declared skill, so the offer really was this
-        // character's row and not some other offer type.
-        expectEq(acquiredSkillLabel, ContentCatalog.CHARACTERS[0].skill,
-                "the offer carried the character's own skill name");
+        // character's row and not some other offer type. The skill is now stackable, so the label
+        // carries the level it would take the skill to, which is Lv1 on a run with no stacks.
+        expectEq(acquiredSkillLabel, ContentCatalog.CHARACTERS[0].skill + " Lv1",
+                "the offer carried the character's own skill name and its next level");
 
         Object enemy = spawnEnemyAt(w, now, 10, 0, 500);
         expect(enemy != null, "an enemy was spawned for the skill to hit");
@@ -396,6 +401,11 @@ public final class RunWorldLifecycleIntegrationTest {
 
             boolean acquired = acquireSkillViaOffers(w, 12, now);
             expect(acquired, ContentCatalog.CHARACTERS[ci].name + ": skill acquired through offers");
+            // Skills now scale with how many times they were taken. This matrix checks the per-stack
+            // values, so the stack count is pinned to exactly one; the level-up flow legitimately
+            // hands out several stacks in the twelve level-ups above, and stack scaling is asserted
+            // on its own in RunWorldSkillStackingTest.
+            set(w, "skillStacks", Integer.valueOf(1));
 
             long before = now;
             // 30 puts the enemy at px+42: outside the player's 24-wide box, so contact damage

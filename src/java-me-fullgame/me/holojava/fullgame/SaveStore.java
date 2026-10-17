@@ -9,10 +9,18 @@ import javax.microedition.rms.RecordStoreNotFoundException;
 final class SaveStore {
     private static final String STORE = "holojava_fullgame_v1";
     private static final int RECORD_ID = 1;
-    // Bytes 0..46 are the per-character completion map (bit = stage order), byte 47 is settings,
+    // Bytes 0..46 are the per-character completion map, byte 47 is settings,
     // and bytes 48..55 are the permanent global coin balance. Growing DATA_LEN is the migration:
     // load() copies min(record length, DATA_LEN), so older shorter records load in full and the
     // bytes they never had stay zero, which decodes to a balance of 0. No store rename, no reset.
+    //
+    // Completion is two bytes per character, both inside the 0..46 region that was already
+    // reserved for it: byte i holds stage orders 0-7, byte HIGH_BASE + i holds orders 8-15.
+    // The primary byte keeps its historical index, so saves written by earlier builds decode
+    // unchanged and the high bytes simply read as zero. See HIGH_BASE and MAX_STAGE_ORDER.
+    //
+    // Shop passive levels live in bytes 10..29, still inside that same reserved region and still
+    // within DATA_LEN, so the record length and every occupied byte are unchanged. See PASSIVE_BASE.
     private static final int DATA_LEN = 56;
     private static final int SETTINGS_INDEX = 47;
     private static final int COIN_INDEX = 48;
@@ -117,16 +125,95 @@ final class SaveStore {
         return loadState;
     }
 
+    /**
+     * Completion bits per character. Stage order 0-7 lives in the primary byte, exactly as the
+     * existing on-device layout does, so every save written by an earlier build still decodes
+     * unchanged. Orders 8-15 (added by the Arena Hutan Sawit stage, order 10) live in a second
+     * byte per character in the still-unused region below the settings byte, so no previously
+     * occupied byte moved and no new record length is needed.
+     */
+    private static final int MAX_STAGE_ORDER = 15;
+    private static final int ORDER_BITS_LOW = 8;
+    private static final int HIGH_BASE = 5; // high-order byte for character i lives at HIGH_BASE + i
+
+    // ---- shop passive levels ---------------------------------------------------
+    // Bytes 10..46 were reserved for the completion map and have never been occupied by anything:
+    // completion uses 10 of them (5 primary + 5 high-order). The shop passives take bytes 10..29,
+    // so the record keeps its historical length and no save has to migrate.
+    //
+    // Levels are stored per character rather than globally: each roster entry carries its own
+    // 0..PASSIVE_MAX_LEVEL vector, so buying a passive for one character leaves the others at
+    // zero. Five characters x eight passives is 40 nibbles, i.e. 20 bytes, laid out character-major
+    // so one character's whole vector occupies four consecutive bytes. Nibbles rather than tighter
+    // 3-bit fields because a 3-bit field straddles byte boundaries and a single-byte accessor
+    // would silently lose the bits that spilled into the next byte; a nibble holds 0..15, which
+    // spans the catalog cap of 10 with room to spare, and can never straddle.
+    private static final int PASSIVE_BASE = 10;
+    private static final int PASSIVE_BITS = 4;
+    private static final int PASSIVE_MASK = 0xF;
+
+    /**
+     * Index of the nibble holding one character's level in one passive, or -1 when either index
+     * is out of range.
+     */
+    private int passiveNibble(int characterIndex, int passiveIndex) {
+        if (characterIndex < 0 || characterIndex >= ContentCatalog.CHARACTERS.length) return -1;
+        if (passiveIndex < 0 || passiveIndex >= ContentCatalog.PASSIVES.length) return -1;
+        return characterIndex * ContentCatalog.PASSIVES.length + passiveIndex;
+    }
+
+    /**
+     * Purchased level of one shop passive for one character, 0..{@link ContentCatalog#PASSIVE_MAX_LEVEL}.
+     *
+     * <p>Returns 0 for anything out of range rather than throwing: a missing level or a bad index
+     * both mean "not bought yet", and a shop that refuses to render because a byte was corrupt
+     * would be worse than one that shows level 0.
+     */
+    int passiveLevel(int characterIndex, int passiveIndex) {
+        int nibble = passiveNibble(characterIndex, passiveIndex);
+        if (nibble < 0) return 0;
+        int index = PASSIVE_BASE + nibble / 2;
+        if (index >= SETTINGS_INDEX) return 0;
+        int shift = (nibble & 1) * PASSIVE_BITS;
+        return (data[index] & 0xff) >>> shift & PASSIVE_MASK;
+    }
+
+    /**
+     * Records a purchased passive level for one character and persists it as one transaction.
+     *
+     * <p>Levels outside 0..{@link ContentCatalog#PASSIVE_MAX_LEVEL} and unknown indices are
+     * refused, so a stale price or a corrupt read cannot write a level the shop would never sell
+     * back into a neighbouring nibble of the same byte.
+     */
+    void setPassiveLevel(int characterIndex, int passiveIndex, int level) {
+        int nibble = passiveNibble(characterIndex, passiveIndex);
+        if (nibble < 0) return;
+        if (level < 0 || level > ContentCatalog.PASSIVE_MAX_LEVEL) return;
+        int index = PASSIVE_BASE + nibble / 2;
+        if (index >= SETTINGS_INDEX) return;
+        int shift = (nibble & 1) * PASSIVE_BITS;
+        int clearMask = ~(PASSIVE_MASK << shift) & 0xff;
+        int packed = (data[index] & 0xff) & clearMask;
+        data[index] = (byte) (packed | (level << shift));
+        save();
+    }
+
     boolean isCompleted(int characterIndex, int stageOrder) {
-        if (characterIndex < 0 || characterIndex >= ContentCatalog.CHARACTERS.length || stageOrder < 0 || stageOrder > 7) return false;
-        int v = data[characterIndex] & 0xff;
-        return (v & (1 << stageOrder)) != 0;
+        if (characterIndex < 0 || characterIndex >= ContentCatalog.CHARACTERS.length) return false;
+        if (stageOrder < 0 || stageOrder > MAX_STAGE_ORDER) return false;
+        int index = stageOrder < ORDER_BITS_LOW ? characterIndex : HIGH_BASE + characterIndex;
+        int v = data[index] & 0xff;
+        int bit = stageOrder < ORDER_BITS_LOW ? stageOrder : stageOrder - ORDER_BITS_LOW;
+        return (v & (1 << bit)) != 0;
     }
 
     void setCompleted(int characterIndex, int stageOrder) {
-        if (characterIndex < 0 || characterIndex >= ContentCatalog.CHARACTERS.length || stageOrder < 0 || stageOrder > 7) return;
-        int v = data[characterIndex] & 0xff;
-        data[characterIndex] = (byte) (v | (1 << stageOrder));
+        if (characterIndex < 0 || characterIndex >= ContentCatalog.CHARACTERS.length) return;
+        if (stageOrder < 0 || stageOrder > MAX_STAGE_ORDER) return;
+        int index = stageOrder < ORDER_BITS_LOW ? characterIndex : HIGH_BASE + characterIndex;
+        int v = data[index] & 0xff;
+        int bit = stageOrder < ORDER_BITS_LOW ? stageOrder : stageOrder - ORDER_BITS_LOW;
+        data[index] = (byte) (v | (1 << bit));
         save();
     }
 
@@ -273,6 +360,9 @@ final class SaveStore {
      * {@code data[characterIndex]} and tests {@code (1 << stageOrder)}, so the same fact must
      * land in byte {@code c} at bit {@code s}.
      *
+     * <p>Only orders 0-4 exist in the legacy layout, so this writes primary bytes only and leaves
+     * every high-order byte at its zero default.
+     *
      * <p>Settings move verbatim from legacy index 5 to index 47: both layouts keep hardcore in
      * bit 0, and the legacy writer only ever set the character index in bits 0-3, so the 6-bit
      * field used here is a superset. Bits 5-7 of legacy stage bytes would describe characters
@@ -354,11 +444,26 @@ final class SaveStore {
             boolean closed = true;
             try {
                 store = opener.open(STORE, true);
-                store.setRecord(recordId, payload, 0, payload.length);
+                // setRecord only replaces an existing record: the MIDP specification has it throw
+                // InvalidRecordIDException for an id the store has never handed out, and
+                // createRecord is the method that establishes one. This adapter used to call
+                // setRecord on its own, so on a fresh install every write failed and nothing at all
+                // was ever stored, not just the coin balance: stage unlocks, the selected character
+                // and shop passives all went the same way.
+                //
+                // Falling back to addRecord keeps this portable. addRecord is core MIDP 1.0, so it
+                // works on runtimes that lack createRecord, and on a fresh store it is assigned the
+                // first free id, which is the record id this class already reads back.
+                try {
+                    store.setRecord(recordId, payload, 0, payload.length);
+                    written = true;
+                } catch (InvalidRecordIDException missing) {
+                    int assigned = store.addRecord(payload, 0, payload.length);
+                    written = assigned == recordId;
+                }
                 // This pinned API stub exposes no commit operation, so there is nothing to call
                 // after setRecord. That is not a durability guarantee: the contract below is only
                 // as strong as closeRecordStore() being reached and succeeding.
-                written = true;
             } catch (RecordStoreException failure) {
                 written = false;
             } finally {

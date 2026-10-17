@@ -140,7 +140,33 @@ final class RunWorld {
     private int critPercentBonus;
     private int expPercentBonus;
     private int defensePercent;
+    /**
+     * Extra percent added to the enemy coin-drop roll, from the shop's Fortune passive. The roll is
+     * {@code rand(def.coinChance) == 0}, so a positive bonus divides the interval and therefore makes
+     * coins more frequent. Clamped to 90 so the roll can never become a certain drop, which would
+     * turn the shop passive into a coin faucet.
+     */
+    private int coinDropBonus;
+    /**
+     * Purchased shop passive levels for this run, indexed like ContentCatalog.PASSIVES.
+     *
+     * <p>These hold the run's own character's levels, read from the per-character vectors the save
+     * stores; one vector per run is all a run needs.
+     * <p>Not final and not initialised at the declaration: most test suites build a RunWorld through
+     * {@code Unsafe.allocateInstance}, which skips field initialisers entirely, so a field
+     * initialiser would leave this null in exactly the suites that drive {@code recomputeStats}.
+     * {@link #passives()} allocates on demand instead.
+     */
+    private int[] passiveLevels;
     private int baseMaxHp;
+    /** baseMaxHp before shop passives, so a re-run of recomputeStats cannot compound them. */
+    private int characterBaseMaxHp;
+
+    /** Passive levels for this run, allocated on first use. See the field's comment. */
+    private int[] passives() {
+        if (passiveLevels == null) passiveLevels = new int[ContentCatalog.PASSIVES.length];
+        return passiveLevels;
+    }
 
     private long nextSpawnAt;
     private long nextWaveAt;
@@ -152,6 +178,15 @@ final class RunWorld {
     private int bossEncounterIndex = -1;
 
     private boolean skillAcquired;
+    /**
+     * How many times the skill has been taken this run, 0..ContentCatalog.SKILL_MAX_STACKS.
+     *
+     * <p>{@code skillAcquired} stays the authoritative "has a skill" flag because the skill is what
+     * the player presses, and tests drive that flag directly. Stacks are the power multiplier:
+     * {@code skillPower()} returns {@code max(1, skillStacks)} so a run whose flag was set without
+     * a stack count, which is how several suites construct a world, behaves exactly as it did before.
+     */
+    private int skillStacks;
     private long skillReadyAt;
     private boolean specialUsed;
 
@@ -232,7 +267,7 @@ final class RunWorld {
         ringEventDone = false; hordeEventDone = false;
         nextSpawnAt = startTime + 1000;
         nextWaveAt = startTime + 180000L;
-        skillAcquired = false; skillReadyAt = 0; specialUsed = false;
+        skillAcquired = false; skillReadyAt = 0; specialUsed = false; skillStacks = 0;
         rerolls = mode.standardLoadout ? 10 : 0;
         holds = 5;
         offerCount = 0; selectedOffer = 0; heldOffer = -1;
@@ -256,7 +291,19 @@ final class RunWorld {
         if (mode.standardLoadout) weaponLevels[0] = ContentCatalog.weapon(0).maxLevel;
         weaponReadyAt[0] = startTime + 500;
         baseMaxHp = character.hp;
-        if (mode.id.equals("endless") && save.hardcore()) baseMaxHp = 1;
+        // Character base HP is kept separately so recomputeStats() can rebuild max HP from scratch
+        // each time instead of adding shop passives on top of an already-modified value.
+        characterBaseMaxHp = baseMaxHp;
+        if (mode.id.equals("endless") && save.hardcore()) { baseMaxHp = 1; characterBaseMaxHp = 1; }
+        // Shop passives are permanent and bought per character, so the selected character's own
+        // levels are read once here and then treated as part of the run. Guarded because most
+        // suites build a world with a null save.
+        if (save != null) {
+            int[] levels = passives();
+            for (int i = 0; i < levels.length; i++) {
+                levels[i] = save.passiveLevel(characterIndex, i);
+            }
+        }
         recomputeStats();
         playerHp = playerMaxHp;
         generateOffers();
@@ -347,7 +394,10 @@ final class RunWorld {
             int level = o.existing >= 0 ? itemLevels[o.existing] : 0;
             return d.name + (o.newItem ? " NEW" : " Lv" + Math.min(d.maxLevel, level + 1));
         }
-        if (o.type == OFFER_SKILL) return character.skill;
+        if (o.type == OFFER_SKILL) {
+            return character.skill + (skillStacks >= ContentCatalog.SKILL_MAX_STACKS
+                    ? " MAX" : " Lv" + (skillStacks + 1));
+        }
         if (o.type == OFFER_STAT) return statName(o.value);
         if (o.type == OFFER_FOOD) return "Food +20% HP";
         if (o.type == OFFER_COINS) return "100 HoloCoins";
@@ -470,23 +520,43 @@ final class RunWorld {
         if (specialPressed && !specialUsed) activateSpecial(now);
     }
 
+    /**
+     * Fires the character's skill at the strength the player has bought into it.
+     *
+     * <p>Every stack multiplies the skill's damage and its radius. Duration-based skills
+     * (Hunter's Instinct, Second Flame) lengthen instead, because their value is the window, not the
+     * burst, and multiplying a debuff's duration would change what the skill <em>is</em>. The
+     * Undying shield grows per stack because it is the only numeric quantity it has.
+     */
     private void activateSkill(long now) {
+        int stacks = skillPower();
         skillReadyAt = now + 15000L;
         if (characterIndex == 0) { // Shark Bite
-            damageEnemiesInRadius(70, 6, true);
+            damageEnemiesInRadius(70 * stacks, 6 * stacks, true);
         } else if (characterIndex == 1) { // Hunter's Instinct
-            slowEnemiesUntil = now + 3500L;
+            slowEnemiesUntil = now + 3500L * stacks;
             for (int i = 0; i < enemies.length; i++) if (enemies[i].active) enemies[i].nextAttack = now + 1200L;
         } else if (characterIndex == 2) { // Undying
-            shield = 20;
+            shield = 20 * stacks;
             shieldReadyAt = now + 15000L;
         } else if (characterIndex == 3) { // Second Flame
-            lifestealUntil = now + 8000L;
+            lifestealUntil = now + 8000L * stacks;
         } else { // The Ancient One
-            invulUntil = now + 2500L;
-            damageEnemiesInRadius(45, 4, false);
+            invulUntil = now + 2500L * stacks;
+            damageEnemiesInRadius(45 * stacks, 4 * stacks, false);
         }
     }
+
+    /**
+     * Skill strength for this run. Floored at 1 so a world whose {@code skillAcquired} flag was set
+     * directly, without a stack count, still casts at the original power.
+     */
+    private int skillPower() {
+        return skillStacks < 1 ? 1 : skillStacks;
+    }
+
+    /** Stacks currently held, for the HUD and the level-up label. */
+    int skillStacks() { return skillStacks; }
 
     private void activateSpecial(long now) {
         specialUsed = true;
@@ -554,6 +624,9 @@ final class RunWorld {
         e.lastKnockHit = 0;
         e.kbUntil = 0;
         e.chargeUntil = 0;
+        e.orbitEndsAt = 0;
+        e.orbitDir = 0;
+        e.moveCarry = 0;
         e.healAt = now + 2000L;
         placeAtEdge(e, now);
     }
@@ -614,6 +687,8 @@ final class RunWorld {
                         }
                     }
                 }
+            } else if (def.behavior == ContentCatalog.AI_ORBIT_CHARGER) {
+                updateOrbitCharger(e, def, dx, dy, distSq, speed, now);
             } else if (def.behavior == ContentCatalog.AI_BOMBER) {
                 moveToward(e, dx, dy, speed * 0.7);
                 if (distSq < 900 && now >= e.nextAttack) {
@@ -650,6 +725,102 @@ final class RunWorld {
         if (dy > 0) e.y += step(speed);
         if (dy < 0) e.y -= step(speed);
     }
+
+    // ---- AI_ORBIT_CHARGER pacing, tuned for Biji Sawit in Arena Hutan Sawit -----------------
+    //
+    // The stage's swarm enemy circles the player for a few random laps and only then darts, so a
+    // horde reads as a milling crowd rather than a wall of simultaneous dashes. Movement is driven
+    // by moveEnemyVector at rates derived from the enemy's speed stat instead of step(), because
+    // step() floors every speed the catalog's column can express down to 1px per tick and a chase
+    // slower than 1px is exactly the nerf this enemy needs. With the current stat (0.48) that works
+    // out to ~0.72px/tick approaching against a chaser's 1px, a ~3.8px/tick circling stride, and a
+    // 5px/tick closing dart against the plain charger's 7px.
+    private static final int ORBIT_RADIUS = 55;          // px held from the player while circling
+    private static final int ORBIT_ENGAGE_DIST = 110;    // px at which circling starts
+    private static final double APPROACH_PX_PER_SPEED = 1.5;
+    private static final double ORBIT_PX_PER_SPEED = 8.0;
+    private static final double ORBIT_CHARGE_PX = 5.0;   // px/tick during the closing dart
+    private static final long ORBIT_CHARGE_MS = 650L;
+    private static final int ORBIT_LAPS_MIN = 2;
+    private static final int ORBIT_LAPS_RANDOM = 2;      // laps = MIN + rand(this), i.e. 2 or 3
+    private static final double TICKS_PER_SECOND = 60.0;
+    private static final long ORBIT_MIN_LAP_MS = 900L;   // floor so a slow tick estimate cannot stall
+
+    /**
+     * One orbit-charger tick. Approaches at a nerfed sub-pixel pace, circles the player for a few
+     * random laps once close and off cooldown, then commits the same kind of dash an
+     * {@link ContentCatalog#AI_CHARGER} makes, and starts the cycle over.
+     */
+    private void updateOrbitCharger(Enemy e, ContentCatalog.EnemyDef def, int dx, int dy,
+            int distSq, double speed, long now) {
+        if (now < e.chargeUntil) {
+            e.x += e.chargeDx;      // mid-dash: direction was locked when the wind-up ended
+            e.y += e.chargeDy;
+            return;
+        }
+        if (e.orbitEndsAt != 0) {
+            if (now < e.orbitEndsAt) {
+                orbitStep(e, dx, dy, speed * ORBIT_PX_PER_SPEED);
+                return;
+            }
+            // Laps done: wind up and dart at the player, then the cooldown restarts the cycle.
+            e.orbitEndsAt = 0;
+            double len = Math.sqrt((double) distSq);
+            if (len > 0.0) {
+                e.chargeDx = (int) ((dx / len) * ORBIT_CHARGE_PX);
+                e.chargeDy = (int) ((dy / len) * ORBIT_CHARGE_PX);
+                if (e.chargeDx == 0 && e.chargeDy == 0) e.chargeDx = facingX;
+                e.chargeUntil = now + ORBIT_CHARGE_MS;
+                e.nextAttack = now + def.cooldownMs;
+            }
+            return;
+        }
+        moveEnemyVector(e, dx, dy, speed * APPROACH_PX_PER_SPEED);
+        if (distSq < ORBIT_ENGAGE_DIST * ORBIT_ENGAGE_DIST && now >= e.nextAttack) {
+            // Each approach rolls its own direction and lap count, so a swarm splits into both
+            // spin directions at mixed radii instead of marching in one formation.
+            e.orbitDir = rand(2) == 0 ? -1 : 1;
+            double orbitPx = speed * ORBIT_PX_PER_SPEED;
+            long lapMs = (long) (2 * Math.PI * ORBIT_RADIUS / (orbitPx * TICKS_PER_SECOND) * 1000.0);
+            if (lapMs < ORBIT_MIN_LAP_MS) lapMs = ORBIT_MIN_LAP_MS;
+            e.orbitEndsAt = now + lapMs * (ORBIT_LAPS_MIN + rand(ORBIT_LAPS_RANDOM));
+        }
+    }
+
+    /** Tangential movement around the player at {@link #ORBIT_RADIUS}, with radial correction. */
+    private void orbitStep(Enemy e, int dx, int dy, double pxPerTick) {
+        if (dx == 0 && dy == 0) return;
+        double len = Math.sqrt((double) (dx * dx + dy * dy));
+        double tangentX = -dy * e.orbitDir;
+        double tangentY = dx * e.orbitDir;
+        double radial = 0.0;
+        if (len > 1.0) {
+            // Positive radial moves toward the player, so an enemy that drifted wide spirals back
+            // in and one that got too close drifts out, holding the circling ring without
+            // computing an angle per tick.
+            if (len > ORBIT_RADIUS + 12) radial = 0.6;
+            else if (len < ORBIT_RADIUS - 12) radial = -0.6;
+        }
+        moveEnemyVector(e, tangentX + (dx / len) * radial, tangentY + (dy / len) * radial, pxPerTick);
+    }
+
+    /**
+     * Moves an enemy along a direction vector by a possibly sub-pixel amount, carrying the
+     * fractional remainder across ticks so a rate below 1px still advances steadily.
+     */
+    private void moveEnemyVector(Enemy e, double dirX, double dirY, double pxPerTick) {
+        double len = Math.sqrt(dirX * dirX + dirY * dirY);
+        if (len < 0.001) return;
+        double total = e.moveCarry + pxPerTick;
+        int whole = (int) total;
+        if (whole < 1) { e.moveCarry = total; return; }
+        e.moveCarry = total - whole;
+        e.x += roundPx((dirX / len) * whole);
+        e.y += roundPx((dirY / len) * whole);
+    }
+
+    /** Round to nearest, since CLDC's Math has no round(double). */
+    private int roundPx(double v) { return (int) Math.floor(v + 0.5); }
 
     private void updateBossDirector(long now) {
         if (stage.timeStage || stage.bossA == null || stage.bossA.length() == 0) return;
@@ -1114,7 +1285,14 @@ final class RunWorld {
         ContentCatalog.EnemyDef def = ContentCatalog.ENEMIES[enemy.defIndex];
         long now = System.currentTimeMillis();
         dropPickup(enemy.x + enemyWidth(enemy.defIndex) / 2, enemy.y + enemyHeight(enemy.defIndex) / 2, 0, def.exp, now);
-        if (def.coinChance > 0 && rand(def.coinChance) == 0) dropPickup(enemy.x, enemy.y, 1, 10, now);
+        if (def.coinChance > 0) {
+            // Fortune shortens the drop interval instead of adding a second roll, so a level of the
+            // passive can only ever shift the odds and never mint two coins from one kill. The
+            // divisor is never below 1, so a 1-in-N enemy still cannot drop every time.
+            int interval = (def.coinChance * (100 - coinDropBonus)) / 100;
+            if (interval < 1) interval = 1;
+            if (rand(interval) == 0) dropPickup(enemy.x, enemy.y, 1, 10, now);
+        }
         if (rand(200) == 0) dropPickup(enemy.x, enemy.y, 2, 1, now);
         if (rand(1301) == 0) dropPickup(enemy.x, enemy.y, 4, 1, now);
         if (rand(3000) == 0) dropPickup(enemy.x, enemy.y, 3, 0, now);
@@ -1197,6 +1375,7 @@ final class RunWorld {
             e.exp = def.exp; e.anim = i % 3; e.nextAnim = System.currentTimeMillis() + 150L;
             e.nextAttack = System.currentTimeMillis() + 1000L; e.kbUntil = 0; e.knockResist = 0;
             e.lastKnockHit = 0; e.chargeUntil = 0; e.healAt = System.currentTimeMillis() + 2000L;
+            e.orbitEndsAt = 0; e.orbitDir = 0; e.moveCarry = 0;
             if (ring) {
                 double angle = Math.PI * 2.0 * i / count;
                 e.x = playerCenterX() + (int) (Math.cos(angle) * 120.0);
@@ -1251,6 +1430,7 @@ final class RunWorld {
     private void recomputeStats() {
         atkPercentBonus = 0; hastePercent = 0; speedPercentBonus = 0;
         pickupPercentBonus = 0; critPercentBonus = 0; expPercentBonus = 0; defensePercent = 0;
+        coinDropBonus = 0;
         int maxHp = baseMaxHp;
         boolean regen = false;
         for (int i = 0; i < itemCount; i++) {
@@ -1266,8 +1446,33 @@ final class RunWorld {
             if (d.effect == ContentCatalog.EFFECT_EXP_PCT) expPercentBonus += v;
             if (d.effect == ContentCatalog.EFFECT_REGEN) regen = true;
         }
+
+        // Shop passives apply underneath the run's items so a passive purchase is never diluted by
+        // which items happened to drop. Max HP is recomputed from characterBaseMaxHp rather than
+        // from baseMaxHp so repeated calls cannot compound the same purchase.
+        int[] levels = passives();
+        for (int i = 0; i < levels.length; i++) {
+            ContentCatalog.PassiveDef p = ContentCatalog.passive(i);
+            int level = levels[i];
+            if (p == null || level <= 0) continue;
+            int v = p.value * level;
+            if (p.effect == ContentCatalog.EFFECT_MAX_HP) maxHp += characterBaseMaxHp * v / 100;
+            else if (p.effect == ContentCatalog.EFFECT_DAMAGE_PCT) atkPercentBonus += v;
+            else if (p.effect == ContentCatalog.EFFECT_SPEED_PCT) speedPercentBonus += v;
+            else if (p.effect == ContentCatalog.EFFECT_CRIT_PCT) critPercentBonus += v;
+            else if (p.effect == ContentCatalog.EFFECT_EXP_PCT) expPercentBonus += v;
+            else if (p.effect == ContentCatalog.EFFECT_HASTE_PCT) hastePercent += v;
+            else if (p.effect == ContentCatalog.EFFECT_DEFENSE_PCT) defensePercent += v;
+            else if (p.effect == ContentCatalog.EFFECT_COIN_PCT) coinDropBonus += v;
+        }
+        if (coinDropBonus > 90) coinDropBonus = 90;
+        // Hardcore pins Endless to 1 HP and is a deliberate rule, so it outranks a purchased passive.
+        // Keyed on baseMaxHp, not characterBaseMaxHp, so it still pins exactly as it did before the
+        // shop passives existed: a Max HP stat can raise baseMaxHp and lift the ceiling, which is
+        // the historical behaviour.
+        if (mode.id.equals("endless") && baseMaxHp == 1) maxHp = 1;
+
         playerMaxHp = maxHp;
-        if (mode.id.equals("endless") && baseMaxHp == 1) playerMaxHp = 1;
         if (playerHp > playerMaxHp) playerHp = playerMaxHp;
         if (regen && regenTickAt == 0) regenTickAt = System.currentTimeMillis() + 3000L;
     }
@@ -1292,20 +1497,29 @@ final class RunWorld {
         offers[5].type = holds > 0 ? OFFER_HOLD : -1;
     }
 
+    /**
+ * Picks the offer *category* for one of the four upgrade slots.
+ *
+ * <p>The skill is a one-time pickup, so slot 0 offers it outright rather than rolling for it.
+ * The previous version rolled with {@code rand(20)} and then tested {@code r < 20}, which is true
+ * for every value {@code rand(20)} can return, so slots 0 and 1 both offered the same unacquired
+ * skill on every level-up and never reached the branches below. Combined with slots 2 and 3 being
+ * weapon/item only, that meant character stat upgrades almost never appeared in a real run, which
+ * is what left early levels feeling far too punishing: the player gained weapons but no survivability.
+ *
+ * <p>Stats now take 25% of rolls in every slot, so Max HP and ATK growth are actually reachable.
+ */
     private int chooseOfferType(int slot) {
-        int r = rand(20);
-        if (slot < 2) {
-            if (r < 20 && !skillAcquired) return OFFER_SKILL;
-            if (r < 14) return OFFER_WEAPON;
-            if (r < 19) return OFFER_ITEM;
-            return OFFER_STAT;
-        }
-        if ((r & 1) == 0) return OFFER_WEAPON;
-        return OFFER_ITEM;
+        if (slot == 0 && skillStacks < ContentCatalog.SKILL_MAX_STACKS) return OFFER_SKILL;
+        int r = rand(100);
+        if (r < 30) return OFFER_WEAPON;
+        if (r < 55) return OFFER_ITEM;
+        if (r < 80) return OFFER_STAT;
+        return OFFER_WEAPON;
     }
 
     private boolean fillOffer(int slot, int type) {
-        if (type == OFFER_SKILL && !skillAcquired) {
+        if (type == OFFER_SKILL && skillStacks < ContentCatalog.SKILL_MAX_STACKS) {
             offers[slot].type = OFFER_SKILL; offers[slot].value = 0; offers[slot].existing = -1;
             offers[slot].newItem = false; return true;
         }
@@ -1394,6 +1608,7 @@ final class RunWorld {
         Offer o = offers[index];
         if (o.type == OFFER_SKILL) {
             skillAcquired = true;
+            if (skillStacks < ContentCatalog.SKILL_MAX_STACKS) skillStacks++;
         } else if (o.type == OFFER_WEAPON) {
             ContentCatalog.WeaponDef def = ContentCatalog.weapon(o.value);
             if (o.collab) {
@@ -1676,7 +1891,9 @@ final class RunWorld {
             }
         }
         if (boss.active) {
-            Image[] frames = assets.bossFrames(boss.defIndex);
+            Image[] frames = facingFrames(assets.bossFrames(boss.defIndex),
+                assets.bossFramesM(boss.defIndex),
+                faceToward(boss.x + bossWidth() / 2, playerCenterX()));
             Image im = frame(frames, boss.anim);
             int x = worldOffX + boss.x; int y = offY + boss.y;
             if (im != null) g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
@@ -1702,10 +1919,31 @@ final class RunWorld {
     private void drawBackground(Graphics g, int offX, int offY, int cameraX) {
         int[][] colors = { { 22, 48, 30 }, { 42, 44, 54 }, { 46, 28, 34 }, { 58, 42, 30 },
                 { 28, 52, 62 }, { 16, 24, 40 }, { 54, 34, 40 }, { 42, 20, 30 },
-                { 18, 18, 34 }, { 36, 20, 52 } };
+                { 18, 18, 34 }, { 36, 20, 52 }, { 34, 24, 17 } };
         int c = stage.palette % colors.length;
         g.setColor(colors[c][0], colors[c][1], colors[c][2]);
         g.fillRect(offX + cameraX, offY, viewWidth, viewHeight);
+
+        // A composed arena draws its parts once each, at their grid positions. The reference scene
+        // is a single picture with a burning border around a clearing, so repeating one floor tile
+        // would destroy it; a part grid reproduces the composition exactly.
+        Image[][] parts = assets.stageMap();
+        if (parts != null) {
+            for (int row = 0; row < parts.length; row++) {
+                for (int col = 0; col < parts[row].length; col++) {
+                    Image part = parts[row][col];
+                    if (part == null) continue;
+                    int pw = part.getWidth(); int ph = part.getHeight();
+                    int dx = col * pw - cameraX;
+                    // Skip anything scrolled fully out of view; the camera is clamped, so the
+                    // visible range can never run past the world.
+                    if (dx >= viewWidth || dx + pw <= 0) continue;
+                    g.drawImage(part, offX + dx, offY + row * ph, Graphics.TOP | Graphics.LEFT);
+                }
+            }
+            return;
+        }
+
         Image tile = assets.tile(stage.tile);
         if (tile != null) {
             int tw = tile.getWidth(); int th = tile.getHeight();
@@ -1938,6 +2176,10 @@ final class RunWorld {
         boolean active; int defIndex; int x; int y; int hp; int maxHp; int atk; double speed;
         long nextAttack; int anim; long nextAnim; int exp; int knockResist; long lastKnockHit;
         int kbDx; int kbDy; long kbUntil; int chargeDx; int chargeDy; long chargeUntil; long healAt;
+        // AI_ORBIT_CHARGER only: orbitEndsAt != 0 means the enemy is circling until that time,
+        // orbitDir is the circling direction (+1/-1), and moveCarry holds the sub-pixel remainder
+        // so movement slower than 1px per tick still advances over several ticks.
+        int orbitDir; long orbitEndsAt; double moveCarry;
     }
     private static final class Shot {
         boolean active; boolean fromPlayer; boolean attached; boolean returning; boolean critical;

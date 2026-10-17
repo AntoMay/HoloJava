@@ -193,10 +193,16 @@ public final class StageCompletionUnlockTest {
      * <p>Note the shape: stage 5 (Grassy Plains Night) requires order <b>1</b>, not order 4. The
      * progression is requirement-driven, so assuming a chain would be wrong. Fantasy Island is
      * {@code 99}, which {@code stageUnlocked} treats exactly like {@code -1}: always available.
+     *
+     * <p>The trailing {@code 99} is Arena Hutan Sawit, this project's own stage rather than a
+     * reference one, so its entry is not bytecode-derived. It is also currently always available:
+     * it was gated behind Fantasy Island (order 4) until it was opened up for playtesting. Both
+     * changes are single literals in {@code ContentCatalog.STAGES}; the comment there records the
+     * intended value.
      */
     private static void testUnlockTableMatchesTheReference() {
         System.out.println("[1] the unlock table matches the reference");
-        int[] expected = { -1, 0, 1, 2, 99, 1, 5, 6, 7, 2 };
+        int[] expected = { -1, 0, 1, 2, 99, 1, 5, 6, 7, 2, 99 };
         for (int i = 0; i < expected.length && i < stageCount(); i++) {
             expectEq(ContentCatalog.stage(i).unlockRequirement, expected[i],
                 "stage " + i + " (" + ContentCatalog.stage(i).id + ") unlockRequirement");

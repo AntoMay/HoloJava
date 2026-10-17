@@ -228,6 +228,7 @@ public final class RunWorldEnemyAiTest {
         testHealerRestoresNearbyEnemies();
         testChargerChargesInAStraightLine();
         testEnemyLogicUsesWorldCoordinatesWhenScrolled();
+        testOrbitChargerCirclesBeforeDarting();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -574,6 +575,66 @@ public final class RunWorldEnemyAiTest {
             "the enemy moved by the same world-space delta regardless of the camera");
         expectEq(scrolledDelta, -stepOf(speed),
             "and that delta is the enemy's own step, toward the player");
+    }
+
+    /**
+     * An orbit charger circles the player for a few random laps before it darts, and its approach
+     * is slower than the 1px per tick every step-based enemy covers, which is the movement nerf.
+     */
+    private static void testOrbitChargerCirclesBeforeDarting() throws Exception {
+        System.out.println("[12] an orbit charger circles before it darts");
+        int defIndex = defIndexWithBehavior(ContentCatalog.AI_ORBIT_CHARGER);
+        expect("biji_sawit".equals(ContentCatalog.ENEMIES[defIndex].id),
+            "the catalog's orbit charger is Biji Sawit");
+
+        // Player center is (172, 132); this places the enemy ~77px away, inside the 110px engage
+        // ring, with its attack off cooldown so circling can begin on the very first tick.
+        Object w = world(320, 240);
+        Object e = place(w, ContentCatalog.AI_ORBIT_CHARGER, 240, 120, 0.48, 0L);
+
+        updateEnemies(w, 1000L);
+        expect(getLong(e, "orbitEndsAt") > 1000L, "it committed to circling");
+        expectEq(getLong(e, "chargeUntil"), 0L,
+            "and did not dash on sight the way a plain charger does");
+
+        // It keeps circling: movement happens, and the dash window stays shut throughout.
+        int x0 = getInt(e, "x");
+        int y0 = getInt(e, "y");
+        long t = 1016L;
+        for (int i = 0; i < 10; i++) { updateEnemies(w, t); t += 16L; }
+        expect(getInt(e, "x") != x0 || getInt(e, "y") != y0, "circling moves the enemy");
+        expectEq(getLong(e, "chargeUntil"), 0L, "still no dash mid-circle");
+
+        // The circling holds a ring around the player rather than collapsing onto or off them.
+        int cx = getInt(e, "x") + 9;   // enemy center, collW 18
+        int cy = getInt(e, "y") + 8;   // collH 16
+        int dx = cx - 172;
+        int dy = cy - 132;
+        int distSq = dx * dx + dy * dy;
+        expect(distSq > 30 * 30 && distSq < 100 * 100,
+            "the ring around the player is held (distSq=" + distSq + ")");
+
+        // Once the laps expire it commits the dash.
+        long ends = getLong(e, "orbitEndsAt");
+        updateEnemies(w, ends + 10L);
+        expect(getLong(e, "chargeUntil") > ends, "the laps ran out and it darted");
+        int dashX = getInt(e, "x");
+        updateEnemies(w, ends + 26L);
+        expect(getInt(e, "x") != dashX, "and travels along the locked dash direction");
+
+        // Approaching a distant enemy runs at a sub-pixel rate: four ticks cover less ground
+        // than the 4px a step-based chaser would, because the fractional carry only advances
+        // every tick and a bit.
+        Object w2 = world(320, 240);
+        Object far = place(w2, ContentCatalog.AI_ORBIT_CHARGER, 300, 220, 0.48, 0L);
+        updateEnemies(w2, 1000L);
+        updateEnemies(w2, 1016L);
+        updateEnemies(w2, 1032L);
+        updateEnemies(w2, 1048L);
+        int approached = 300 - getInt(far, "x");
+        expect(approached > 0, "a distant orbit charger still approaches");
+        expect(approached < 4,
+            "but slower than a step-based chaser's 4px in four ticks (moved " + approached + ")");
     }
 
     // ---------------------------------------------------------------- helpers

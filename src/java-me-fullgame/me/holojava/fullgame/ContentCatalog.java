@@ -28,6 +28,13 @@ final class ContentCatalog {
     static final int AI_CHARGER = 2;
     static final int AI_BOMBER = 3;
     static final int AI_HEALER = 4;
+    /**
+     * A charger that circles the player for a few random laps before it darts, instead of beelining
+     * and dashing the moment it is close like {@link #AI_CHARGER}. RunWorld drives its movement at
+     * sub-pixel rates because step() floors every speed the catalog's column can express down to
+     * 1px, and a chase slower than 1px is the point. Used by Biji Sawit only.
+     */
+    static final int AI_ORBIT_CHARGER = 5;
 
     static final int COMPLETE_FINAL_BOSS = 0;
     static final int COMPLETE_ON_DEATH = 1;
@@ -44,6 +51,20 @@ final class ContentCatalog {
     static final int EFFECT_NEGATE = 8;
     static final int EFFECT_FOOD_DROP = 9;
     static final int EFFECT_EXP_PCT = 10;
+    // Added for the shop passives. EFFECT_DEFENSE_PCT finally feeds the damage-reduction field that
+    // RunWorld has always read but never set, and EFFECT_COIN_PCT has no run-item equivalent because
+    // item coin rate was never modelled; it drives the enemy coin-drop roll instead.
+    static final int EFFECT_DEFENSE_PCT = 11;
+    static final int EFFECT_COIN_PCT = 12;
+
+    /**
+     * How many times a character's skill can be taken from the level-up screen.
+     *
+     * <p>The skill used to be a one-shot unlock, so a second skill offer could never appear and the
+     * offer mix starved the stat branch. Taking it again now raises its power instead of being
+     * wasted, which is what makes repeating the skill slot worth a level.
+     */
+    static final int SKILL_MAX_STACKS = 5;
 
     static final class CharacterDef {
         String id;
@@ -166,6 +187,13 @@ final class ContentCatalog {
         // genuinely wider than the screen; the width then adapts to the screen instead of being
         // pinned to one constant, so the world stays wider than the view on any display.
         int scrollW;
+        // Composed background grid. When both are above zero the stage draws a fixed COLSxROWS
+        // arrangement of images under /assets/fullgame/stages/<tile>_parts/ instead of repeating a
+        // single floor tile, which is what a hand-composed arena needs: the reference scene is one
+        // picture with a burning border around a clearing, not a repeating pattern. Zero on both
+        // axes means the historical behaviour, one repeating tile.
+        int mapCols;
+        int mapRows;
     }
 
     static final class CollabDef {
@@ -220,6 +248,82 @@ final class ContentCatalog {
 
     static final WeaponDef[] WEAPONS = WikiCatalogData.buildWeapons(BASE_WEAPONS);
 
+    /**
+     * Shop passives, one per row on the shop screen.
+     *
+     * <p>Audited against RunWorld rather than invented. Every effect below either drives a field the
+     * run already computes, or fills one that existed but was never set:
+     *
+     * <ul>
+     *   <li>{@code body} feeds {@code baseMaxHp}, the same source the level-up Max HP stat writes.</li>
+     *   <li>{@code might} feeds {@code atkPercentBonus}, applied to outgoing damage.</li>
+     *   <li>{@code swift} feeds {@code speedPercentBonus}.</li>
+     *   <li>{@code guard} feeds {@code defensePercent}, which {@code damagePlayer} has always read
+     *       but which nothing ever set: before this pass damage reduction was dead code.</li>
+     *   <li>{@code fortune} feeds {@code coinDropBonus}, a new field on the enemy coin-drop roll.
+     *       No item covers coin rate; this is the only coin-rate source in the game.</li>
+     *   <li>{@code insight} feeds {@code expPercentBonus}, applied to EXP pickups.</li>
+     *   <li>{@code precision} feeds {@code critPercentBonus}.</li>
+     *   <li>{@code tempo} feeds {@code hastePercent}, which shortens weapon cooldowns.</li>
+     * </ul>
+     *
+     * <p>Every row runs to {@link #PASSIVE_MAX_LEVEL} levels and every purchase applies to every
+     * character, because a level bought once is not a per-character unlock.
+     *
+     * <p>Costs double per level and are capped, which keeps the arithmetic trivially bounded and
+     * keeps the whole catalogue affordable: buying every row to 10/10 costs 5,795,500, so
+     * the current starting capital of 9,999,999 covers a full clear-out with change left over. When
+     * the coin economy is designed for real these curves are the first thing to revisit.
+     *
+     * <p>Order is the shop's display order and is load-bearing only for readability.
+     */
+    static final int PASSIVE_MAX_LEVEL = 10;
+
+    static final PassiveDef[] PASSIVES = {
+        passive("body",     "Vitality",   EFFECT_MAX_HP,       10, 2000, 2, 150000),
+        passive("might",    "Might",      EFFECT_DAMAGE_PCT,    8, 2500, 2, 150000),
+        passive("guard",    "Guard",      EFFECT_DEFENSE_PCT,   6, 3000, 2, 150000),
+        passive("swift",    "Swift",      EFFECT_SPEED_PCT,    10, 2000, 2, 100000),
+        passive("precision","Precision",  EFFECT_CRIT_PCT,      4, 3500, 2, 150000),
+        passive("insight",  "Insight",    EFFECT_EXP_PCT,      12, 2500, 2, 100000),
+        passive("fortune",  "Fortune",    EFFECT_COIN_PCT,     15, 4000, 2, 200000),
+        passive("tempo",    "Tempo",      EFFECT_HASTE_PCT,     6, 3000, 2, 100000)
+    };
+
+    /**
+     * Price of the next level of a passive, i.e. level {@code currentLevel + 1}.
+     *
+     * <p>Computed in {@code long} and clamped, so a deep level or a large base cost can neither
+     * overflow into a negative price nor wrap into something affordable. Returns {@code -1} for an
+     * unknown id, which callers treat as "not purchasable".
+     */
+    static long passiveCost(PassiveDef def, int currentLevel) {
+        if (def == null || currentLevel < 0 || currentLevel >= def.maxLevel) return -1L;
+        long cost = def.baseCost;
+        for (int i = 0; i < currentLevel && cost < def.costCap; i++) cost *= def.costGrowth;
+        if (cost > def.costCap) cost = def.costCap;
+        return cost;
+    }
+
+    static PassiveDef passive(String id) {
+        for (int i = 0; i < PASSIVES.length; i++) if (PASSIVES[i].id.equals(id)) return PASSIVES[i];
+        return null;
+    }
+
+    static PassiveDef passive(int index) {
+        if (index < 0 || index >= PASSIVES.length) return null;
+        return PASSIVES[index];
+    }
+
+    static PassiveDef passive(String id, String name, int effect, int value,
+            int baseCost, int costGrowth, int costCap) {
+        PassiveDef d = new PassiveDef();
+        d.id = id; d.name = name; d.effect = effect; d.value = value;
+        d.maxLevel = PASSIVE_MAX_LEVEL;
+        d.baseCost = baseCost; d.costGrowth = costGrowth; d.costCap = costCap;
+        return d;
+    }
+
     static final ItemDef[] ITEMS = {
         item("face_mask", "Face Mask", 1, EFFECT_DAMAGE_PCT, 30, 1, 1, "bullet"),
         item("knightly_milk", "Knightly Milk", 1, EFFECT_PICKUP_PCT, 30, 3, 1, "bullet"),
@@ -246,7 +350,13 @@ final class ContentCatalog {
         enemy("nousagi_b", "Nousagi B", AI_SHOOTER, 58, 6, 0.46, 1050, 15, 75, 18, 16, "NousagiB", false),
         enemy("nousagi_c", "Nousagi C", AI_CHARGER, 66, 7, 0.62, 700, 18, 65, 18, 16, "NousagiC", false),
         enemy("nousagi_d", "Nousagi D", AI_BOMBER, 72, 8, 0.40, 950, 20, 60, 18, 16, "NousagiD", false),
-        enemy("otaku", "Otaku", AI_HEALER, 90, 6, 0.34, 1400, 20, 60, 22, 28, "Otaku", false)
+        enemy("otaku", "Otaku", AI_HEALER, 90, 6, 0.34, 1400, 20, 60, 22, 28, "Otaku", false),
+        // Original design: small palm seed minion, fragile but persistent. It orbits the player
+        // for a few random laps before darting in (AI_ORBIT_CHARGER): the frond crown flares as it
+        // closes, which reads as a wind-up. atk 3 and speed 0.48 are a deliberate nerf from the
+        // first pass (4 / 0.55): the swarm fills the arena, so per-enemy pressure has to stay low
+        // enough that the stage is playable from the moment it is unlocked.
+        enemy("biji_sawit", "Biji Sawit", AI_ORBIT_CHARGER, 35, 3, 0.48, 800, 10, 80, 18, 16, "BijiSawit", false)
     };
 
     static final BossDef[] BOSSES = {
@@ -266,7 +376,13 @@ final class ContentCatalog {
         boss("halloween_bae", "Halloween Bae", 72000, 27, AI_BOMBER, 1000, 6000, "Pekodam", true),
         boss("nodoka", "Harusaki Nodoka", 5000, 40, AI_SHOOTER, 950, 140, "Mikodanye", true),
         boss("halloween_myth", "Halloween Myth", 6000, 44, AI_CHARGER, 1000, 160, "Pekodam", true),
-        boss("goriela", "Goriela", 6500, 46, AI_SHOOTER, 900, 180, "Pekodam", true)
+        boss("goriela", "Goriela", 6500, 46, AI_SHOOTER, 900, 180, "Pekodam", true),
+        // Original design: WoWo, guardian of the burnt palm grove. Keeps its distance
+        // and fires a widening radial seed burst, so the fight is about dodging
+        // rings rather than chasing a single bullet. Tuned above Pekodam, the final
+        // boss of the stage this one unlocks behind, on both axes: it closes the
+        // normal stage list and must not feel like a step back.
+        boss("wowo", "WoWo", 9000, 44, AI_SHOOTER, 1000, 300, "WoWo", false)
     };
 
     static final ModeDef[] MODES = {
@@ -289,7 +405,18 @@ final class ContentCatalog {
         stage("stage2h", "Holo Office (Evening)", true, false, 6, "office", 6, "kuro_sukonbu", "sukonbu", "kuro_sukonbu", 900, 30, 15000, 5, "mikodanye", 600, "nodoka", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m Nodoka uses fallback asset"),
         stage("stage3h", "Halloween Castle (Myth)", true, false, 7, "castle", 7, "matsurisu3", "matsurisu", "matsurisu3", 850, 34, 30000, 6, "shubangelion", 600, "halloween_myth", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m Halloween Myth uses fallback asset"),
         stage("stage4h", "Gelora Bung Yagoo (Night)", true, false, 8, "yagoo", 8, "moonafic_vip", "moonafic", "moonafic_vip", 800, 38, 50000, 7, "udin", 600, "goriela", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m Goriela uses fallback asset"),
-        stage("time1", "Concert Stage", false, true, 9, "concert", 9, "otaku", "otaku", "otaku", 650, 40, 0, 2, "", 0, "", 0, "https://holocure.wiki.gg/wiki/Stage", "Time Mode target 4000; collabs and super items disabled")
+        stage("time1", "Concert Stage", false, true, 9, "concert", 9, "otaku", "otaku", "otaku", 650, 40, 0, 2, "", 0, "", 0, "https://holocure.wiki.gg/wiki/Stage", "Time Mode target 4000; collabs and super items disabled"),
+        // Original custom stage: Arena Hutan Sawit. Not from the reference game: its enemy, boss,
+        // tile and combat values are this project's own design. It is placed last so its order stays
+        // equal to its catalog index, the invariant StageCompletionUnlockTest guards, because
+        // completion is recorded under .order while the unlock table is keyed by order too.
+        //
+        // unlockRequirement 99 makes it always available, the same marker Fantasy Island uses and the
+        // one FullGameCanvas.stageUnlocked treats exactly like -1. It was originally gated behind
+        // Fantasy Island (order 4) so the stage would sit at the end of the normal progression; that
+        // gate is commented out below and only needs the literal restored to come back.
+        // stage("stage6", ... 4, ...)   <- the intended gate
+        stage("stage6", "Arena Hutan Sawit", false, false, 10, "palm_forest", 10, "biji_sawit", "biji_sawit", "biji_sawit", 1400, 18, 12000, 99, "wowo", 600, "wowo", 1200, "", "Original custom stage; art from tools/generate_palm_forest_sprites.py and tools/generate_palm_forest_map.py; combat values are original and unvalidated", 4, 4)
     };
 
     static {
@@ -302,6 +429,24 @@ final class ContentCatalog {
         // area while keeping the world twice, not many times, the view. stage2h (Evening) is
         // deliberately left alone and keeps the viewport-sized world.
         for (int i = 0; i < STAGES.length; i++) if ("stage2".equals(STAGES[i].id)) STAGES[i].scrollW = 2;
+    }
+
+    /**
+ * One permanent character upgrade sold by the shop.
+ *
+ * <p>Each passive is a single stat fed by one integer {@code value} per level, and every effect
+ * below maps to a field RunWorld already computes, so a passive needs no new damage or pickup code
+ * path. Levels are stored per character and read at the start of every run.
+ */
+    static final class PassiveDef {
+        String id;
+        String name;
+        int effect;      // one of the EFFECT_* constants.
+        int value;       // per level, in the same unit the effect is expressed in.
+        int maxLevel;
+        int baseCost;    // coin price of level 1.
+        int costGrowth;  // each further level costs baseCost * growth, capped at costCap.
+        int costCap;
     }
 
     static final CollabDef[] COLLABS;
@@ -399,6 +544,15 @@ final class ContentCatalog {
             String tile, int palette, String enemyA, String enemyB, String enemyC,
             int interval, int cap, int coins, int unlock, String bossA, int timeA,
             String bossB, int timeB, String source, String coverage) {
+        return stage(id, name, hard, time, order, tile, palette, enemyA, enemyB, enemyC,
+            interval, cap, coins, unlock, bossA, timeA, bossB, timeB, source, coverage, 0, 0);
+    }
+
+    /** Overload for a stage whose background is a composed grid rather than one repeating tile. */
+    static StageDef stage(String id, String name, boolean hard, boolean time, int order,
+            String tile, int palette, String enemyA, String enemyB, String enemyC,
+            int interval, int cap, int coins, int unlock, String bossA, int timeA,
+            String bossB, int timeB, String source, String coverage, int mapCols, int mapRows) {
         StageDef d = new StageDef();
         d.id = id; d.name = name; d.hard = hard; d.timeStage = time; d.order = order;
         d.tile = tile; d.palette = palette; d.enemyA = enemyA; d.enemyB = enemyB;
@@ -406,6 +560,7 @@ final class ContentCatalog {
         d.coinClear = coins; d.unlockRequirement = unlock; d.bossA = bossA;
         d.bossATimeSec = timeA; d.bossB = bossB; d.bossBTimeSec = timeB;
         d.documentedSource = source; d.coverage = coverage;
+        d.mapCols = mapCols; d.mapRows = mapRows;
         return d;
     }
 

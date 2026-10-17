@@ -6,3 +6,7 @@ rebuild-*/
 .DS_Store
 *.swp
 *.swo
+# FreeJ2ME-Plus runtime state: per-app config and the emulator's own log, both
+# generated when the desktop emulator is run and not project sources.
+freej2me_system/
+config/HoloJava/

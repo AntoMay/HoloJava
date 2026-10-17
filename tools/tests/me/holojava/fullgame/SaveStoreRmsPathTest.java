@@ -30,9 +30,16 @@ import javax.microedition.rms.RecordStoreNotOpenException;
  * <p>This is test-only tooling: nothing here is compiled into the game JAR, and no game source
  * file references {@code sun.*} or reflection beyond the standard API.
  *
+ * <p><b>The write half cannot be unit tested with the pinned stub.</b> {@code RecordStore} there has a
+ * private constructor, so a device-like double cannot be subclassed, and {@code Unsafe} on the class
+ * itself only yields an instance whose every method throws. The commit path is therefore covered by
+ * the coin tests through {@code RecordStorage}, plus an emulator run: on FreeJ2ME-Plus the first
+ * {@code setRecord} was refused for an id the store had never issued, which is why {@code write} now
+ * falls back to {@code addRecord}. That fallback is exercised in the emulator rather than here.
+ *
  * <p><b>Still not proven.</b> That a real device raises {@code RecordStoreNotFoundException} when
- * {@code openRecordStore(name, false)} finds no store, and that {@code setRecord} without an
- * explicit commit is durable. Both need an emulator or a handset.
+ * {@code openRecordStore(name, false)} finds no store, and that a write is durable without an
+ * explicit commit. Both need a handset.
  */
 public final class SaveStoreRmsPathTest {
 

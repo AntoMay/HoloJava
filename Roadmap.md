@@ -42,6 +42,15 @@ Initial gameplay loop:
 
 These are new design requirements. They are not claims about exact HoloCure behavior unless separately verified and recorded in `GAME_MECHANICS.md`.
 
+### Original Stage: Arena Hutan Sawit
+
+Added 2026-10-17 as original content rather than reconstruction. `stage6` carries enemy Biji Sawit
+(`AI_CHARGER`) and boss WoWo (`AI_SHOOTER`), uses a generated `palm_forest` tile, and unlocks on
+clearing Fantasy Island. Its enemy, boss, tile, and all combat values are this project's own
+design and are recorded in `docs/PROJECT_STATUS.md`. No part of it is evidence about the original
+game, and none of its numbers are presented as verified. See `docs/CONTENT_COVERAGE.md` for how
+it counts against the reference content totals.
+
 ## 2. Document Authority
 
 - `Roadmap.md` is the primary source of truth for scope, phase order, priorities, and project status.
@@ -489,6 +498,15 @@ Assumptions:
 | 2026-10-13 | Created `RECONSTRUCTION_SCOPE.md`, `SYSTEM_CATALOG.md`, and `CONTENT_COVERAGE.md` | Separate broad-reconstruction scope, system, and content tracking |
 | 2026-10-13 | Compatibility target and toolchain review changed to Java ME / J2ME | Desktop runtime direction is superseded by compatibility evidence; no implementation occurred |
 | 2026-10-13 | Clean full-game rebuild implemented under `src/java-me-fullgame` | Explicitly authorized implementation milestone; prior prototypes preserved |
+| 2026-10-17 | Added original stage `stage6` "Arena Hutan Sawit" with enemy Biji Sawit and boss WoWo, gated behind Fantasy Island | User-requested original content; combat values and art are this project's own design, not recovered from the reference game |
+| 2026-10-17 | Widened the RMS completion map from one byte to two per character (stage orders 0-15) | `stage6` needs order 10, and `stage4h` already sat at order 8 where the single-byte layout silently refused to record it; existing saves still decode because the new high bytes read as zero |
+| 2026-10-17 | Opened `stage6` to `unlockRequirement` 99 (always available) | Requested so the stage could be reached without clearing Fantasy Island first, whose final boss gates at 20:00. The intended gate (4) is recorded in a comment on the `stage6` line and is one literal to restore |
+| 2026-10-17 | Added `tools/build_fullgame_desktop.sh` after two runtime blockers | The preverified JAR cannot be loaded by a desktop JVM: ProGuard 6.2.2 emits a `full_frame` with zero locals, which is rejected before any MIDlet code runs. Separately, FreeJ2ME-Plus places `-Dfile.encoding` after `-jar`, so it restarts forever on an encoding mismatch. Both are recorded in `docs/PROJECT_STATUS.md` |
+| 2026-10-17 | Fixed the level-up offer mix and softened Arena Hutan Sawit's pressure | `chooseOfferType` tested `r < 20` on `rand(20)`, always true, which pinned two slots to a duplicate skill offer and made stat upgrades near-unreachable. Stat upgrades now take 25% of rolls; the stage's enemy ATK, cap and spawn rate were lowered to late-stage-free values |
+| 2026-10-17 | Nerfed Biji Sawit (ATK 4→3, speed 0.55→0.48, dash 7→5 px/tick) and gave it a circling wind-up before it darts (`AI_ORBIT_CHARGER`) | Requested so the swarm reads as a milling crowd: it now circles the player for 2-3 random laps at a 55 px ring, direction re-rolled per approach, before committing the dash |
+| 2026-10-17 | Arena Hutan Sawit background is now the reference scene | `StageDef` gained `mapCols`/`mapRows`; a composed 4x4 grid of 80x60 parts is drawn at fixed positions instead of one repeating tile, because the reference is a single composed picture and cannot tile |
+| 2026-10-17 | Fixed the RMS write path: fall back to `addRecord` when `setRecord` reports an unknown id | `setRecord` only replaces a record whose id the store issued, so on a fresh install every save failed. Nothing the game stored had ever been stored: balances, stage unlocks, the selected character and shop passives |
+| 2026-10-17 | Added a character shop with eight permanent passives (0..10 levels each, per character), and made skills stackable to 5 | The skill was a one-shot boolean, so taking the skill slot again was a wasted level. Passives fill `defensePercent`, which `damagePlayer` read but nothing set, and add the game's only coin-rate source |
 
 ## 13. Current Status and Next Step
 

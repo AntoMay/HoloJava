@@ -64,9 +64,9 @@ Evidence date: 2026-10-13. Wiki source: current wiki.gg tables recorded in `data
 - Playable characters: 5 / 47 documented, with 5 verified local animation sets.
 - Weapons: 20 / 94 documented runtime definitions, plus 5 prerequisite-validated collab recipes.
 - Items: 11 / 37 base documented items in the runtime catalog.
-- Enemy families: 13 local families / many wiki enemy entries; exact wiki denominator is not yet exported.
-- Boss encounters: 14 runtime definitions covering the main documented 10:00/20:00 schedule; several use fallback art.
-- Stages: 10 / 10 captured stage rows, with stage behavior data-driven.
+- Enemy families: 14 local families (13 from the reference game plus original Biji Sawit) / many wiki enemy entries; exact wiki denominator is not yet exported.
+- Boss encounters: 15 runtime definitions covering the main documented 10:00/20:00 schedule, plus original WoWo; several use fallback art.
+- Stages: 11 runtime stages — the 10 captured reference stage rows plus original Arena Hutan Sawit — with stage behavior data-driven.
 - Modes: 3 gameplay modes plus the documented Hardcore modifier.
 
 This report intentionally distinguishes implemented behavior from approximations and unavailable content.

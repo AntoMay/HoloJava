@@ -25,6 +25,7 @@ public final class UiStateMachineTest {
 
     // Screen constants, mirroring FullGameCanvas.
     private static final int MENU = 0;
+    private static final int SHOP = 10;
     private static final int MODES = 1;
     private static final int CHARACTERS = 2;
     private static final int STAGES = 3;
@@ -364,20 +365,27 @@ public final class UiStateMachineTest {
         expect(count > 1, "the character list is non-empty");
     }
 
-    /** Up and down wrap over characters plus one trailing Back entry. */
+    /**
+     * Up and down wrap over the roster plus two trailing rows: Shop, then Back.
+     */
     private static void testCharacterIndexWraps() throws Exception {
         System.out.println("[8] the character index wraps");
-        int count = ContentCatalog.CHARACTERS.length + 1;
+        int count = ContentCatalog.CHARACTERS.length + 2;
         Object c = canvas(CHARACTERS, 0);
         for (int i = 0; i < count + 5; i++) {
             characters(c, false, true, false, false, false);
             int idx = getInt(c, "menuIndex");
             expect(idx >= 0 && idx < count, "index " + idx + " stayed within [0," + count + ")");
         }
-        // The trailing entry is Back, which returns to the menu.
-        Object back = canvas(CHARACTERS, ContentCatalog.CHARACTERS.length);
+        // The last trailing entry is Back, which returns to the menu.
+        Object back = canvas(CHARACTERS, ContentCatalog.CHARACTERS.length + 1);
         characters(back, false, false, true, false, false);
         expectEq(getInt(back, "screen"), MENU, "the trailing entry goes back to the menu");
+
+        // The entry before it is the shop, which opens the shop rather than leaving the roster.
+        Object shop = canvas(CHARACTERS, ContentCatalog.CHARACTERS.length);
+        characters(shop, false, false, true, false, false);
+        expectEq(getInt(shop, "screen"), SHOP, "the shop row opens the shop");
     }
 
     /** A locked stage is refused outright: no selection, no transition. */

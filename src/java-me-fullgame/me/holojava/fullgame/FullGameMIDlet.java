@@ -14,6 +14,7 @@ public class FullGameMIDlet extends MIDlet implements FullGameCanvas.ShutdownReq
     protected void startApp() throws MIDletStateChangeException {
         if (canvas == null) {
             save = new SaveStore();
+            ensureStartingCapital();
             String validation = ContentCatalog.validate();
             assets = new AssetLibrary();
             if (validation == null && assets.failures() > 0) {
@@ -35,6 +36,24 @@ public class FullGameMIDlet extends MIDlet implements FullGameCanvas.ShutdownReq
 
     protected void pauseApp() {
         if (canvas != null) canvas.pauseApplication();
+    }
+
+    /**
+     * Tops the balance up to {@link FullGameCanvas#SHOP_STARTING_CAPITAL} so the shop can be driven
+     * before the coin economy has a real earning rate.
+     *
+     * <p>Deliberately a top-up rather than an assignment: coins earned in play are kept, so a player
+     * who spends down and restarts is restored to the same ceiling instead of losing progress. A
+     * refused write is ignored here exactly as it is everywhere else in SaveStore, which leaves the
+     * real balance intact.
+     *
+     * <p>Delete this method and its one call site to remove the starting capital entirely.
+     */
+    private void ensureStartingCapital() {
+        long capital = FullGameCanvas.SHOP_STARTING_CAPITAL;
+        long current = save.coinBalance();
+        if (current >= capital) return;
+        save.creditCoins(capital - current);
     }
 
     public void requestShutdown() {

@@ -52,23 +52,32 @@ final class AssetLibrary {
     Image tileFantasy;
     Image tileConcert;
     Image tileBeach;
+    Image tilePalmForest;
+
+    /**
+     * Composed background grid for the selected stage, or null when that stage repeats a single
+     * floor tile instead. Held per stage rather than globally so switching stages releases the
+     * previous arena's parts, the same discipline {@code prepareStage} applies to enemies and bosses.
+     */
+    private Image[][] mapParts;
 
     private final String[] enemyDirs = { "Shrimp", "Shrimp2", "Sukonbu", "Sukonbu2", "Matsurisu",
             "Matsurisu3", "Moonafic", "Moonafic2", "NousagiA", "NousagiB",
-            "NousagiC", "NousagiD", "Otaku" };
+            "NousagiC", "NousagiD", "Otaku", "BijiSawit" };
     private final String[] enemyPrefixes = { "spr_Shrimp_", "spr_Shrimp2_", "spr_Sukonbu_", "spr_Sukonbu2_",
             "spr_Matsurisu_", "spr_Matsurisu3_", "spr_Moonafic_", "spr_Moonafic2_",
             "spr_NousagiEnemyA_", "spr_NousagiEnemyB_", "spr_NousagiEnemyC_",
-            "spr_NousagiEnemyD_", "spr_DebuffOtakuA_" };
-    private final int[] enemyCounts = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4 };
-    private final String[] bossDirs = { "fubuzilla", "AchanBoss", "Mikodanye", "AchanBoss",
-            "Shubangelion_walk", "Pekodam", "Udin_walk", "Pekodam", "Moonafic",
-            "Pekodam", "Pekodam", "Mikodanye", "Pekodam", "Pekodam" };
-    private final String[] bossPrefixes = { "spr_fubuzilla_", "spr_AchanBoss_", "spr_Mikodanye_",
-            "spr_AchanBoss_", "spr_Shubangelion_walk_", "spr_Pekodam_",
-            "spr_Udin_walk_", "spr_Pekodam_", "spr_Moonafic_", "spr_Pekodam_",
-            "spr_Pekodam_", "spr_Mikodanye_", "spr_Pekodam_", "spr_Pekodam_" };
-    private final int[] bossCounts = { 12, 4, 8, 4, 8, 4, 6, 4, 3, 4, 4, 8, 4, 4 };
+            "spr_NousagiEnemyD_", "spr_DebuffOtakuA_", "spr_BijiSawit_" };
+    private final int[] enemyCounts = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3 };
+    private final String[] bossDirs = { "fubuzilla", "SmolAme", "Mikodanye", "AchanBoss",
+            "Shubangelion_walk", "EldrichHaachama", "Udin_walk", "Moontato", "Nanora",
+            "Pekodam", "BaeBoss", "NodokaBoss", "NurseCalli", "Goriela", "WoWo" };
+    private final String[] bossPrefixes = { "spr_fubuzilla_", "spr_SmollAme_walk_", "spr_Mikodanye_",
+            "spr_AchanBoss_", "spr_Shubangelion_walk_", "spr_EldrichHaachama_walk_",
+            "spr_Udin_walk_", "spr_Moontato_", "spr_Moonafic2_", "spr_Pekodam_",
+            "spr_Bae3D_walk_", "spr_NodokaBoss_", "spr_NurseCalli_", "spr_Goriela_idle_",
+            "spr_WoWo_" };
+    private final int[] bossCounts = { 12, 8, 8, 4, 8, 8, 6, 4, 3, 4, 8, 4, 6, 4, 4 };
 
     private int failures;
     private String firstFailure = "";
@@ -185,13 +194,37 @@ final class AssetLibrary {
     void prepareStage(int stageIndex) {
         for (int i = 0; i < enemies.length; i++) enemies[i].frames = null;
         for (int i = 0; i < bosses.length; i++) bosses[i].frames = null;
+        mapParts = null;
         ContentCatalog.StageDef stage = ContentCatalog.stage(stageIndex);
         loadEnemy(stage.enemyA); loadEnemy(stage.enemyB); loadEnemy(stage.enemyC);
         if (!stage.timeStage) {
             loadBoss(stage.bossA); loadBoss(stage.bossB);
             if (stage.hard) loadBoss(thirdBossFor(stageIndex));
         }
+        if (stage.mapCols > 0 && stage.mapRows > 0) loadMapParts(stage.tile, stage.mapCols, stage.mapRows);
     }
+
+    /**
+     * Loads a stage's composed background as a fixed COLSxROWS grid from
+     * {@code /assets/fullgame/stages/<key>_parts/<key>_<row><col>.png}.
+     *
+     * <p>Row-major, both indices plain decimal digits, which is exactly what
+     * {@code tools/generate_palm_forest_map.py} writes. A missing part yields a null cell rather
+     * than throwing, so one bad file degrades to a hole in the arena instead of a dead screen.
+     */
+    private void loadMapParts(String key, int cols, int rows) {
+        Image[][] grid = new Image[rows][cols];
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < cols; col++) {
+                grid[row][col] = image("/assets/fullgame/stages/" + key + "_parts/"
+                        + key + "_" + row + col + ".png");
+            }
+        }
+        mapParts = grid;
+    }
+
+    /** The composed background grid for the selected stage, or null for a repeating-tile stage. */
+    Image[][] stageMap() { return mapParts; }
 
     private String thirdBossFor(int stageIndex) {
         if (stageIndex == 5) return "halloween_bae";
@@ -212,6 +245,7 @@ final class AssetLibrary {
         int index = bossIndex(id);
         if (index < 0 || bosses[index].frames != null) return;
         bosses[index].frames = frames("/assets/fullgame/bosses/" + bossDirs[index] + "/", bossCounts[index], bossPrefixes[index]);
+        bosses[index].framesM = mirrorAll(bosses[index].frames);
     }
 
     private int enemyIndex(String id) {
@@ -304,6 +338,11 @@ final class AssetLibrary {
         return bosses[index].frames;
     }
 
+    Image[] bossFramesM(int index) {
+        if (bosses[index].frames == null) loadBoss(ContentCatalog.BOSSES[index].id);
+        return bosses[index].framesM;
+    }
+
     Image tile(String key) {
         if ("grass_field".equals(key)) {
             if (tileGrassField == null) tileGrassField = image("/assets/fullgame/stages/grass_field.png");
@@ -336,6 +375,10 @@ final class AssetLibrary {
         if ("concert".equals(key)) {
             if (tileConcert == null) tileConcert = image("/assets/fullgame/stages/concert.png");
             return tileConcert;
+        }
+        if ("palm_forest".equals(key)) {
+            if (tilePalmForest == null) tilePalmForest = image("/assets/fullgame/stages/palm_forest.png");
+            return tilePalmForest;
         }
         if (tileBeach == null) tileBeach = image("/assets/fullgame/stages/beach.png");
         return tileBeach;
