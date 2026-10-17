@@ -37,6 +37,21 @@ final class RunWorld {
     static final int TARGET_NONE = -1;
     static final int TARGET_BOSS = -2;
 
+    /**
+     * Magnet aura radius in px before the pickup bonus. It used to be 22 px *and* double as the
+     * collection radius, so a pickup vanished at the aura edge and the pull never showed: the
+     * player is 24 px and a pickup is 12 px, so 22 px between centers is already contact. Raised
+     * so the pull is visible, with collection moved to its own touch radius below.
+     */
+    static final int MAGNET_BASE_RADIUS = 56;
+    /** A pickup within this many px of the player center is collected. */
+    static final int PICKUP_TOUCH_RADIUS = 16;
+    /** Pull per tick: normal pickups, and the fast pull of the EXP Magnet and its vacuum. */
+    static final int MAGNET_PULL_SPEED = 3;
+    static final int MAGNET_PULL_FAST = 8;
+    /** How long a collected EXP Magnet vacuums the field (documented: a large-area vacuum). */
+    static final int VACUUM_DURATION_MS = 3000;
+
     private static final int ENEMY_POOL = 48;
     private static final int SHOT_POOL = 128;
     private static final int MELEE_POOL = 24;
@@ -141,6 +156,8 @@ final class RunWorld {
     private int hastePercent;
     private int speedPercentBonus;
     private int pickupPercentBonus;
+    /** While {@code now < vacuumUntil}, an EXP Magnet hauls every pickup in from anywhere. */
+    private long vacuumUntil;
     private int critPercentBonus;
     private int expPercentBonus;
     private int defensePercent;
@@ -266,6 +283,7 @@ final class RunWorld {
         for (int i = 0; i < shots.length; i++) shots[i].active = false;
         for (int i = 0; i < melee.length; i++) melee[i].active = false;
         for (int i = 0; i < pickups.length; i++) pickups[i].active = false;
+        vacuumUntil = 0L;
         for (int i = 0; i < encounterStarted.length; i++) { encounterStarted[i] = false; encounterDefeated[i] = false; }
         boss.active = false; bossEncounterIndex = -1; nextEndlessEncounter = 0;
         ringEventDone = false; hordeEventDone = false;
@@ -1206,7 +1224,12 @@ final class RunWorld {
     }
 
     private void updatePickups(long now) {
-        int radius = 22 + (22 * pickupPercentBonus) / 100;
+        // The aura and the collection radius are deliberately different: the aura starts the
+        // pull from a distance, and only the touch radius ends it. When both were 22 px a
+        // pickup was collected on the tick it entered the aura, so the pull never showed and
+        // pickups behaved as if they had to be walked into — the reported symptom.
+        int radius = MAGNET_BASE_RADIUS + (MAGNET_BASE_RADIUS * pickupPercentBonus) / 100;
+        boolean vacuuming = now < vacuumUntil;
         for (int i = 0; i < pickups.length; i++) {
             Pickup p = pickups[i];
             if (!p.active) continue;
@@ -1214,14 +1237,25 @@ final class RunWorld {
             int dx = playerCenterX() - (p.x + 6);
             int dy = playerCenterY() - (p.y + 6);
             int distSq = dx * dx + dy * dy;
-            if (p.type == 3 || distSq <= radius * radius) {
-                if (dx > 0) p.x += p.type == 3 ? 8 : 3;
-                if (dx < 0) p.x -= p.type == 3 ? 8 : 3;
-                if (dy > 0) p.y += p.type == 3 ? 8 : 3;
-                if (dy < 0) p.y -= p.type == 3 ? 8 : 3;
+            // The EXP Magnet (type 3) is drawn to the player from anywhere on the field, as is
+            // every pickup while a vacuum is running; the rest wait for the aura. Pull speed is
+            // per-axis and can overshoot the center by at most the step, which is still inside
+            // the touch radius below, so nothing oscillates around the player.
+            int step = MAGNET_PULL_SPEED;
+            if (p.type == 3 || vacuuming) step = MAGNET_PULL_FAST;
+            if (p.type == 3 || vacuuming || distSq <= radius * radius) {
+                if (dx > 0) p.x += step;
+                if (dx < 0) p.x -= step;
+                if (dy > 0) p.y += step;
+                if (dy < 0) p.y -= step;
+                // Re-measure after the pull so a pickup hauled in this tick is collected now,
+                // not one tick later.
+                dx = playerCenterX() - (p.x + 6);
+                dy = playerCenterY() - (p.y + 6);
+                distSq = dx * dx + dy * dy;
             }
             if (p.type == 3 && distSq < 900) collectPickup(p, now);
-            else if (distSq <= radius * radius) collectPickup(p, now);
+            else if (distSq <= PICKUP_TOUCH_RADIUS * PICKUP_TOUCH_RADIUS) collectPickup(p, now);
         }
     }
 
@@ -1250,6 +1284,12 @@ final class RunWorld {
             if (save != null) save.creditCoins(p.value);
         } else if (p.type == 2) {
             playerHp = Math.min(playerMaxHp, playerHp + Math.max(5, playerMaxHp / 5));
+        } else if (p.type == 3) {
+            // Documented EXP Magnet ("all EXP and HoloCoins in large area vacuumed"). The
+            // branch did not exist, so the pickup was drawn in and then silently discarded.
+            // The vacuum runs for VACUUM_DURATION_MS; updatePickups pulls every pickup fast
+            // for that window, and they collect on the touch radius as they arrive.
+            vacuumUntil = now + VACUUM_DURATION_MS;
         } else if (p.type == 4) {
             for (int i = 0; i < weaponCount; i++) {
                 ContentCatalog.WeaponDef def = ContentCatalog.weapon(weaponSlots[i]);

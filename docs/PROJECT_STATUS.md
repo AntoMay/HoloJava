@@ -210,6 +210,34 @@ to the boss box, and `updateShots` steers `PATTERN_HOMING` shots at that same bo
 converges on the body the hit test uses. A closer add still outranks the boss. Pinned by
 `RunWorldBossEncounterTest.testAimedShotsTrackTheBoss`.
 
+## Magnet and Pickup Fixes (2026-10-17)
+
+Reported as "the pickup system works only when I touch the object; the magnet does not work".
+Two defects, both confirmed in `updatePickups`.
+
+**1. The pull phase never existed.** The attraction radius and the collection radius were the same
+22 px circle, so a pickup was collected on the very tick it entered the aura and the pull code
+never showed: pickups behaved exactly as if they had to be walked into, which is the reported
+symptom. The two radii are separate now — `MAGNET_BASE_RADIUS` (56 px, scaled by
+`pickupPercentBonus` as before) pulls at `MAGNET_PULL_SPEED` (3 px/tick), `PICKUP_TOUCH_RADIUS`
+(16 px) collects. A pulled pickup re-measures after each step, so one that arrives this tick is
+collected this tick rather than one tick late. The base radius also had to grow: at 22 px between
+centers, with a 24 px player and a 12 px pickup, the old aura ended where contact began, so even a
+working pull would have been invisible.
+
+**2. The EXP Magnet pickup did nothing.** Pickup type 3 (dropped 1/3000, documented as "all EXP
+and HoloCoins in large area vacuumed") was drawn in from anywhere and then silently discarded:
+`collectPickup` had no branch for it. Collecting one now opens a vacuum window
+(`VACUUM_DURATION_MS`, 3000 ms) in which every pickup on the field is pulled in at the fast 8
+px/tick and collects on the touch radius as it arrives. The window is time-boxed and cleared by
+`reset()`, so it cannot leak between runs.
+
+Pinned by `RunWorldPickupMagnetTest` (23 checks): the aura pulls without collecting, the aura has
+an edge, the touch radius collects, a pulled pickup converges over several ticks rather than
+vanishing on entry or oscillating, the bonus widens the aura but not the touch radius, the magnet
+pickup is pulled from anywhere, it arms a vacuum, the vacuum pulls and collects far pickups, the
+vacuum expires, and a new run clears it.
+
 ## Runtime Findings (2026-10-17)
 
 The desktop-emulator runtime was exercised for the first time. Three separate
