@@ -5,21 +5,19 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
- * Covers the passive character skill — the one-time Skill Pasif shop purchase.
+ * Covers the passive character skill — now a permanent ability, free for every character.
  *
- * <p>The skill used to be a level-up offer with a stack count: taken up to
- * {@code ContentCatalog.SKILL_MAX_STACKS} times, pressed with a key, scaled per stack. Skill Pasif
- * replaced all of that: one global 0/1 purchase grants every character their skill from the first
- * tick, it fires on its own every 15 seconds with no key involved, its power is the fixed base,
- * and the level-up roll never offers it (pinned by RunWorldOfferMixTest). There are no stacks left
+ * <p>The skill used to be a level-up offer with a stack count, then a one-time Skill Pasif shop
+ * purchase. It is free now: {@code reset()} grants it from the first tick with no purchase behind
+ * it, it fires on its own every 15 seconds with no key involved, its power is the fixed base, and
+ * the level-up roll never offers it (pinned by RunWorldOfferMixTest). There are no stacks left
  * to scale, so this suite pins the removal itself — the field and methods of the stacking system
- * must not exist — alongside the fixed-power effects and the automatic cadence. These checks drive
- * the production methods through reflection.
+ * must not exist — alongside the fixed-power effects, the automatic cadence, and the one gate
+ * that is still a field: {@code skillAcquired} decides whether the cadence runs at all. These
+ * checks drive the production methods through reflection.
  *
- * <p>A run must never acquire the skill without the shop flag: driving {@code reset} directly is
- * not possible here because it touches the weapon and item arrays that an {@code Unsafe}-allocated
- * world never had, so the save-to-run wiring is asserted against a real constructed RunWorld in
- * RunWorldLifecycleIntegrationTest instead.
+ * <p>The save-to-run wiring (a real reset reading the save) is asserted against a real constructed
+ * RunWorld in RunWorldLifecycleIntegrationTest instead.
  */
 public final class RunWorldSkillPassiveTest {
 
@@ -133,8 +131,8 @@ public final class RunWorldSkillPassiveTest {
     }
 
     /**
-     * A world for one character with the skill flag as given, holding one parked enemy. The flag
-     * is exactly what {@code reset()} writes from {@code save.skillPassiveOwned()}.
+     * A world for one character with the skill flag as given, holding one parked enemy. Reset
+     * grants the flag today; the fixture sets it directly so a test can still pin the gate.
      */
     private static Object world(int characterIndex, boolean skill, Object parked, long now)
             throws Exception {
@@ -219,7 +217,9 @@ public final class RunWorldSkillPassiveTest {
         System.out.println("RESULT: PASS");
     }
 
-    /** With the shop flag held, the very first tick fires the skill — no key exists to press. */
+    /**
+     * With the flag held, the very first tick fires the skill — no key exists to press.
+     */
     private static void testSkillFiresOnItsOwn() throws Exception {
         System.out.println("[1] the skill fires by itself from the first tick");
         long now = 50000L;
@@ -231,9 +231,13 @@ public final class RunWorldSkillPassiveTest {
             "and opened the cooldown");
     }
 
-    /** Without the purchase the skill is simply absent: nothing fires, no cooldown opens. */
+    /**
+     * The skillAcquired field is still the firing gate: with it clear nothing fires, no cooldown
+     * opens and no damage is dealt. No real run starts that way any more — reset always grants
+     * the skill — so this pins the gate itself, not a reachable purchase state.
+     */
     private static void testNoSkillWithoutTheShopFlag() throws Exception {
-        System.out.println("[2] nothing fires without the Skill Pasif purchase");
+        System.out.println("[2] the skillAcquired field is still the firing gate");
         long now = 50000L;
         Object w = world(3, false, enemy(150, 100, 5000), now);
         for (int i = 0; i < 5; i++) tick(w, now + i * 20000L);

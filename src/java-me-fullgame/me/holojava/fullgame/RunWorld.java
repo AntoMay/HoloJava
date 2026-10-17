@@ -144,6 +144,8 @@ final class RunWorld {
     private long slowEnemiesUntil;
     private long lifestealUntil;
     private long regenTickAt;
+    /** HP the Regeneration shop row restores per tick, 1 per level. Set by recomputeStats. */
+    private int regenHealPerTick;
     private long shieldReadyAt;
     private int shield;
     private int weaponCount;
@@ -160,31 +162,58 @@ final class RunWorld {
     private int expPercentBonus;
     private int defensePercent;
     /**
-     * Extra percent added to the enemy coin-drop roll, from the shop's Fortune passive. The roll is
-     * {@code rand(def.coinChance) == 0}, so a positive bonus divides the interval and therefore makes
-     * coins more frequent. Clamped to 90 so the roll can never become a certain drop, which would
-     * turn the shop passive into a coin faucet.
+     * Percent added to the coin VALUE of an enemy drop, from the shop's Money Gain Up row
+     * (+20% per level, wiki cap +200%). The drop roll itself — {@code rand(def.coinChance) == 0} —
+     * is never touched by the shop, so the bonus scales what a dropped coin is worth instead of
+     * minting extra rolls. A 10-coin drop becomes 12 at one level and 30 at the cap.
      */
     private int coinDropBonus;
     /**
-     * Purchased shop passive levels for this run, indexed like ContentCatalog.PASSIVES.
+     * Purchased shop upgrade levels for this run, indexed like ContentCatalog.UPGRADES.
      *
-     * <p>These hold the run's own character's levels, read from the per-character vectors the save
-     * stores; one vector per run is all a run needs.
+     * <p>These hold the whole 34-row vector; a run only consults the rows it can act on (stats,
+     * special/reroll/hold gates, limits, marketing, collab ban) and reads the rest as zero.
      * <p>Not final and not initialised at the declaration: most test suites build a RunWorld through
      * {@code Unsafe.allocateInstance}, which skips field initialisers entirely, so a field
      * initialiser would leave this null in exactly the suites that drive {@code recomputeStats}.
-     * {@link #passives()} allocates on demand instead.
+     * {@link #upgrades()} allocates on demand instead.
      */
-    private int[] passiveLevels;
+    private int[] upgradeLevels;
     private int baseMaxHp;
-    /** baseMaxHp before shop passives, so a re-run of recomputeStats cannot compound them. */
+    /** baseMaxHp before shop upgrades, so a re-run of recomputeStats cannot compound them. */
     private int characterBaseMaxHp;
 
-    /** Passive levels for this run, allocated on first use. See the field's comment. */
-    private int[] passives() {
-        if (passiveLevels == null) passiveLevels = new int[ContentCatalog.PASSIVES.length];
-        return passiveLevels;
+    /** Upgrade levels for this run, allocated on first use. See the field's comment. */
+    private int[] upgrades() {
+        if (upgradeLevels == null) upgradeLevels = new int[ContentCatalog.UPGRADES.length];
+        return upgradeLevels;
+    }
+
+    // ---- meta-upgrade gates, read from the save at reset ------------------------------------
+    // Each default is the value an Unsafe-allocated world (never reset) starts with: the gate
+    // open, no bonus levels. A fresh real save reads the same defaults from its own zeros, except
+    // for the special, which starts LOCKED until the Special Attack row is bought.
+    /** When true the special key does nothing: the Special Attack upgrade has not been bought. */
+    private boolean specialLocked;
+    /** Collab Ban purchased: collab weapons can no longer be offered, on any mode. */
+    private boolean collabBan;
+    /** Marketing levels: one extra fan spawned per interval per level. */
+    private int marketingLevel;
+    /** Weapon Limit challenge levels: each one lowers the weapon cap by one (6 down to 1). */
+    private int weaponLimitLevel;
+    /** Item Limit challenge levels: each one lowers the item cap by one (6 down to 0). */
+    private int itemLimitLevel;
+
+    /** Weapon slots for this run: 6 minus the Weapon Limit challenge levels, floored at 0. */
+    int weaponCap() {
+        int cap = 6 - weaponLimitLevel;
+        return cap < 0 ? 0 : cap;
+    }
+
+    /** Item slots for this run: 6 minus the Item Limit challenge levels, floored at 0. */
+    int itemCap() {
+        int cap = 6 - itemLimitLevel;
+        return cap < 0 ? 0 : cap;
     }
 
     private long nextSpawnAt;
@@ -199,10 +228,14 @@ final class RunWorld {
     /** Cadence of the passive skill, in milliseconds: it fires by itself this often, no key. */
     private static final long SKILL_COOLDOWN_MS = 15000L;
 
+    /** Cadence of all regeneration, in milliseconds: one tick heals the Regeneration levels. */
+    private static final long REGEN_TICK_MS = 5000L;
+
     /**
-     * Whether this run has the character's skill — now granted only by the global one-time Skill
-     * Pasif shop purchase, never by the level-up roll. When true the skill fires on its own every
-     * {@link #SKILL_COOLDOWN_MS} from the first tick; no key is involved and no stacks exist.
+     * Whether this run has the character's skill. The skill is always active: Skill Pasif left
+     * the shop, so every character gets their skill from the first tick with no purchase. When
+     * true it fires on its own every {@link #SKILL_COOLDOWN_MS}; no key is involved and no stacks
+     * exist. The field remains the firing gate so a test can still pin the cadence in isolation.
      */
     private boolean skillAcquired;
     private long skillReadyAt;
@@ -269,7 +302,7 @@ final class RunWorld {
         playerLevel = 1; experience = 0; expNeed = requiredForLevel(1);
         coins = 0; kills = 0; defeatCount = 0;
         invulUntil = 0; slowEnemiesUntil = 0; lifestealUntil = 0;
-        regenTickAt = startTime + 3000; shieldReadyAt = 0; shield = 0;
+        regenTickAt = startTime + REGEN_TICK_MS; shieldReadyAt = 0; shield = 0;
         weaponCount = 0; itemCount = 0;
         for (int i = 0; i < 6; i++) {
             weaponSlots[i] = -1; itemSlots[i] = -1; weaponLevels[i] = 0; weaponReadyAt[i] = 0;
@@ -286,9 +319,13 @@ final class RunWorld {
         ringEventDone = false; hordeEventDone = false;
         nextSpawnAt = startTime + 1000;
         nextWaveAt = startTime + 180000L;
-        skillAcquired = false; skillReadyAt = 0; specialUsed = false;
-        rerolls = mode.standardLoadout ? 10 : 0;
-        holds = 5;
+        // The skill is always active — Skill Pasif left the shop — so it is granted from the
+        // first tick with no purchase behind it. Reroll and Tahan (Hold) are the mirror image:
+        // they used to come free (10 and 5 charges) and are now bought one charge at a time,
+        // so a fresh run starts with none until the shop rows are levelled.
+        skillAcquired = true; skillReadyAt = 0; specialUsed = false;
+        rerolls = 0;
+        holds = 0;
         offerCount = 0; selectedOffer = 0; heldOffer = -1;
 
         // Reset HUD string cache
@@ -313,16 +350,27 @@ final class RunWorld {
         // Character base HP is kept separately so recomputeStats() can rebuild max HP from scratch
         // each time instead of adding shop passives on top of an already-modified value.
         characterBaseMaxHp = baseMaxHp;
-        if (mode.id.equals("endless") && save.hardcore()) { baseMaxHp = 1; characterBaseMaxHp = 1; }
-        // Shop passives are permanent and global: one vector serves every character, so it is read
-        // once here and treated as part of the run. The Skill Pasif flag, when owned, grants the
-        // character's skill from the first tick. Guarded because most suites use a null save.
+        if (mode.id.equals("endless") && save != null && save.hardcore()) {
+            baseMaxHp = 1; characterBaseMaxHp = 1;
+        }
+        // Shop upgrades are permanent and global: one 34-row vector serves every character, so it
+        // is read once here and treated as part of the run. The row gates follow from it: the
+        // special starts LOCKED unless Special Attack was bought, while Reroll, Tahan, Marketing,
+        // the loadout limits and Collab Ban all read their own purchased levels. The whole block
+        // is guarded because most suites use a null save, whose defaults are the unarmed ones
+        // above (gate open only where the field's default already says so, no bonus levels).
         if (save != null) {
-            int[] levels = passives();
+            int[] levels = upgrades();
             for (int i = 0; i < levels.length; i++) {
-                levels[i] = save.passiveLevel(i);
+                levels[i] = save.upgradeLevel(i);
             }
-            skillAcquired = save.skillPassiveOwned();
+            rerolls = levels[ContentCatalog.upgradeIndex("reroll")];
+            holds = levels[ContentCatalog.upgradeIndex("hold")];
+            marketingLevel = levels[ContentCatalog.upgradeIndex("marketing")];
+            weaponLimitLevel = levels[ContentCatalog.upgradeIndex("weapon_limit")];
+            itemLimitLevel = levels[ContentCatalog.upgradeIndex("item_limit")];
+            collabBan = levels[ContentCatalog.upgradeIndex("collab_ban")] > 0;
+            specialLocked = levels[ContentCatalog.upgradeIndex("special_attack")] == 0;
         }
         recomputeStats();
         playerHp = playerMaxHp;
@@ -531,18 +579,20 @@ final class RunWorld {
         if (py < 0) py = 0;
         if (px > worldWidth - 24) px = worldWidth - 24;
         if (py > worldHeight - 24) py = worldHeight - 24;
-        // The skill is a shop passive now: it fires on its own whenever the cooldown is clear.
+        // The skill is a permanent ability now: it fires on its own whenever the cooldown is clear.
         if (skillAcquired && now >= skillReadyAt) activateSkill(now);
-        if (specialPressed && !specialUsed) activateSpecial(now);
+        // The special is gated on the Special Attack upgrade: without the purchase the key is
+        // read and ignored, same as an already-spent special.
+        if (specialPressed && !specialUsed && !specialLocked) activateSpecial(now);
     }
 
     /**
-     * Fires the character's skill at its fixed passive power.
+     * Fires the character's skill at its fixed power.
      *
-     * <p>Power is fixed because Skill Pasif is a one-time 0/1 purchase: there are no stacks left to
-     * scale it. Duration-based skills (Hunter's Instinct, Second Flame) keep their window as the
-     * effect, because the window is what they <em>are</em>. The skill fires automatically on the
-     * cooldown — the player never presses anything.
+     * <p>The skill is permanent — Skill Pasif left the shop — so its power is fixed: there is
+     * nothing to buy and no stacks to scale it. Duration-based skills (Hunter's Instinct, Second
+     * Flame) keep their window as the effect, because the window is what they <em>are</em>. The
+     * skill fires automatically on the cooldown — the player never presses anything.
      */
     private void activateSkill(long now) {
         skillReadyAt = now + SKILL_COOLDOWN_MS;
@@ -562,6 +612,12 @@ final class RunWorld {
         }
     }
 
+    /**
+     * Spends the run's one special on the character's effect.
+     *
+     * <p>Called only from the gated site in {@code updatePlayer}: the Special Attack upgrade must
+     * be owned or the key never reaches here, and the special is single-use per run either way.
+     */
     private void activateSpecial(long now) {
         specialUsed = true;
         if (characterIndex == 0) { // Shark Call
@@ -602,6 +658,12 @@ final class RunWorld {
         if (interval < 250) interval = 250;
         if (mode.completion == ContentCatalog.COMPLETE_KILL_TARGET) interval = Math.min(interval, 550);
         spawnEnemy(now);
+        // Marketing adds one extra fan per level to this very interval, each one still bound by
+        // the stage population cap — it widens the wave, it never overflows it.
+        for (int i = 0; i < marketingLevel; i++) {
+            if (activeEnemyCount() >= stage.maxEnemies) break;
+            spawnEnemy(now);
+        }
         nextSpawnAt = now + interval;
     }
 
@@ -1285,13 +1347,16 @@ final class RunWorld {
 
     private void updateRegen(long now) {
         if (now >= regenTickAt) {
-            regenTickAt = now + 3000L;
-            boolean regen = false;
+            // One 5-second cadence for both regen sources — the wiki's Regeneration rate of
+            // 1 HP per level per 5 seconds, with a regen item keeping its flat +2 on the same
+            // tick. Nothing heals at full HP, so a tick that finds no damage is still cheap.
+            regenTickAt = now + REGEN_TICK_MS;
+            int heal = regenHealPerTick;
             for (int i = 0; i < itemCount; i++) {
                 ContentCatalog.ItemDef d = ContentCatalog.item(itemSlots[i]);
-                if (d != null && d.effect == ContentCatalog.EFFECT_REGEN) regen = true;
+                if (d != null && d.effect == ContentCatalog.EFFECT_REGEN) { heal += 2; break; }
             }
-            if (regen && playerHp < playerMaxHp) playerHp = Math.min(playerMaxHp, playerHp + 2);
+            if (heal > 0 && playerHp < playerMaxHp) playerHp = Math.min(playerMaxHp, playerHp + heal);
         }
         if (shieldReadyAt > 0 && now >= shieldReadyAt) { shield = 15; shieldReadyAt = now + 15000L; }
     }
@@ -1326,12 +1391,13 @@ final class RunWorld {
         long now = System.currentTimeMillis();
         dropPickup(enemy.x + enemyWidth(enemy.defIndex) / 2, enemy.y + enemyHeight(enemy.defIndex) / 2, 0, def.exp, now);
         if (def.coinChance > 0) {
-            // Fortune shortens the drop interval instead of adding a second roll, so a level of the
-            // passive can only ever shift the odds and never mint two coins from one kill. The
-            // divisor is never below 1, so a 1-in-N enemy still cannot drop every time.
-            int interval = (def.coinChance * (100 - coinDropBonus)) / 100;
-            if (interval < 1) interval = 1;
-            if (rand(interval) == 0) dropPickup(enemy.x, enemy.y, 1, 10, now);
+            // The drop roll is the enemy's own 1-in-N and the shop never touches it, so a level of
+            // Money Gain Up cannot mint extra rolls: it multiplies the coin VALUE instead
+            // (+20% per level, wiki cap +200%, so a 10-coin drop lands 10..30). At zero bonus the
+            // value is unchanged, which keeps a no-purchase run's coin curve exactly as it was.
+            if (rand(def.coinChance) == 0) {
+                dropPickup(enemy.x, enemy.y, 1, 10 + (10 * coinDropBonus) / 100, now);
+            }
         }
         if (rand(200) == 0) dropPickup(enemy.x, enemy.y, 2, 1, now);
         if (rand(1301) == 0) dropPickup(enemy.x, enemy.y, 4, 1, now);
@@ -1451,7 +1517,9 @@ final class RunWorld {
 
     private void addWeapon(int weaponIndex, int level) {
         if (weaponIndex < 0) return;
-        if (weaponCount < 6) {
+        // The cap is 6 minus the Weapon Limit challenge levels: buying that row is a deliberate
+        // self-imposed restriction, so it applies to the starting weapon as well.
+        if (weaponCount < weaponCap()) {
             weaponSlots[weaponCount] = weaponIndex;
             weaponLevels[weaponCount] = level;
             weaponCount++;
@@ -1460,7 +1528,7 @@ final class RunWorld {
 
     private void addItem(int itemIndex, int level) {
         if (itemIndex < 0) return;
-        if (itemCount < 6) {
+        if (itemCount < itemCap()) {
             itemSlots[itemCount] = itemIndex;
             itemLevels[itemCount] = level;
             itemCount++;
@@ -1472,7 +1540,6 @@ final class RunWorld {
         pickupPercentBonus = 0; critPercentBonus = 0; expPercentBonus = 0; defensePercent = 0;
         coinDropBonus = 0;
         int maxHp = baseMaxHp;
-        boolean regen = false;
         for (int i = 0; i < itemCount; i++) {
             ContentCatalog.ItemDef d = ContentCatalog.item(itemSlots[i]);
             if (d == null) continue;
@@ -1484,15 +1551,16 @@ final class RunWorld {
             if (d.effect == ContentCatalog.EFFECT_PICKUP_PCT) pickupPercentBonus += v;
             if (d.effect == ContentCatalog.EFFECT_CRIT_PCT) critPercentBonus += v;
             if (d.effect == ContentCatalog.EFFECT_EXP_PCT) expPercentBonus += v;
-            if (d.effect == ContentCatalog.EFFECT_REGEN) regen = true;
         }
 
-        // Shop passives apply underneath the run's items so a passive purchase is never diluted by
-        // which items happened to drop. Max HP is recomputed from characterBaseMaxHp rather than
-        // from baseMaxHp so repeated calls cannot compound the same purchase.
-        int[] levels = passives();
+        // Shop upgrades apply underneath the run's items so a purchase is never diluted by which
+        // items happened to drop. Max HP is recomputed from characterBaseMaxHp rather than from
+        // baseMaxHp so repeated calls cannot compound the same purchase. Rows whose effect is -1
+        // (locked rows, and the flag/action rows) fall through every branch and change nothing.
+        int[] levels = upgrades();
+        int regenHeal = 0;
         for (int i = 0; i < levels.length; i++) {
-            ContentCatalog.PassiveDef p = ContentCatalog.passive(i);
+            ContentCatalog.UpgradeDef p = ContentCatalog.upgrade(i);
             int level = levels[i];
             if (p == null || level <= 0) continue;
             int v = p.value * level;
@@ -1503,24 +1571,26 @@ final class RunWorld {
             else if (p.effect == ContentCatalog.EFFECT_EXP_PCT) expPercentBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_HASTE_PCT) hastePercent += v;
             else if (p.effect == ContentCatalog.EFFECT_DEFENSE_PCT) defensePercent += v;
+            else if (p.effect == ContentCatalog.EFFECT_PICKUP_PCT) pickupPercentBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_COIN_PCT) coinDropBonus += v;
+            else if (p.effect == ContentCatalog.EFFECT_REGEN) regenHeal += v;
         }
-        if (coinDropBonus > 90) coinDropBonus = 90;
-        // Hardcore pins Endless to 1 HP and is a deliberate rule, so it outranks a purchased passive.
+        regenHealPerTick = regenHeal;
+        // Money Gain Up tops out at +200% per the wiki, and the coin VALUE is all it moves.
+        if (coinDropBonus > 200) coinDropBonus = 200;
+        // Hardcore pins Endless to 1 HP and is a deliberate rule, so it outranks a purchased upgrade.
         // Keyed on baseMaxHp, not characterBaseMaxHp, so it still pins exactly as it did before the
-        // shop passives existed: a Max HP stat can raise baseMaxHp and lift the ceiling, which is
+        // shop upgrades existed: a Max HP stat can raise baseMaxHp and lift the ceiling, which is
         // the historical behaviour.
         if (mode.id.equals("endless") && baseMaxHp == 1) maxHp = 1;
 
         playerMaxHp = maxHp;
         if (playerHp > playerMaxHp) playerHp = playerMaxHp;
-        if (regen && regenTickAt == 0) regenTickAt = System.currentTimeMillis() + 3000L;
     }
 
     private void generateOffers() {
         for (int i = 0; i < offers.length; i++) offers[i].clear();
         for (int i = 0; i < offerUsed.length; i++) offerUsed[i] = false;
-        offerCount = rerolls > 0 ? 6 : 5;
         for (int slot = 0; slot < 4; slot++) {
             int type = chooseOfferType(slot);
             if (!fillOffer(slot, type)) {
@@ -1532,18 +1602,29 @@ final class RunWorld {
             for (int i = 3; i > 0; i--) offers[i] = offers[i - 1];
             offers[0] = copy;
         }
-        offers[4].type = rerolls > 0 ? OFFER_REROLL : -1;
-        offers[4].value = rerolls;
-        offers[5].type = holds > 0 ? OFFER_HOLD : -1;
+        // Reroll and Tahan occupy as many of the two meta slots as the player has charges for.
+        // Both start at zero now — the free 10/5 bonuses are gone — so a fresh run shows the
+        // plain four upgrade offers only, and the rows appear as the shop rows are levelled.
+        int slots = 4;
+        if (rerolls > 0) {
+            offers[slots].type = OFFER_REROLL;
+            offers[slots].value = rerolls;
+            slots++;
+        }
+        if (holds > 0) {
+            offers[slots].type = OFFER_HOLD;
+            slots++;
+        }
+        offerCount = slots;
     }
 
     /**
      * Picks the offer *category* for one of the four upgrade slots.
      *
-     * <p>There is no skill branch at all: the skill is the one-time Skill Pasif shop purchase, so
-     * the roll never offers it. What used to be the slot-0 skill slot rolls normally now, which is
-     * what makes stat upgrades reachable every level-up: stats take 25% of rolls in every slot, so
-     * Max HP and ATK growth appear regularly instead of being starved by a guaranteed skill offer.
+     * <p>There is no skill branch at all: the skill is permanent and never appears in the roll.
+     * What used to be the slot-0 skill slot rolls normally now, which is what makes stat upgrades
+     * reachable every level-up: stats take 25% of rolls in every slot, so Max HP and ATK growth
+     * appear regularly instead of being starved by a guaranteed skill offer.
      */
     private int chooseOfferType(int slot) {
         int r = rand(100);
@@ -1578,7 +1659,9 @@ final class RunWorld {
                     }
                 }
             }
-            if (weaponCount < 6 && mode.allowsCollabs) {
+            // Collab Ban removes the collab branch entirely, next to the mode's own allowance:
+            // a bought ban blocks collabs even on Stage Mode, which otherwise allows them.
+            if (weaponCount < weaponCap() && mode.allowsCollabs && !collabBan) {
                 for (int c = 0; c < ContentCatalog.COLLABS.length; c++) {
                     ContentCatalog.CollabDef cd = ContentCatalog.COLLABS[c];
                     ContentCatalog.WeaponDef wd = ContentCatalog.weapon(cd.id);
@@ -1598,7 +1681,7 @@ final class RunWorld {
                     }
                 }
             }
-            if (weaponCount < 6) {
+            if (weaponCount < weaponCap()) {
                 int start = rand(5);
                 for (int i = 0; i < ContentCatalog.WEAPONS.length; i++) {
                     int w = (start + i) % ContentCatalog.WEAPONS.length;
@@ -1627,7 +1710,7 @@ final class RunWorld {
                     }
                 }
             }
-            if (itemCount < 6) {
+            if (itemCount < itemCap()) {
                 int start = rand(ContentCatalog.ITEMS.length);
                 for (int i = 0; i < ContentCatalog.ITEMS.length; i++) {
                     int idx = (start + i) % ContentCatalog.ITEMS.length;

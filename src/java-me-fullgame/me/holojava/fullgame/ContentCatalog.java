@@ -57,15 +57,29 @@ final class ContentCatalog {
     static final int EFFECT_DEFENSE_PCT = 11;
     static final int EFFECT_COIN_PCT = 12;
 
+    // ---- upgrade shop groups and purchase kinds ------------------------------------
+    // The shop sells three tabs of upgrades, in the same grouping the HoloCure wiki uses:
+    // Ability (meta powers), Stat (numeric run bonuses) and Others (challenge flags and
+    // services). Each row carries the exact per-level price table from the wiki, so the
+    // catalog is both the data and the price list.
+    static final int GROUP_ABILITY = 0;
+    static final int GROUP_STAT = 1;
+    static final int GROUP_OTHERS = 2;
+
     /**
-     * Price of the one-time Skill Pasif shop purchase.
-     *
-     * <p>Skill Pasif is the global 0/1 meta-upgrade: once bought, every character starts each run
-     * with their skill already active — it fires on its own every 15 seconds, needs no key, takes
-     * no skill slot, and the skill no longer appears in the level-up roll. Kept as one fixed
-     * price rather than a levelled row because the purchase is taken exactly once.
+     * Ordinary levelled purchase: pay the level's price, gain one level, up to maxLevel.
      */
-    static final long SKILL_PASSIVE_COST = 1000L;
+    static final int BUY_LEVEL = 0;
+    /**
+     * A single flag the shop toggles rather than levels. Hardcore is the only one: buying it
+     * flips the same settings bit the Settings screen flips, so the two can never disagree.
+     */
+    static final int BUY_TOGGLE = 1;
+    /**
+     * A one-shot action with no stored level. Refund All is the only one: it asks for
+     * confirmation and then resets every purchase while crediting the full price back.
+     */
+    static final int BUY_ACTION = 2;
 
     static final class CharacterDef {
         String id;
@@ -257,78 +271,177 @@ final class ContentCatalog {
     static final WeaponDef[] WEAPONS = WikiCatalogData.buildWeapons(BASE_WEAPONS);
 
     /**
-     * Shop passives, one per row on the shop screen.
+     * The permanent upgrade shop, one row per entry, in the exact grouping and price order of
+     * the HoloCure wiki's Upgrade page (Ability, then Stat, then Others).
      *
-     * <p>Audited against RunWorld rather than invented. Every effect below either drives a field the
-     * run already computes, or fills one that existed but was never set:
+     * <p>Every row carries its real per-level price table, so the catalog doubles as the price
+     * list the wiki documents. Rows fall into two classes:
      *
      * <ul>
-     *   <li>{@code body} feeds {@code baseMaxHp}, the same source the level-up Max HP stat writes.</li>
-     *   <li>{@code might} feeds {@code atkPercentBonus}, applied to outgoing damage.</li>
-     *   <li>{@code swift} feeds {@code speedPercentBonus}.</li>
-     *   <li>{@code guard} feeds {@code defensePercent}, which {@code damagePlayer} has always read
-     *       but which nothing ever set: before this pass damage reduction was dead code.</li>
-     *   <li>{@code fortune} feeds {@code coinDropBonus}, a new field on the enemy coin-drop roll.
-     *       No item covers coin rate; this is the only coin-rate source in the game.</li>
-     *   <li>{@code insight} feeds {@code expPercentBonus}, applied to EXP pickups.</li>
-     *   <li>{@code precision} feeds {@code critPercentBonus}.</li>
-     *   <li>{@code tempo} feeds {@code hastePercent}, which shortens weapon cooldowns.</li>
+     *   <li><b>Wired</b> rows feed a field the run already computes or one this build added for
+     *       them: Max HP, ATK, SPD, Crit, Pick Up Range, Haste, Regeneration, Defense, EXP and
+     *       Money reach {@code RunWorld.recomputeStats}; Special Attack gates the special;
+     *       Reroll and Tahan (Hold) set the per-run charges; Marketing adds spawns; Weapon Limit
+     *       and Item Limit shrink the loadout caps; Collab Ban blocks collab offers; Hardcore is
+     *       the settings flag; Refund All credits everything back.</li>
+     *   <li><b>Locked</b> rows have no gameplay backing yet. They are shown with their wiki
+     *       prices so the shop reads like the real thing, but {@code locked} refuses every
+     *       purchase: Growth, Eliminate, Stamps, Kustomisasi (Customize), Support, Temuan
+     *       Material, Surat Fans, Enchantments, Fandom, Special CDR, Skill Up, Food Drops Up,
+     *       Enhancement Rate Up, Supers Ban and G Rank Off.</li>
      * </ul>
      *
-     * <p>Every row runs to {@link #PASSIVE_MAX_LEVEL} levels and every purchase applies to every
-     * character, because the shop is global: a level bought once is not a per-character unlock.
-     *
-     * <p>Costs double per level and are capped, which keeps the arithmetic trivially bounded and
-     * keeps the whole catalogue affordable: buying every row to 5/5 costs 2,201, so the current
-     * starting capital of 9,999,999 covers a full clear-out with change left over. When the coin
-     * economy is designed for real these curves are the first thing to revisit.
-     *
-     * <p>Order is the shop's display order and is load-bearing only for readability.
+     * <p>The skill a character brings is NOT sold here any more: it is always active, granted
+     * from the first tick of every run. Order matters only for display and for the nibble each
+     * row's level is stored in — {@code SaveStore} keys storage on this array's index, so rows
+     * may be appended but never reordered.
      */
-    static final int PASSIVE_MAX_LEVEL = 5;
+    static final UpgradeDef[] UPGRADES = {
+        // ---- Ability, wiki order ------------------------------------------------
+        upgrade("special_attack", "Special Attack", "Buka Special Attack untuk semua karakter",
+                GROUP_ABILITY, -1, 0, false, BUY_LEVEL, new long[] { 500 }),
+        upgrade("growth", "Growth", "+1% damage senjata utama & special per level (terkunci)",
+                GROUP_ABILITY, -1, 0, true, BUY_LEVEL, new long[] { 500, 10000, 50000 }),
+        upgrade("reroll", "Reroll", "+1 Reroll tiap level up per level",
+                GROUP_ABILITY, -1, 0, false, BUY_LEVEL,
+                new long[] { 2500, 5000, 7500, 10000, 12500, 15000, 17500, 20000, 22500, 25000 }),
+        upgrade("eliminate", "Eliminate", "Hapus 1 pilihan tiap level up (terkunci)",
+                GROUP_ABILITY, -1, 0, true, BUY_LEVEL,
+                new long[] { 2500, 5000, 7500, 10000, 12500, 15000, 17500, 20000, 22500, 25000 }),
+        upgrade("stamps", "Stamps", "Buka sistem Stamps (terkunci)",
+                GROUP_ABILITY, -1, 0, true, BUY_LEVEL, new long[] { 500 }),
+        upgrade("hold", "Tahan (Hold)", "+1 Tahan tiap level up per level",
+                GROUP_ABILITY, -1, 0, false, BUY_LEVEL,
+                new long[] { 5000, 10000, 15000, 20000, 25000 }),
+        upgrade("customize", "Kustomisasi", "Buka Armory: bisa nonaktifkan senjata/item (terkunci)",
+                GROUP_ABILITY, -1, 0, true, BUY_LEVEL, new long[] { 50000 }),
+        upgrade("support", "Support", "Buka Support Item (terkunci)",
+                GROUP_ABILITY, -1, 0, true, BUY_LEVEL, new long[] { 1000 }),
+        upgrade("material_find", "Temuan Material", "Fan bisa drop material Holo House (terkunci)",
+                GROUP_ABILITY, -1, 0, true, BUY_LEVEL, new long[] { 20000 }),
+        upgrade("fan_letters", "Surat Fans", "Buka Surat Fans: boost permanen (terkunci)",
+                GROUP_ABILITY, -1, 0, true, BUY_LEVEL, new long[] { 50000 }),
+        upgrade("enchantments", "Enchantments", "Buka Enchantment senjata (terkunci)",
+                GROUP_ABILITY, -1, 0, true, BUY_LEVEL, new long[] { 1000 }),
+        upgrade("fandom", "Fandom", "Buka Fandom dari pencapaian (terkunci)",
+                GROUP_ABILITY, -1, 0, true, BUY_LEVEL, new long[] { 2000 }),
 
-    static final PassiveDef[] PASSIVES = {
-        passive("body",     "Vitality",   EFFECT_MAX_HP,       10, 2000, 2, 150000),
-        passive("might",    "Might",      EFFECT_DAMAGE_PCT,    8, 2500, 2, 150000),
-        passive("guard",    "Guard",      EFFECT_DEFENSE_PCT,   6, 3000, 2, 150000),
-        passive("swift",    "Swift",      EFFECT_SPEED_PCT,    10, 2000, 2, 100000),
-        passive("precision","Precision",  EFFECT_CRIT_PCT,      4, 3500, 2, 150000),
-        passive("insight",  "Insight",    EFFECT_EXP_PCT,      12, 2500, 2, 100000),
-        passive("fortune",  "Fortune",    EFFECT_COIN_PCT,     15, 4000, 2, 200000),
-        passive("tempo",    "Tempo",      EFFECT_HASTE_PCT,     6, 3000, 2, 100000)
+        // ---- Stat, wiki order ----------------------------------------------------
+        upgrade("max_hp", "Max HP Up", "+4% Max HP per level (maks 40%)",
+                GROUP_STAT, EFFECT_MAX_HP, 4, false, BUY_LEVEL,
+                new long[] { 200, 500, 1200, 2750, 6000, 12000, 18000, 24000, 30000, 36000 }),
+        upgrade("atk_up", "ATK Up", "+6% damage per level (maks 60%)",
+                GROUP_STAT, EFFECT_DAMAGE_PCT, 6, false, BUY_LEVEL,
+                new long[] { 300, 750, 1800, 4100, 9100, 18000, 25000, 31000, 37000, 43000 }),
+        upgrade("spd_up", "SPD Up", "+6% kecepatan gerak per level (maks 60%)",
+                GROUP_STAT, EFFECT_SPEED_PCT, 6, false, BUY_LEVEL,
+                new long[] { 200, 500, 1200, 2750, 6000, 12000, 18000, 24000, 30000, 36000 }),
+        upgrade("crit_up", "Crit Up", "+2% critical per level (maks 10%)",
+                GROUP_STAT, EFFECT_CRIT_PCT, 2, false, BUY_LEVEL,
+                new long[] { 300, 750, 1800, 4100, 9100 }),
+        upgrade("pickup_range", "Pick Up Range", "+10% radius item per level (maks 100%)",
+                GROUP_STAT, EFFECT_PICKUP_PCT, 10, false, BUY_LEVEL,
+                new long[] { 200, 500, 1200, 2750, 6000, 12000, 18000, 24000, 30000, 36000 }),
+        upgrade("haste_up", "Haste Up", "+4% attack speed per level (maks 20%)",
+                GROUP_STAT, EFFECT_HASTE_PCT, 4, false, BUY_LEVEL,
+                new long[] { 400, 1000, 2400, 5500, 12000 }),
+        upgrade("regeneration", "Regeneration", "+1 HP tiap 5 detik per level (maks 5 HP)",
+                GROUP_STAT, EFFECT_REGEN, 1, false, BUY_LEVEL,
+                new long[] { 200, 500, 1200, 2750, 6000 }),
+        upgrade("defense_up", "Defense Up", "-3% damage diterima per level (maks 15%)",
+                GROUP_STAT, EFFECT_DEFENSE_PCT, 3, false, BUY_LEVEL,
+                new long[] { 500, 1250, 3000, 6900, 15000 }),
+        upgrade("special_cdr", "Special CDR", "-3% cooldown special per level (terkunci)",
+                GROUP_STAT, -1, 0, true, BUY_LEVEL,
+                new long[] { 500, 1250, 3000, 6900, 15000 }),
+        upgrade("skill_up", "Skill Up", "+4% damage skill per level (terkunci)",
+                GROUP_STAT, -1, 0, true, BUY_LEVEL,
+                new long[] { 500, 1250, 3000, 6900, 15000, 20000, 30000, 40000, 50000, 60000 }),
+        upgrade("exp_up", "EXP Gain Up", "+4% EXP per level (maks 20%)",
+                GROUP_STAT, EFFECT_EXP_PCT, 4, false, BUY_LEVEL,
+                new long[] { 300, 750, 1800, 4100, 9100 }),
+        upgrade("food_up", "Food Drops Up", "+4% drop makanan per level (terkunci)",
+                GROUP_STAT, -1, 0, true, BUY_LEVEL,
+                new long[] { 150, 375, 900, 2000, 4500 }),
+        upgrade("money_up", "Money Gain Up", "+20% nilai koin per level (maks 200%)",
+                GROUP_STAT, EFFECT_COIN_PCT, 20, false, BUY_LEVEL,
+                new long[] { 400, 1000, 2400, 5500, 12000, 20000, 30000, 40000, 50000, 60000 }),
+        upgrade("enhance_rate", "Enhancement Rate Up", "+3% chance enhance per level (terkunci)",
+                GROUP_STAT, -1, 0, true, BUY_LEVEL,
+                new long[] { 300, 750, 1800, 4100, 9100 }),
+
+        // ---- Others, wiki order ---------------------------------------------------
+        upgrade("marketing", "Marketing", "+1 spawn fan tiap interval per level",
+                GROUP_OTHERS, -1, 0, false, BUY_LEVEL,
+                new long[] { 2000, 4000, 6000, 8000, 10000 }),
+        upgrade("weapon_limit", "Weapon Limit", "Batas senjata -1 per level (6 jadi 1)",
+                GROUP_OTHERS, -1, 0, false, BUY_LEVEL,
+                new long[] { 0, 0, 0, 0, 0 }),
+        upgrade("item_limit", "Item Limit", "Batas item -1 per level (6 jadi 0)",
+                GROUP_OTHERS, -1, 0, false, BUY_LEVEL,
+                new long[] { 0, 0, 0, 0, 0, 0 }),
+        upgrade("collab_ban", "Collab Ban", "Collab tidak bisa dibuat",
+                GROUP_OTHERS, -1, 0, false, BUY_LEVEL, new long[] { 0 }),
+        upgrade("supers_ban", "Supers Ban", "Super item tidak drop (terkunci)",
+                GROUP_OTHERS, -1, 0, true, BUY_LEVEL, new long[] { 0 }),
+        upgrade("g_rank_off", "G Rank Off", "Matikan bonus G Rank (terkunci)",
+                GROUP_OTHERS, -1, 0, true, BUY_LEVEL, new long[] { 0 }),
+        upgrade("hardcore", "Hardcore", "HP diatur ke 1 di Endless Mode",
+                GROUP_OTHERS, -1, 0, false, BUY_TOGGLE, new long[] { 0 }),
+        upgrade("refund_all", "Refund All", "Kembalikan semua pembelian toko",
+                GROUP_OTHERS, -1, 0, false, BUY_ACTION, new long[] { 0 })
     };
 
     /**
-     * Price of the next level of a passive, i.e. level {@code currentLevel + 1}.
+     * Price of the next level of an upgrade, i.e. the price of {@code currentLevel + 1}.
      *
-     * <p>Computed in {@code long} and clamped, so a deep level or a large base cost can neither
-     * overflow into a negative price nor wrap into something affordable. Returns {@code -1} for an
-     * unknown id, which callers treat as "not purchasable".
+     * <p>Prices are read straight from the row's wiki table, so this is a bounds check rather
+     * than a curve: a level at or past the cap, a locked row and an unknown row all return
+     * {@code -1}, which callers treat as "not purchasable".
      */
-    static long passiveCost(PassiveDef def, int currentLevel) {
-        if (def == null || currentLevel < 0 || currentLevel >= def.maxLevel) return -1L;
-        long cost = def.baseCost;
-        for (int i = 0; i < currentLevel && cost < def.costCap; i++) cost *= def.costGrowth;
-        if (cost > def.costCap) cost = def.costCap;
-        return cost;
+    static long upgradeCost(UpgradeDef def, int currentLevel) {
+        if (def == null || def.locked || def.prices == null) return -1L;
+        if (currentLevel < 0 || currentLevel >= def.prices.length) return -1L;
+        return def.prices[currentLevel];
     }
 
-    static PassiveDef passive(String id) {
-        for (int i = 0; i < PASSIVES.length; i++) if (PASSIVES[i].id.equals(id)) return PASSIVES[i];
+    static UpgradeDef upgrade(String id) {
+        for (int i = 0; i < UPGRADES.length; i++) if (UPGRADES[i].id.equals(id)) return UPGRADES[i];
         return null;
     }
 
-    static PassiveDef passive(int index) {
-        if (index < 0 || index >= PASSIVES.length) return null;
-        return PASSIVES[index];
+    /** Catalog index of one upgrade by id, or -1 when there is no such row. */
+    static int upgradeIndex(String id) {
+        for (int i = 0; i < UPGRADES.length; i++) if (UPGRADES[i].id.equals(id)) return i;
+        return -1;
     }
 
-    static PassiveDef passive(String id, String name, int effect, int value,
-            int baseCost, int costGrowth, int costCap) {
-        PassiveDef d = new PassiveDef();
-        d.id = id; d.name = name; d.effect = effect; d.value = value;
-        d.maxLevel = PASSIVE_MAX_LEVEL;
-        d.baseCost = baseCost; d.costGrowth = costGrowth; d.costCap = costCap;
+    static UpgradeDef upgrade(int index) {
+        if (index < 0 || index >= UPGRADES.length) return null;
+        return UPGRADES[index];
+    }
+
+    /** First catalog index belonging to one shop tab. Rows are grouped contiguously. */
+    static int upgradeGroupStart(int group) {
+        for (int i = 0; i < UPGRADES.length; i++) if (UPGRADES[i].group == group) return i;
+        return UPGRADES.length;
+    }
+
+    /** How many upgrade rows one shop tab shows. */
+    static int upgradeGroupCount(int group) {
+        int start = upgradeGroupStart(group);
+        int count = 0;
+        for (int i = start; i < UPGRADES.length && UPGRADES[i].group == group; i++) count++;
+        return count;
+    }
+
+    static UpgradeDef upgrade(String id, String name, String desc, int group, int effect,
+            int value, boolean locked, int buyKind, long[] prices) {
+        UpgradeDef d = new UpgradeDef();
+        d.id = id; d.name = name; d.desc = desc; d.group = group;
+        d.effect = effect; d.value = value; d.locked = locked; d.buyKind = buyKind;
+        d.prices = prices;
+        d.maxLevel = prices == null ? 0 : prices.length;
         return d;
     }
 
@@ -445,21 +558,27 @@ final class ContentCatalog {
     }
 
     /**
- * One permanent character upgrade sold by the shop.
+ * One permanent upgrade sold by the shop.
  *
- * <p>Each passive is a single stat fed by one integer {@code value} per level, and every effect
- * below maps to a field RunWorld already computes, so a passive needs no new damage or pickup code
- * path. Levels are stored per character and read at the start of every run.
+ * <p>A wired row is a single stat fed by one integer {@code value} per level, and every
+ * {@code effect} maps to a field RunWorld already computes, so a wired row needs no new damage or
+ * pickup code path. A locked row carries {@code effect = -1}: it is data for the shop page only
+ * until the gameplay behind it exists. Levels are global and read at the start of every run.
+ *
+ * <p>{@code prices} is the row's wiki price table for levels 1..maxLevel; {@code maxLevel} is
+ * simply its length, so a row can never advertise more levels than it has prices for.
  */
-    static final class PassiveDef {
+    static final class UpgradeDef {
         String id;
         String name;
-        int effect;      // one of the EFFECT_* constants.
+        String desc;     // one-line effect text shown on the shop detail panel.
+        int group;       // GROUP_ABILITY / GROUP_STAT / GROUP_OTHERS.
+        int effect;      // one of the EFFECT_* constants, or -1 when the row has no run effect.
         int value;       // per level, in the same unit the effect is expressed in.
         int maxLevel;
-        int baseCost;    // coin price of level 1.
-        int costGrowth;  // each further level costs baseCost * growth, capped at costCap.
-        int costCap;
+        boolean locked;  // shown with its prices, but no purchase may ever land.
+        int buyKind;     // BUY_LEVEL / BUY_TOGGLE / BUY_ACTION.
+        long[] prices;   // price of level 1..maxLevel, from the HoloCure wiki tables.
     }
 
     static final CollabDef[] COLLABS;

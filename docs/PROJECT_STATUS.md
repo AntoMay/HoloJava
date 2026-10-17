@@ -328,6 +328,65 @@ settings and coins untouched. The record stays 56 bytes and the store keeps its 
 hand-built old record, the version stamp, and the Skill Pasif transaction) and `UiStateMachineTest`
 for the new menu map. Full suite: 32 suites, 2849 checks, all passing.
 
+## New Main Menu, Three-Tab Toko and Upgrade Wiring (2026-10-17)
+
+A wave with three asks: rebuild the main menu around the seven requested entries, build the Toko
+as a real three-tab shop priced from the HoloCure wiki, and wire every upgrade the save can
+already express — locking the rest as visible data.
+
+**1. Main menu, seven entries, old palette.** The menu keeps its palette and style but now reads,
+top to bottom: Papan Peringkat, Pencapaian, Toko, Main, Holo House, Pengaturan, Credits
+(`MAIN_LEADERBOARD..MAIN_CREDITS`, `MAIN_ITEM_COUNT = 7`, title HOLOJAVA). The first, second and
+fourth entries are shut for now: they open a shared placeholder screen (`LOCKED`, screen 13) that
+carries its own title. Credits got a real page (screen 14). Row pitch dropped to 18 px so the
+seventh entry fits above the hint line. Exit left the menu entirely — it is now row 4 of
+Pengaturan, which grew to five rows (Hardcore, Audio, Controls, Exit, Back); both Back paths
+(settings row and Left) restore the cursor to Pengaturan.
+
+**2. Play flow: Main to Mode to Karakter to Stage.** Main opens Game Mode, picking a mode opens
+Karakter, clicking a character persists it and continues to Stage Select, and every back step
+walks one level up (Stage to Karakter to Mode to Menu), restoring the parent's cursor. The
+character screen is therefore a step again rather than a browser, and the stage screen backs to
+Karakter instead of sideways. Pause/results return to Main.
+
+**3. Toko: submenu, three tabs, wiki prices.** Toko opens a submenu (Beli Upgrade / Armory /
+Keluar). Beli Upgrade is a three-tab page (Ability, Stat, Lainnya) over
+`ContentCatalog.UPGRADES[34]` — 12 Ability, 14 Stat, 8 Lainnya — every row drawn with its wiki
+price and cap, a detail panel below, and a trailing Kembali row; L/R switches tabs. Fifteen rows
+have no gameplay yet (Growth, Eliminate, Stamps, Kustomisasi, Support, Temuan Material, Surat
+Fans, Enchantments, Fandom, Special CDR, Skill Up, Food Drops Up, Enhancement Rate Up, Supers Ban,
+G Rank Off) and are marked `locked`: shown with prices, refused on purchase. Prices are the wiki
+tables verbatim (Special Attack 500, Reroll 2,500..25,000, Max HP Up 200..36,000, Money Gain Up
+400..60,000, the limit rows free, …). Armory lists the weapon/item catalogue read-only with a
+Kustomisasi-locked footer; Fire does nothing there. The Skill Pasif row is gone entirely: every
+character's skill is free and always active.
+
+**4. Save layout v3, refunds.** The eight-passive vector became 34 nibbles in bytes 10..26
+(17 bytes), byte 46 stamps `LAYOUT_VERSION = 3`, record stays 56 bytes. `migrateShopLayout()`
+now folds both older layouts — the v2 global eight-nibble vector and the v1 per-character vector
+(bytes 10..29) — onto their target rows with the new caps, then clears bytes 10..45 (the Skill
+Pasif flag byte included). `setUpgradeLevel` refuses out-of-range, over-cap, locked and
+non-levelled rows; `refundValue()`/`refundAll()` credit every owned level back in one write.
+`FullGameCanvas.SHOP_STARTING_CAPITAL` (9,999,999) is credited at boot as temporary test capital.
+
+**5. What the shop can now actually do.** Special Attack gates `activateSpecial`; Reroll and
+Tahan are bought charge-per-level (the free 10/5 bonuses are gone, so a fresh run shows four
+plain offers); Hardcore is the settings flag; Collab Ban blocks the collab branch of `fillOffer`;
+Weapon/Item Limit lower the loadout caps to `6 − level`; Marketing adds one extra fan per spawn
+interval, still bound by `stage.maxEnemies`; the eight old passives carry their new names and
+caps; Pick Up Range feeds `pickupPercentBonus`; Regeneration heals `1 + level` on one 5 s tick
+(the regen item keeps its +2 on the same tick); Money Gain Up scales coin VALUE (+20%/level,
+capped +200%) instead of the drop roll. Locked rows change nothing anywhere. `recomputeStats`
+loops all 34 rows.
+
+**6. Tests.** `CharacterShopTest` was rewritten for the 34-row catalog, the v3 layout, both
+migrations, the locked/toggle/action refusals, the two-press Refund All flow, the canvas purchase
+path and the stat wiring (980 checks). `UiStateMachineTest` covers the seven-entry menu, the new
+flow, the Toko submenu, the placeholder pages and the Exit row; `RunWorldLifecycleIntegrationTest`
+grants Special Attack instead of Skill Pasif (its skill and slow fixtures moved to characters
+whose skill no longer masks the effect under always-on skills). Full suite: 32 suites,
+3535 checks, all passing. Build: device and desktop JARs compiled after the wave.
+
 ## Runtime Findings (2026-10-17)
 
 The desktop-emulator runtime was exercised for the first time. Three separate

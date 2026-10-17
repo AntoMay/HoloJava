@@ -19,10 +19,11 @@ final class SaveStore {
     // The primary byte keeps its historical index, so saves written by earlier builds decode
     // unchanged and the high bytes simply read as zero. See HIGH_BASE and MAX_STAGE_ORDER.
     //
-    // Shop passive levels live in bytes 10..13 (one global 0..5 vector) with the Skill Pasif flag
-    // at byte 14 and the layout version at byte 46, all inside that same reserved region and all
-    // within DATA_LEN, so the record length never changes. Older records holding the per-character
-    // vector are folded by migrateShopLayout() on load. See PASSIVE_BASE and LAYOUT_VERSION.
+    // Upgrade levels live in 34 nibbles at bytes 10..26 (one per row of the three-tab shop)
+    // with the layout version at byte 46, all inside that same reserved region and all within
+    // DATA_LEN, so the record length never changes. Older records holding the eight-passive
+    // global vector (layout v2) or the per-character vector before it (v1) are remapped by
+    // migrateShopLayout() on load. See UPGRADE_BASE and LAYOUT_VERSION.
     private static final int DATA_LEN = 56;
     private static final int SETTINGS_INDEX = 47;
     private static final int COIN_INDEX = 48;
@@ -138,116 +139,183 @@ final class SaveStore {
     private static final int ORDER_BITS_LOW = 8;
     private static final int HIGH_BASE = 5; // high-order byte for character i lives at HIGH_BASE + i
 
-    // ---- shop passive levels and the Skill Pasif flag (layout version 2) --------------------------
-    // The shop is global, so the record carries ONE 0..PASSIVE_MAX_LEVEL vector: eight passives are
-    // eight nibbles, four bytes at 10..13. The one-time Skill Pasif purchase is a flag byte at 14.
-    // Bytes 15..45 stay reserved and zero; byte 46 carries LAYOUT_VERSION, which is what makes the
-    // change from the old per-character vector detectable: a record written before this layout has
-    // zero there, so load() folds the old 5-char x 8-passive 0..10 vector (bytes 10..29) into the
-    // global one via migrateShopLayout() and stamps the version, after which later loads skip it.
+    // ---- upgrade levels (layout version 3) -------------------------------------------------
+    // The shop is global, so the record carries ONE level vector for all 34 upgrade rows: one
+    // nibble per row in ContentCatalog.UPGRADES order, 17 bytes at 10..26. Every row's cap is
+    // at most 10, which a nibble (0..15) spans, and no nibble can straddle a byte boundary.
+    // Two rows never use their slot: Hardcore mirrors the settings bit (so the Settings screen
+    // and the shop's Others tab always show the same flag) and Refund All is an action with no
+    // stored level; their nibbles simply stay zero.
     //
-    // Nibbles rather than tighter 3-bit fields because a 3-bit field straddles byte boundaries and
-    // a single-byte accessor would silently lose the bits that spilled into the next byte; a nibble
-    // holds 0..15, spans the catalog cap, and can never straddle.
-    private static final int PASSIVE_BASE = 10;
-    private static final int PASSIVE_BITS = 4;
-    private static final int PASSIVE_MASK = 0xF;
-    private static final int SKILL_PASSIVE_INDEX = 14;
-    // The pre-v2 per-character vector spanned bytes 10..29; the global one only 10..13.
-    private static final int LEGACY_PASSIVE_END = 29;
+    // Bytes 27..45 stay reserved and zero; byte 46 carries LAYOUT_VERSION, which is what makes
+    // older layouts detectable: a record written before this layout has 0 or 2 there, so load()
+    // remaps whatever it holds via migrateShopLayout() and stamps 3, after which later loads
+    // skip it entirely.
+    private static final int UPGRADE_BASE = 10;
+    private static final int UPGRADE_BITS = 4;
+    private static final int UPGRADE_MASK = 0xF;
+    // The v1 per-character vector spanned bytes 10..29; everything up to the reserved end is
+    // cleared during a migration so stale nibbles from any older layout cannot survive.
+    private static final int LEGACY_SHOP_END = 45;
     private static final int LAYOUT_VERSION_INDEX = 46;
-    private static final int LAYOUT_VERSION = 2;
+    private static final int LAYOUT_VERSION = 3;
+    private static final int LEGACY_PASSIVES = 8;
 
     /**
-     * Index of the nibble holding the global level of one passive, or -1 when out of range.
+     * Where each of the eight legacy global passives lands in the new catalog. The old order
+     * was body, might, guard, swift, precision, insight, fortune, tempo; the new rows are
+     * grouped by shop tab, so guard (old index 2) now sits at Defense Up and tempo (old 7) at
+     * Haste Up. Resolved by id rather than by hard-coded index so appending a row above these
+     * can never silently redirect a migration.
      */
-    private int passiveNibble(int passiveIndex) {
-        if (passiveIndex < 0 || passiveIndex >= ContentCatalog.PASSIVES.length) return -1;
-        return passiveIndex;
+    private static final int[] LEGACY_PASSIVE_TARGET = {
+        ContentCatalog.upgradeIndex("max_hp"),      // body (Vitality)
+        ContentCatalog.upgradeIndex("atk_up"),      // might
+        ContentCatalog.upgradeIndex("defense_up"),  // guard
+        ContentCatalog.upgradeIndex("spd_up"),      // swift
+        ContentCatalog.upgradeIndex("crit_up"),     // precision
+        ContentCatalog.upgradeIndex("exp_up"),      // insight
+        ContentCatalog.upgradeIndex("money_up"),    // fortune
+        ContentCatalog.upgradeIndex("haste_up")     // tempo
+    };
+
+    /**
+     * Index of the nibble holding the global level of one upgrade, or -1 when out of range.
+     */
+    private int upgradeNibble(int upgradeIndex) {
+        if (upgradeIndex < 0 || upgradeIndex >= ContentCatalog.UPGRADES.length) return -1;
+        return upgradeIndex;
+    }
+
+    private int nibbleAt(int nibble) {
+        int index = UPGRADE_BASE + nibble / 2;
+        int shift = (nibble & 1) * UPGRADE_BITS;
+        return (data[index] & 0xff) >>> shift & UPGRADE_MASK;
+    }
+
+    private void writeNibble(int nibble, int level) {
+        int index = UPGRADE_BASE + nibble / 2;
+        int shift = (nibble & 1) * UPGRADE_BITS;
+        int clearMask = ~(UPGRADE_MASK << shift) & 0xff;
+        int packed = (data[index] & 0xff) & clearMask;
+        data[index] = (byte) (packed | (level << shift));
     }
 
     /**
-     * Purchased global level of one shop passive, 0..{@link ContentCatalog#PASSIVE_MAX_LEVEL}.
+     * Purchased global level of one shop upgrade, 0..its own {@code maxLevel}.
      *
      * <p>Returns 0 for anything out of range rather than throwing: a missing level or a bad index
      * both mean "not bought yet", and a shop that refuses to render because a byte was corrupt
      * would be worse than one that shows level 0.
      */
-    int passiveLevel(int passiveIndex) {
-        int nibble = passiveNibble(passiveIndex);
+    int upgradeLevel(int upgradeIndex) {
+        int nibble = upgradeNibble(upgradeIndex);
         if (nibble < 0) return 0;
-        int index = PASSIVE_BASE + nibble / 2;
-        if (index >= SETTINGS_INDEX) return 0;
-        int shift = (nibble & 1) * PASSIVE_BITS;
-        return (data[index] & 0xff) >>> shift & PASSIVE_MASK;
+        if (UPGRADE_BASE + nibble / 2 >= LAYOUT_VERSION_INDEX) return 0;
+        return nibbleAt(nibble);
     }
 
     /**
-     * Records a purchased passive level globally and persists it as one transaction.
+     * Records a purchased upgrade level globally and persists it as one transaction.
      *
-     * <p>Levels outside 0..{@link ContentCatalog#PASSIVE_MAX_LEVEL} and unknown indices are
-     * refused, so a stale price or a corrupt read cannot write a level the shop would never sell
-     * back into a neighbouring nibble of the same byte.
+     * <p>Refused outright: unknown indices, levels outside the row's own 0..maxLevel range, rows
+     * that are locked (not for sale yet) and rows whose buyKind is not a levelled purchase
+     * (Hardcore reads the settings bit, Refund All stores nothing). A stale price or a corrupt
+     * read can therefore never write a level the shop would never sell back into a neighbouring
+     * nibble of the same byte.
      */
-    void setPassiveLevel(int passiveIndex, int level) {
-        int nibble = passiveNibble(passiveIndex);
+    void setUpgradeLevel(int upgradeIndex, int level) {
+        int nibble = upgradeNibble(upgradeIndex);
         if (nibble < 0) return;
-        if (level < 0 || level > ContentCatalog.PASSIVE_MAX_LEVEL) return;
-        int index = PASSIVE_BASE + nibble / 2;
-        if (index >= SETTINGS_INDEX) return;
-        int shift = (nibble & 1) * PASSIVE_BITS;
-        int clearMask = ~(PASSIVE_MASK << shift) & 0xff;
-        int packed = (data[index] & 0xff) & clearMask;
-        data[index] = (byte) (packed | (level << shift));
+        ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(upgradeIndex);
+        if (def == null || def.locked || def.buyKind != ContentCatalog.BUY_LEVEL) return;
+        if (level < 0 || level > def.maxLevel) return;
+        if (UPGRADE_BASE + nibble / 2 >= LAYOUT_VERSION_INDEX) return;
+        writeNibble(nibble, level);
         save();
     }
 
     /**
-     * Whether the one-time Skill Pasif purchase has been made. Once true, every character starts
-     * each run with their skill already active; the level-up roll never offers skills at all.
+     * Total coins every level currently owned has cost so far, summed from the price tables.
+     *
+     * <p>This is the only refund arithmetic in the game: the shop never stores what was paid,
+     * because the price of each level is public catalog data, so recomputing from it cannot drift
+     * from what the same table would charge on the next purchase.
      */
-    boolean skillPassiveOwned() {
-        return data[SKILL_PASSIVE_INDEX] != 0;
-    }
-
-    /** Records the one-time Skill Pasif purchase and persists it as one transaction. */
-    void setSkillPassiveOwned(boolean owned) {
-        data[SKILL_PASSIVE_INDEX] = owned ? (byte) 1 : 0;
-        save();
+    long refundValue() {
+        long total = 0;
+        for (int i = 0; i < ContentCatalog.UPGRADES.length; i++) {
+            ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(i);
+            if (def == null || def.prices == null) continue;
+            int level = upgradeLevel(i);
+            for (int l = 0; l < level && l < def.prices.length; l++) total += def.prices[l];
+        }
+        return total;
     }
 
     /**
-     * Folds the pre-v2 per-character shop into the global one, once per record.
+     * Resets every upgrade to zero and credits the full refund, in one write.
      *
-     * <p>Records written before the global shop carry a 5-character x 8-passive vector of 0..10
-     * levels in bytes 10..29 and nothing in byte 46. The fold keeps the highest level any
-     * character had bought in that stat — the player paid for it, and the shop is global now —
-     * clamps it to the new cap, clears the rest of the old vector (including where the Skill
-     * Passive flag byte now lives), and stamps the version so later loads skip this entirely.
+     * <p>One transaction, same rule as every other balance change here: the candidate record
+     * carries both the zeroed levels and the credited balance, and the live record is only
+     * updated after the write is reported successful. A refund that cannot be credited (balance
+     * overflow) is refused as a whole: levels stay purchased and nothing is written. Only the
+     * upgrade nibbles are cleared — completion, settings and the selected character are not
+     * purchases and must survive the refund.
      *
-     * <p>Per-passive, the fold reads every character's old nibble before writing the new global
-     * one, and the new nibble sits exactly where character 0's old nibble was — so character 0 is
-     * always read in the same iteration that overwrites its slot, never afterwards.
+     * @return true when the refund landed (including a no-op refund with nothing purchased)
+     */
+    boolean refundAll() {
+        if (loadState == LOAD_FAILED) return false;
+        long refund = refundValue();
+        long current = coinBalance();
+        if (refund > 0 && !CoinBalance.canAdd(current, refund)) return false;
+        byte[] candidate = new byte[DATA_LEN];
+        System.arraycopy(data, 0, candidate, 0, DATA_LEN);
+        for (int i = UPGRADE_BASE; i <= UPGRADE_BASE + (ContentCatalog.UPGRADES.length - 1) / 2; i++) {
+            candidate[i] = 0;
+        }
+        if (refund > 0) writeCoin(candidate, COIN_INDEX, CoinBalance.add(current, refund));
+        if (!storage.write(RECORD_ID, candidate)) return false;
+        System.arraycopy(candidate, 0, data, 0, DATA_LEN);
+        return true;
+    }
+
+    /**
+     * Remaps an older record's shop layout to version 3, once per record.
+     *
+     * <p>Layout v2 held eight global passive nibbles at bytes 10..13 (plus the long-gone Skill
+     * Pasif flag at 14); anything older (v1) held a 5-character x 8-passive 0..10 vector in bytes
+     * 10..29, from which the highest level any character had bought is kept — the player paid for
+     * it, and the shop is global now. In both cases all eight legacy values are read into a
+     * temporary first, then the whole reserved region is cleared, then each value is written to
+     * its new row clamped to that row's new cap (the old cap was 5/10; new caps run 5..10). The
+     * version byte is stamped last, so an interrupted or unmigrated record simply migrates again
+     * on the next load instead of half-applying.
      */
     private void migrateShopLayout() {
         if ((data[LAYOUT_VERSION_INDEX] & 0xff) == LAYOUT_VERSION) return;
-        int passives = ContentCatalog.PASSIVES.length;
-        for (int p = 0; p < passives; p++) {
-            int best = 0;
-            for (int c = 0; c < ContentCatalog.CHARACTERS.length; c++) {
-                int nibble = c * passives + p;
-                int index = PASSIVE_BASE + nibble / 2;
-                int shift = (nibble & 1) * PASSIVE_BITS;
-                int level = (data[index] & 0xff) >>> shift & PASSIVE_MASK;
-                if (level > best) best = level;
+        boolean globalVector = (data[LAYOUT_VERSION_INDEX] & 0xff) >= 2;
+        int[] old = new int[LEGACY_PASSIVES];
+        if (globalVector) {
+            for (int p = 0; p < LEGACY_PASSIVES; p++) old[p] = nibbleAt(p);
+        } else {
+            for (int p = 0; p < LEGACY_PASSIVES; p++) {
+                int best = 0;
+                for (int c = 0; c < ContentCatalog.CHARACTERS.length; c++) {
+                    int level = nibbleAt(c * LEGACY_PASSIVES + p);
+                    if (level > best) best = level;
+                }
+                old[p] = best;
             }
-            if (best > ContentCatalog.PASSIVE_MAX_LEVEL) best = ContentCatalog.PASSIVE_MAX_LEVEL;
-            int shift = (p & 1) * PASSIVE_BITS;
-            int clearMask = ~(PASSIVE_MASK << shift) & 0xff;
-            int packed = (data[PASSIVE_BASE + p / 2] & 0xff) & clearMask;
-            data[PASSIVE_BASE + p / 2] = (byte) (packed | (best << shift));
         }
-        for (int i = SKILL_PASSIVE_INDEX; i <= LEGACY_PASSIVE_END; i++) data[i] = 0;
+        for (int i = UPGRADE_BASE; i <= LEGACY_SHOP_END; i++) data[i] = 0;
+        for (int p = 0; p < LEGACY_PASSIVES; p++) {
+            if (old[p] <= 0) continue;
+            ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(LEGACY_PASSIVE_TARGET[p]);
+            if (def == null) continue;
+            writeNibble(LEGACY_PASSIVE_TARGET[p], old[p] > def.maxLevel ? def.maxLevel : old[p]);
+        }
         data[LAYOUT_VERSION_INDEX] = (byte) LAYOUT_VERSION;
     }
 
