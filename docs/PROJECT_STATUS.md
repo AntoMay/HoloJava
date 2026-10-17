@@ -177,6 +177,39 @@ level vectors with no overlap.
 real balance semantics and whose tests pin a fresh install to zero. Deleting the constant and that
 one method restores a zero balance.
 
+## Boss Combat Fixes (2026-10-17)
+
+Three boss-side defects were reported (HP, hitbox, and player attacks not going toward the boss)
+and fixed together, since all three share the same root: the boss was second-class in code written
+around regular enemies.
+
+**1. HP no longer pinned at 20000.** `spawnBossById` computed boss HP with the enemy scaling formula
+but then clamped it with `min(20000, ...)`. Since any catalog boss above roughly 1000 HP reaches that
+cap by the 10:00 gate, every boss in the game had exactly 20000 HP — Halloween Bae's verified 72000
+was crushed to 20000, and Fubuzilla's 15000 was inflated to match. The clamp is now
+`scaledBossHp()`, the same power formula under the same 100000 ceiling as `scaledEnemyHp`. At the
+normal 10:00/20:00 gates the scaling factors are still zero, so documented bosses surface their
+catalog values; the ceiling only shapes long Endless repeats. Pinned by
+`RunWorldBossEncounterTest.testBossHpIsNotPinnedByACap` (a 72000 boss survives spawn above 20000)
+and `RunWorldScalingTest[6]` (clamped to 100000, exact formula below the cap).
+
+**2. Hitbox follows the sprite.** Every boss shared a fixed 42x42 box regardless of art, while
+actual frame sizes run from 22x33 (Nodoka) to 128x69 (Spiderchama/EldrichHaachama) and 99x116
+(Pekodam). A large boss's body sat mostly outside its own hitbox, so shots that visibly connected
+missed and contact damage landed off-sprite. `BossDef` now carries `collW`/`collH` matched to each
+boss's art directory frame size; `bossWidth()`/`bossHeight()` read them (42x42 remains the fallback).
+`RunWorldBossArtTest` pins every pair against the actual PNG IHDR dimensions, so resizing art
+without updating the catalog fails loudly.
+
+**3. Attacks can be aimed at the boss.** Targeting used `nearestEnemy()`, which only scans the
+enemy pool — the boss was never a target. During a boss fight, aimed and homing weapons tracked the
+adds around it and, with no adds left, flew off in the player's facing direction instead of at the
+boss. `nearestTarget()` now compares the boss's center against the nearest add and returns the new
+`TARGET_BOSS` sentinel (`-2`, with `-1` still meaning none); `fireWeapon` resolves the initial aim
+to the boss box, and `updateShots` steers `PATTERN_HOMING` shots at that same box so a homing shot
+converges on the body the hit test uses. A closer add still outranks the boss. Pinned by
+`RunWorldBossEncounterTest.testAimedShotsTrackTheBoss`.
+
 ## Runtime Findings (2026-10-17)
 
 The desktop-emulator runtime was exercised for the first time. Three separate

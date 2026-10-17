@@ -141,6 +141,8 @@ final class ContentCatalog {
         int exp;
         String sprite;
         boolean assetApproximation;
+        int collW;         // hitbox, matched to the art frame size in RunWorldBossArtTest.
+        int collH;
     }
 
     static final class ModeDef {
@@ -363,26 +365,31 @@ final class ContentCatalog {
         // Stage 1 Hard stats verified against the wiki Stage 1 (Hard) enemy
         // composition (HP/ATK/SPD/EXP columns); SPD has no per-boss runtime
         // field (boss.speed is derived), so only HP/ATK/EXP are applied here.
-        boss("fubuzilla", "Fubuzilla", 15000, 22, AI_SHOOTER, 1400, 1500, "fubuzilla", false),
-        boss("smol_ame", "Smol Ame", 12000, 20, AI_CHASER, 1000, 1500, "AchanBoss", true),
-        boss("mikodanye", "Mikodanye", 2200, 24, AI_SHOOTER, 1300, 65, "Mikodanye", false),
-        boss("achan", "A-chan", 2000, 22, AI_CHARGER, 850, 60, "AchanBoss", false),
-        boss("shubangelion", "Shubangelion", 3200, 28, AI_CHARGER, 1200, 85, "Shubangelion_walk", false),
-        boss("spiderchama", "Spiderchama", 3600, 30, AI_SHOOTER, 1000, 90, "Pekodam", true),
-        boss("udin", "Udin", 4200, 34, AI_SHOOTER, 1100, 110, "Udin_walk", false),
-        boss("area15", "Area 15", 4600, 36, AI_BOMBER, 1200, 120, "Pekodam", true),
-        boss("nanora", "Nanora", 5000, 38, AI_CHASER, 900, 130, "Moonafic2", true),
-        boss("pekodam", "Pekodam", 6000, 42, AI_SHOOTER, 850, 160, "Pekodam", false),
-        boss("halloween_bae", "Halloween Bae", 72000, 27, AI_BOMBER, 1000, 6000, "Pekodam", true),
-        boss("nodoka", "Harusaki Nodoka", 5000, 40, AI_SHOOTER, 950, 140, "Mikodanye", true),
-        boss("halloween_myth", "Halloween Myth", 6000, 44, AI_CHARGER, 1000, 160, "Pekodam", true),
-        boss("goriela", "Goriela", 6500, 46, AI_SHOOTER, 900, 180, "Pekodam", true),
+        //
+        // collW/collH are the frame size of each boss's art directory (see
+        // AssetLibrary.bossDirs and RunWorldBossArtTest, which pins the two
+        // together), so the hitbox covers the sprite instead of one fixed
+        // 42x42 corner of it.
+        boss("fubuzilla", "Fubuzilla", 15000, 22, AI_SHOOTER, 1400, 1500, "fubuzilla", false, 64, 55),
+        boss("smol_ame", "Smol Ame", 12000, 20, AI_CHASER, 1000, 1500, "AchanBoss", true, 61, 84),
+        boss("mikodanye", "Mikodanye", 2200, 24, AI_SHOOTER, 1300, 65, "Mikodanye", false, 51, 67),
+        boss("achan", "A-chan", 2000, 22, AI_CHARGER, 850, 60, "AchanBoss", false, 24, 29),
+        boss("shubangelion", "Shubangelion", 3200, 28, AI_CHARGER, 1200, 85, "Shubangelion_walk", false, 68, 101),
+        boss("spiderchama", "Spiderchama", 3600, 30, AI_SHOOTER, 1000, 90, "Pekodam", true, 128, 69),
+        boss("udin", "Udin", 4200, 34, AI_SHOOTER, 1100, 110, "Udin_walk", false, 43, 53),
+        boss("area15", "Area 15", 4600, 36, AI_BOMBER, 1200, 120, "Pekodam", true, 83, 67),
+        boss("nanora", "Nanora", 5000, 38, AI_CHASER, 900, 130, "Moonafic2", true, 25, 28),
+        boss("pekodam", "Pekodam", 6000, 42, AI_SHOOTER, 850, 160, "Pekodam", false, 99, 116),
+        boss("halloween_bae", "Halloween Bae", 72000, 27, AI_BOMBER, 1000, 6000, "Pekodam", true, 78, 70),
+        boss("nodoka", "Harusaki Nodoka", 5000, 40, AI_SHOOTER, 950, 140, "Mikodanye", true, 22, 33),
+        boss("halloween_myth", "Halloween Myth", 6000, 44, AI_CHARGER, 1000, 160, "Pekodam", true, 66, 79),
+        boss("goriela", "Goriela", 6500, 46, AI_SHOOTER, 900, 180, "Pekodam", true, 98, 75),
         // Original design: WoWo, guardian of the burnt palm grove. Keeps its distance
         // and fires a widening radial seed burst, so the fight is about dodging
         // rings rather than chasing a single bullet. Tuned above Pekodam, the final
         // boss of the stage this one unlocks behind, on both axes: it closes the
         // normal stage list and must not feel like a step back.
-        boss("wowo", "WoWo", 9000, 44, AI_SHOOTER, 1000, 300, "WoWo", false)
+        boss("wowo", "WoWo", 9000, 44, AI_SHOOTER, 1000, 300, "WoWo", false, 64, 64)
     };
 
     static final ModeDef[] MODES = {
@@ -523,11 +530,11 @@ final class ContentCatalog {
     }
 
     static BossDef boss(String id, String name, int hp, int atk, int behavior,
-            int cooldown, int exp, String sprite, boolean approximation) {
+            int cooldown, int exp, String sprite, boolean approximation, int collW, int collH) {
         BossDef d = new BossDef();
         d.id = id; d.name = name; d.hp = hp; d.atk = atk; d.behavior = behavior;
         d.cooldownMs = cooldown; d.exp = exp; d.sprite = sprite;
-        d.assetApproximation = approximation;
+        d.assetApproximation = approximation; d.collW = collW; d.collH = collH;
         return d;
     }
 

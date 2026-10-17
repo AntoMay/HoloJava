@@ -53,6 +53,20 @@ public final class RunWorldBossArtTest {
                 expect(png.isFile(), id + " frame " + f + " exists (" + png.getPath() + ")");
                 if (png.isFile()) expect(isPng(png), id + " frame " + f + " has PNG magic");
             }
+
+            // Hitbox follows the art: RunWorld.collides reads BossDef.collW/collH, so a
+            // sprite resized without touching the catalog silently re-breaks the hitbox.
+            ContentCatalog.BossDef def = ContentCatalog.boss(id);
+            expect(def != null, id + " resolves to a boss def");
+            if (def == null) continue;
+            File frame0 = new File("assets/fullgame/bosses/" + SPEC[i][1] + "/" + SPEC[i][2] + "0.png");
+            int[] wh = pngSize(frame0);
+            if (wh == null) {
+                expect(false, id + " frame 0 size is readable (" + frame0.getPath() + ")");
+                continue;
+            }
+            expectEq(def.collW, wh[0], id + " hitbox width matches its art");
+            expectEq(def.collH, wh[1], id + " hitbox height matches its art");
         }
 
         System.out.println("checks=" + checks + " failures=" + failures);
@@ -78,6 +92,29 @@ public final class RunWorldBossArtTest {
                 && magic[2] == 0x4E && magic[3] == 0x47;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    /** Reads the IHDR width/height out of a PNG, or null if unreadable. */
+    private static int[] pngSize(File png) {
+        try {
+            FileInputStream in = new FileInputStream(png);
+            byte[] head = new byte[24];
+            int n = 0;
+            while (n < 24) {
+                int r = in.read(head, n, 24 - n);
+                if (r < 0) break;
+                n += r;
+            }
+            in.close();
+            if (n < 24) return null;
+            int w = ((head[16] & 0xFF) << 24) | ((head[17] & 0xFF) << 16)
+                | ((head[18] & 0xFF) << 8) | (head[19] & 0xFF);
+            int h = ((head[20] & 0xFF) << 24) | ((head[21] & 0xFF) << 16)
+                | ((head[22] & 0xFF) << 8) | (head[23] & 0xFF);
+            return new int[] { w, h };
+        } catch (Exception e) {
+            return null;
         }
     }
 

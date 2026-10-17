@@ -33,6 +33,10 @@ final class RunWorld {
     private static final int OFFER_REROLL = 6;
     private static final int OFFER_HOLD = 7;
 
+    /** Shot.target spellings. Any value >= 0 is an enemy pool index; the boss needs its own. */
+    static final int TARGET_NONE = -1;
+    static final int TARGET_BOSS = -2;
+
     private static final int ENEMY_POOL = 48;
     private static final int SHOT_POOL = 128;
     private static final int MELEE_POOL = 24;
@@ -862,7 +866,7 @@ final class RunWorld {
         bossEncounterIndex = encounter;
         encounterStarted[Math.min(encounter, 3)] = true;
         boss.defIndex = index;
-        boss.maxHp = (int) Math.min(20000.0, MathUtil.power(def.hp + def.hp * 0.05 * scaleA, 1.0 + scaleB / 50.0));
+        boss.maxHp = scaledBossHp(def.hp);
         boss.hp = boss.maxHp;
         boss.atk = (int) MathUtil.power(def.atk + 2.0 * scaleA, 1.0 + scaleB / 25.0);
         boss.speed = 0.55 + Math.min(0.5, scaleA * 0.005);
@@ -1023,7 +1027,7 @@ final class RunWorld {
             s.bossHit = false;
             s.attached = def.pattern == ContentCatalog.PATTERN_ORBIT;
             s.returning = false;
-            s.target = nearestEnemy();
+            s.target = nearestTarget();
             s.sprite = def.sprite;
             if (s.attached) {
                 s.orbitAngle = (Math.PI * 2.0 * i / count) + now / 900.0;
@@ -1035,8 +1039,11 @@ final class RunWorld {
                 int oy = playerCenterY() + 2;
                 int tx;
                 int ty;
-                if (def.pattern == ContentCatalog.PATTERN_HOMING || s.target >= 0) {
-                    if (s.target >= 0) {
+                if (def.pattern == ContentCatalog.PATTERN_HOMING || s.target != TARGET_NONE) {
+                    if (s.target == TARGET_BOSS) {
+                        tx = boss.x + bossWidth() / 2;
+                        ty = boss.y + bossHeight() / 2;
+                    } else if (s.target >= 0) {
                         Enemy t = enemies[s.target];
                         tx = t.x + enemyWidth(t.defIndex) / 2;
                         ty = t.y + enemyHeight(t.defIndex) / 2;
@@ -1112,7 +1119,18 @@ final class RunWorld {
                 s.x = playerCenterX() + (int) (Math.cos(s.orbitAngle) * 30.0);
                 s.y = playerCenterY() + (int) (Math.sin(s.orbitAngle) * 30.0);
             } else {
-                if (s.pattern == ContentCatalog.PATTERN_HOMING && s.target >= 0 && enemies[s.target].active) {
+                if (s.pattern == ContentCatalog.PATTERN_HOMING && s.target == TARGET_BOSS && boss.active) {
+                    // Steering uses the same box the hit test uses, so a homing shot converges on
+                    // the boss's body rather than on a stale 42x42 corner of the sprite.
+                    double bdx = boss.x + bossWidth() / 2 - s.x;
+                    double bdy = boss.y + bossHeight() / 2 - s.y;
+                    double blen = Math.sqrt(bdx * bdx + bdy * bdy);
+                    if (blen > 0.001) {
+                        ContentCatalog.WeaponDef bw = ContentCatalog.weapon(s.weaponIndex);
+                        s.dx = (int) (bdx / blen * bw.speed);
+                        s.dy = (int) (bdy / blen * bw.speed);
+                    }
+                } else if (s.pattern == ContentCatalog.PATTERN_HOMING && s.target >= 0 && enemies[s.target].active) {
                     Enemy t = enemies[s.target];
                     double dx = t.x - s.x;
                     double dy = t.y - s.y;
@@ -1717,6 +1735,30 @@ final class RunWorld {
         return best;
     }
 
+    /**
+     * Nearest live target for a fired shot: an enemy pool index, {@link #TARGET_BOSS} when the
+     * boss is the closest thing alive, or {@link #TARGET_NONE}.
+     *
+     * <p>The boss used to be invisible to targeting, so during a boss fight every aimed and
+     * homing weapon either tracked the adds around it or, with no adds left, flew off in the
+     * player's facing direction instead of at the boss.
+     */
+    int nearestTarget() {
+        int best = nearestEnemy();
+        long bestDist = Long.MAX_VALUE;
+        if (best >= 0) {
+            long dx = enemies[best].x - playerCenterX();
+            long dy = enemies[best].y - playerCenterY();
+            bestDist = dx * dx + dy * dy;
+        }
+        if (boss.active) {
+            long dx = boss.x + bossWidth() / 2 - playerCenterX();
+            long dy = boss.y + bossHeight() / 2 - playerCenterY();
+            if (dx * dx + dy * dy < bestDist) return TARGET_BOSS;
+        }
+        return best;
+    }
+
     private int enemyIndex(String id) {
         for (int i = 0; i < ContentCatalog.ENEMIES.length; i++) if (ContentCatalog.ENEMIES[i].id.equals(id)) return i;
         return -1;
@@ -1752,6 +1794,20 @@ final class RunWorld {
         return MathUtil.clampInt(MathUtil.roundEven(value), 1, 100000);
     }
 
+    /**
+     * Boss HP uses the same scaling as enemy HP, under the same 100000 ceiling.
+     *
+     * <p>It used to be pinned by {@code min(20000, ...)}, which crushed every scaled spawn and
+     * every boss above 20000 in the catalog — Halloween Bae's verified 72000 became exactly 20000,
+     * so all bosses shared one durability. At the normal 10:00/20:00 gates the scaling factors are
+     * still zero, so documented bosses keep their catalog HP exactly; the ceiling only shapes
+     * long Endless repeats.
+     */
+    private int scaledBossHp(int base) {
+        double value = MathUtil.power(base + base * 0.05 * scaleA, 1.0 + scaleB / 50.0);
+        return MathUtil.clampInt(MathUtil.roundEven(value), 1, 100000);
+    }
+
     private int scaledEnemyAtk(int base) {
         double value = MathUtil.power(base + 2.0 * scaleA, 1.0 + scaleB / 25.0);
         return MathUtil.clampInt(MathUtil.roundEven(value), 1, 1000);
@@ -1764,8 +1820,16 @@ final class RunWorld {
 
     private int enemyWidth(int index) { return ContentCatalog.ENEMIES[index].collW; }
     private int enemyHeight(int index) { return ContentCatalog.ENEMIES[index].collH; }
-    private int bossWidth() { return 42; }
-    private int bossHeight() { return 42; }
+    private int bossWidth() {
+        if (boss.defIndex < 0 || boss.defIndex >= ContentCatalog.BOSSES.length) return 42;
+        int w = ContentCatalog.BOSSES[boss.defIndex].collW;
+        return w > 0 ? w : 42;
+    }
+    private int bossHeight() {
+        if (boss.defIndex < 0 || boss.defIndex >= ContentCatalog.BOSSES.length) return 42;
+        int h = ContentCatalog.BOSSES[boss.defIndex].collH;
+        return h > 0 ? h : 42;
+    }
     private int shotWidth(Shot s) { return s.sprite != null && ("bomb".equals(s.sprite) || "axe".equals(s.sprite)) ? 12 : 7; }
     private int shotHeight(Shot s) { return s.sprite != null && ("bomb".equals(s.sprite) || "axe".equals(s.sprite)) ? 12 : 7; }
     private int playerCenterX() { return px + 12; }

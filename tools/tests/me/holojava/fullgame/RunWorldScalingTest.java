@@ -346,8 +346,11 @@ public final class RunWorldScalingTest {
     }
 
     /**
-     * Boss stats are computed separately: a truncating cast instead of round-even, and a bespoke
-     * speed of 0.55 plus a small scaleA term rather than scaledEnemySpeed.
+     * Boss stats are computed separately: the same power shape as enemy HP under the same 100000
+     * ceiling, but a bespoke speed of 0.55 plus a small scaleA term rather than scaledEnemySpeed.
+     *
+     * <p>The HP ceiling used to be a bespoke 20000, which pinned every scaled spawn and every
+     * catalog boss above 20000 to one durability; it now shares the enemy cap.
      */
     private static void testBossStatsUseTheirOwnForm() throws Exception {
         System.out.println("[6] boss stats use their own formulas");
@@ -362,9 +365,10 @@ public final class RunWorldScalingTest {
         Object bossEarly = boss(early);
         Object bossLate = boss(late);
 
+        // Unclamped growth first: at 4h the scaled value blows past any cap, so this only proves
+        // the formula rises, not that the field is capped.
         expect(getInt(bossLate, "maxHp") > getInt(bossEarly, "maxHp"),
-            "boss HP grew with scaling");
-        expect(getInt(bossLate, "maxHp") <= 20000, "boss HP stayed inside the 20000 cap");
+            "boss HP grew with scaling before the clamp");
         expect(getInt(bossLate, "atk") > getInt(bossEarly, "atk"), "boss ATK grew with scaling");
 
         double expectedSpeed = 0.55 + Math.min(0.5, scaleA * 0.005);
@@ -372,12 +376,25 @@ public final class RunWorldScalingTest {
             "boss speed follows 0.55 + min(0.5, scaleA * 0.005), not the enemy formula");
         expect(getDouble(bossLate, "speed") <= 1.05, "boss speed is capped at 0.55 + 0.5");
 
-        // Boss HP uses a truncating cast, so it never exceeds the mathematically exact value.
+        // Clamp the scaling to a small value so the scaled HP lands below the ceiling and the
+        // exact formula is observable end to end.
         ContentCatalog.BossDef def = ContentCatalog.BOSSES[0];
-        double exact = MathUtil.power(def.hp + def.hp * 0.05 * scaleA,
-                1.0 + getDouble(late, "scaleB") / 50.0);
-        expect(getInt(bossLate, "maxHp") <= exact + 1e-6,
-            "boss HP is the truncated cast of the exact value");
+        Object mid = world(10L);
+        set(mid, "scaleA", Double.valueOf(2.0));
+        set(mid, "scaleB", Double.valueOf(0.0));
+        spawnBoss(mid, 0);
+        double exact = MathUtil.power(def.hp + def.hp * 0.05 * 2.0, 1.0);
+        expectEq(getInt(boss(mid), "maxHp"), (int) Math.floor(exact + 0.5),
+            "below the ceiling, boss HP is the round-even of the exact scaled value"
+                + " (16411.6 rounds to an even 16412)");
+        expect(getInt(boss(mid), "maxHp") < 100000, "the scaled value is well under the cap");
+
+        // The cap holds for an enormous run, and it is the enemy ceiling rather than a bespoke one.
+        Object huge = world(4L * HOUR);
+        scale(huge);
+        spawnBoss(huge, 0);
+        expectEq(getInt(boss(huge), "maxHp"), 100000,
+            "boss HP is clamped to 100000, the same ceiling as enemy HP");
     }
 
     private static Object boss(Object w) throws Exception {

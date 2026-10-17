@@ -198,6 +198,134 @@ public final class RunWorldBossEncounterTest {
         m.invoke(w);
     }
 
+    // --------------------------------------------------- HP, hitbox, targeting
+
+    /**
+     * The 20:00 boss keeps its catalog-scale HP.
+     *
+     * <p>spawnBossById used to pin HP with {@code min(20000, ...)}, so every scaled spawn and every
+     * boss above 20000 collapsed to exactly 20000 — Halloween Bae's verified 72000 became 20000,
+     * making all bosses share one durability. The ceiling is now the enemy HP cap of 100000, so
+     * a 72000 boss is no longer crushed. Field values pass through the log/exp approximation in
+     * MathUtil.power, so they are asserted near the catalog value rather than equal to it.
+     */
+    public static void testBossHpIsNotPinnedByACap() throws Exception {
+        Object w = world(5, 0);   // stage1h
+        // The two 10:00 bosses share one slot, so halloween_bae (the 20:00 gate's
+        // boss) only spawns once fubuzilla and smol_ame have both fallen.
+        director(w, 600L * 1000L);
+        defeat(w);
+        director(w, 600L * 1000L + 1L);
+        defeat(w);
+        director(w, 1200L * 1000L);
+
+        int maxHp = getInt(boss(w), "maxHp");
+        int catalogHp = ContentCatalog.boss("halloween_bae").hp;   // 72000
+        expect(bossId(w).equals("halloween_bae"), "the 20:00 hard encounter is halloween_bae");
+        expect(maxHp > 20000, "a 72000 HP boss is no longer crushed to the old 20000 cap (got "
+            + maxHp + ")");
+        expect(maxHp <= 100000, "boss HP still respects the 100000 enemy-HP ceiling (got " + maxHp
+            + ")");
+        expectNear(maxHp, catalogHp, (int) (catalogHp * 0.05),
+            "at zero scaling a 72000 boss surfaces ~72000 HP");
+        expectNear(getInt(boss(w), "hp"), maxHp, 0,
+            "current HP starts at max");
+        expectNear(getInt(boss(w), "atk"), 27, 2, "ATK is the catalog value at scale zero");
+    }
+
+    /**
+     * The boss hitbox follows its sprite instead of one fixed 42x42 corner.
+     *
+     * <p>Sprite sizes run from 22x33 to 128x69, so a fixed box left most of a large boss's body
+     * outside the hitbox and made the contact box land nowhere near the visible boss.
+     */
+    public static void testBossHitboxMatchesItsSprite() throws Exception {
+        Object w = world(0, 0);   // stage1
+        director(w, ContentCatalog.stage(0).bossATimeSec * 1000L);
+        expect(bossId(w).equals("fubuzilla"), "the 10:00 boss is fubuzilla");
+        expectEq(callInt(w, "bossWidth"), ContentCatalog.boss("fubuzilla").collW,
+            "fubuzilla hitbox width is its sprite width (was a fixed 42)");
+        expectEq(callInt(w, "bossHeight"), ContentCatalog.boss("fubuzilla").collH,
+            "fubuzilla hitbox height is its sprite height (was a fixed 42)");
+        expectEq(ContentCatalog.boss("pekodam").collW, 99, "pekodam's wide sprite keeps its box");
+        expectEq(ContentCatalog.boss("nodoka").collW, 22, "nodoka's small sprite keeps its box");
+    }
+    /**
+     * Aimed and homing shots can pick the boss as a target.
+     *
+     * <p>nearestEnemy ignored the boss, so during a boss fight every aimed weapon tracked the adds
+     * around it and, with no adds left, flew off in the player's facing direction. nearestTarget
+     * must return TARGET_BOSS when the boss is closest, and updateShots must steer a homing shot
+     * toward the boss box.
+     */
+    public static void testAimedShotsTrackTheBoss() throws Exception {
+        Object w = world(0, 0);
+        expectEq(callInt(w, "nearestTarget"), RunWorld.TARGET_NONE, "no target while nothing is alive");
+
+        director(w, ContentCatalog.stage(0).bossATimeSec * 1000L);   // spawns fubuzilla
+        expectEq(callInt(w, "nearestTarget"), RunWorld.TARGET_BOSS,
+            "the boss is the target when nothing else is alive");
+
+        // An add closer to the player outranks the boss.
+        Object enemy = pool(w, "enemies")[0];
+        set(enemy, "active", Boolean.TRUE);
+        set(enemy, "defIndex", Integer.valueOf(0));
+        set(enemy, "x", Integer.valueOf(20));
+        set(enemy, "y", Integer.valueOf(20));
+        expectEq(callInt(w, "nearestTarget"), 0, "a closer add outranks the boss");
+
+        // A homing shot aimed at the boss steers toward its box. Sausage speed is 5, so from
+        // (250,250) toward fubuzilla's box at (140,-50) both components come out negative.
+        Object s = pool(w, "shots")[0];
+        set(s, "active", Boolean.TRUE);
+        set(s, "fromPlayer", Boolean.TRUE);
+        set(s, "pattern", Integer.valueOf(ContentCatalog.PATTERN_HOMING));
+        set(s, "weaponIndex", Integer.valueOf(ContentCatalog.weaponIndex("sausage")));
+        set(s, "target", Integer.valueOf(RunWorld.TARGET_BOSS));
+        set(s, "x", Integer.valueOf(250));
+        set(s, "y", Integer.valueOf(250));
+        set(s, "dx", Integer.valueOf(0));
+        set(s, "dy", Integer.valueOf(0));
+        set(s, "life", Integer.valueOf(50));
+        set(s, "age", Integer.valueOf(0));
+        set(s, "hitMask", Long.valueOf(0L));
+        updateShots(w, 0L);
+        expect(getInt(s, "dx") < 0 && getInt(s, "dy") < 0,
+            "the homing shot steers toward the boss box (dx=" + getInt(s, "dx")
+                + " dy=" + getInt(s, "dy") + ")");
+
+        // With the boss gone the shot stops steering rather than chasing a stale box.
+        set(boss(w), "active", Boolean.FALSE);
+        set(s, "dx", Integer.valueOf(0));
+        set(s, "dy", Integer.valueOf(0));
+        updateShots(w, 1L);
+        expectEq(getInt(s, "dx"), 0, "no steering once the boss is gone");
+        expectEq(getInt(s, "dy"), 0, "no steering once the boss is gone");
+    }
+
+    private static int callInt(Object w, String method) throws Exception {
+        Method m = worldClass().getDeclaredMethod(method);
+        m.setAccessible(true);
+        return ((Integer) m.invoke(w)).intValue();
+    }
+
+    private static void updateShots(Object w, long now) throws Exception {
+        Method m = worldClass().getDeclaredMethod("updateShots", long.class);
+        m.setAccessible(true);
+        m.invoke(w, Long.valueOf(now));
+    }
+
+    private static Object[] pool(Object w, String field) throws Exception {
+        Field f = worldClass().getDeclaredField(field);
+        f.setAccessible(true);
+        return (Object[]) f.get(w);
+    }
+
+    private static void expectNear(int got, int want, int tolerance, String label) {
+        expect(Math.abs(got - want) <= tolerance,
+            label + ": expected " + want + " +/- " + tolerance + " got " + got);
+    }
+
     // ---------------------------------------------------------------- tests
 
     public static void main(String[] args) throws Exception {
@@ -209,6 +337,9 @@ public final class RunWorldBossEncounterTest {
         testTimeStageRunsNoDirector();
         testEndlessModeRepeatsEncountersUpToTheCap();
         testStage1HardStatsAreVerified();
+        testBossHpIsNotPinnedByACap();
+        testBossHitboxMatchesItsSprite();
+        testAimedShotsTrackTheBoss();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
