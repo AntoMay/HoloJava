@@ -238,6 +238,50 @@ vanishing on entry or oscillating, the bonus widens the aura but not the touch r
 pickup is pulled from anywhere, it arms a vacuum, the vacuum pulls and collects far pickups, the
 vacuum expires, and a new run clears it.
 
+## Collab Ingredient Rotation and Skill Row (2026-10-17)
+
+Reported as a wave of five collab questions: collab obtainable (confirmed), but after crafting BL
+Fujoshi the level-up roll still offered BL Book and its partner Psycho Axe; re-confirm the weapon
+slot decrease; the function of the six boxes under the weapon row is doubtful; and combining a
+skill with a weapon is unconfirmed.
+
+**1. Consumed collab components kept being offered (defect, fixed).** `applyOffer` consumes the two
+components, but nothing filtered them from the fresh-pick roll afterwards. With the full wiki CSV
+(30 recipes), every basic weapon is a component of at least one recipe — BL Book feeds three (BL
+Fujoshi, Frozen Sea, Legendary Sausage) and Psycho Axe feeds three (BL Fujoshi, Blood Lust,
+Crescent Bardiche) — so both reappeared on the very next level-ups. The reference rule is absolute
+(HoloCure wiki, Collab): "Weapons that have been used in a collab cannot appear again in the
+rotation when leveling up or other means". `feedsOwnedCollab` now fires as soon as ANY owned collab
+lists the weapon: the sibling recipes become unobtainable for the run, exactly as in the reference.
+An owned collab is separately skipped in the roll (`hasCollab`), so it can never be re-offered
+either.
+
+**2. Weapon slot decrease after a collab — confirmed correct.** `applyOffer` removes
+`prerequisiteA` and `prerequisiteB` and adds the collab: two weapons become one, so the weapon row
+loses one lit box and a slot frees up — matching the reference ("This will open up a weapon
+inventory slot"). Pinned by `RunWorldCollabTest` [7].
+
+**3. The six skill boxes under the weapon row had five dead cells (defect, fixed).** Only cell 0
+ever lit (`skillAcquired`), so the row had no visible function. The row now reports what the stacks
+bought: `skillSlotOwned` lights cell 0 for the skill itself (usable even on a run whose flag was set
+without stacks, since `skillPower()` floors at 1), cells 1..4 at stacks 2 up to
+`SKILL_MAX_STACKS` (5), and the last cell as the MAX badge that completes the row at the cap. Note
+the second row is the skill row, not items — item slots have no boxes in the HUD; the inventory
+only shows as `I <count>` in the status line.
+
+**4. Skill combined with weapon — no such mechanic exists (clarified).** Collabs combine TWO
+WEAPONS: when both components reach max level, the collab appears as a level-up offer, consumes
+both and adds one collab weapon. Skills are separate: activated on their own key at a 15 s
+cooldown, with stacks raising `skillPower()` (damage and radius, or duration for Hunter's Instinct
+and Second Flame, shield for Undying). The five super collab rows in the CSV (collab + item, e.g.
+True Infinite BL Works = BL Fujoshi + Hope Soda) can never trigger: their `weapon_b` is an item id,
+which `weaponLevelById` resolves to 0, and this build has no super collab system.
+
+Pinned by `RunWorldCollabTest` (56 checks: [9] consumed components are filtered even while sibling
+recipes still list them, [10] nothing is filtered before any collab is owned, [11] the filter spans
+only the consumed components of the owned collab) and `RunWorldSkillStackingTest` (47 checks, [9]
+the skill row cells report the stack level). Full suite: 32 suites, 3030 checks, all passing.
+
 ## Runtime Findings (2026-10-17)
 
 The desktop-emulator runtime was exercised for the first time. Three separate

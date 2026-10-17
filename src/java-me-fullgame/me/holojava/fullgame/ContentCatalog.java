@@ -83,6 +83,11 @@ final class ContentCatalog {
         boolean gameplayApproximation;
     }
 
+    static final int WEAPON_BASIC = 0;
+    static final int WEAPON_MAIN = 1;
+    static final int WEAPON_COLLAB = 2;
+    static final int WEAPON_SUPER_COLLAB = 3;
+
     static final class WeaponDef {
         String id;
         String name;

@@ -228,6 +228,7 @@ public final class RunWorldSkillStackingTest {
         testPowerFloorsAtOneStack();
         testCooldownIsUnaffectedByStacks();
         testLabelShowsTheLevel();
+        testSkillRowReportsTheStackLevel();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -358,6 +359,54 @@ public final class RunWorldSkillStackingTest {
         expectEq((String) label.invoke(w, Integer.valueOf(0)),
                 ContentCatalog.CHARACTERS[0].skill + " Lv3",
                 "at two stacks the offer says it would be level 3");
+    }
+
+    /**
+     * The reported doubt: the six HUD boxes under the weapon row must have a readable function.
+     * Cell 0 marks the owned skill, cells 1..4 report stacks 2 up to the cap, and the last cell is
+     * the MAX badge — so the row fills up as the skill is stacked instead of staying five dead
+     * cells.
+     */
+    private static void testSkillRowReportsTheStackLevel() throws Exception {
+        System.out.println("[9] the skill row cells report the stack level");
+        long now = System.currentTimeMillis();
+        Method owned = worldClass().getDeclaredMethod("skillSlotOwned", Integer.TYPE);
+        owned.setAccessible(true);
+        int max = ContentCatalog.SKILL_MAX_STACKS;
+
+        Object fresh = world(0, 0, null, now);
+        for (int cell = 0; cell < 6; cell++) {
+            expect(!lit(owned, fresh, cell), "with no skill, cell " + cell + " stays dark");
+        }
+
+        Object one = world(0, 1, null, now);
+        expect(lit(owned, one, 0), "one stack lights the first cell");
+        for (int cell = 1; cell < 6; cell++) {
+            expect(!lit(owned, one, cell), "at one stack, cell " + cell + " stays dark");
+        }
+
+        Object four = world(0, Math.min(4, max), null, now);
+        for (int cell = 0; cell <= 3; cell++) {
+            expect(lit(owned, four, cell), "four stacks light cells 0..3 (cell " + cell + ")");
+        }
+        expect(!lit(owned, four, 4), "cell 4 waits for the fifth stack");
+        expect(!lit(owned, four, 5), "and the MAX badge waits for the cap");
+
+        Object capped = world(0, max, null, now);
+        for (int cell = 0; cell < 6; cell++) {
+            expect(lit(owned, capped, cell), "at the cap the row is complete (cell " + cell + ")");
+        }
+
+        // A flag set without stacks still casts (skillPower floors at 1), so the skill cell must
+        // still read as owned.
+        Object flagOnly = world(0, 0, null, now);
+        set(flagOnly, "skillAcquired", Boolean.TRUE);
+        expect(lit(owned, flagOnly, 0), "a flag-only world still shows its usable skill");
+        expect(!lit(owned, flagOnly, 5), "but claims no stacks it does not have");
+    }
+
+    private static boolean lit(Method owned, Object w, int cell) throws Exception {
+        return ((Boolean) owned.invoke(w, Integer.valueOf(cell))).booleanValue();
     }
 
     /**

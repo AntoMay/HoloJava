@@ -275,6 +275,9 @@ public final class RunWorldCollabTest {
         testCollabOfferRequiresFreeInventory();
         testApplyingACollabSwapsPrerequisitesForTheCollab();
         testCollabIsNotOfferedTwiceInOneLevelUp();
+        testOwnedCollabFiltersItsConsumedIngredients();
+        testNothingIsFilteredBeforeACollabIsMade();
+        testFilterSpansOnlyConsumedComponents();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -509,6 +512,94 @@ public final class RunWorldCollabTest {
         }
         expect(appearances <= 1,
             "the collab appeared at most once across six slots (saw " + appearances + ")");
+    }
+
+    /**
+     * The reported bug: once BL Fujoshi is made, BL Book and Psycho Axe leave the rotation.
+     *
+     * <p>Both are consumed on application but their recipes stay live in the catalog, so the
+     * fresh-pick roll kept re-offering them. The reference rule makes no exception for sibling
+     * recipes — "Weapons that have been used in a collab cannot appear again in the rotation when
+     * leveling up or other means" (HoloCure wiki, Collab) — so the assertion is made directly
+     * against the filter rather than through {@code fillOffer}: that path is one random slot and
+     * branches on {@code rand(2)}, so it cannot prove a weapon is never reachable.
+     */
+    private static void testOwnedCollabFiltersItsConsumedIngredients() throws Exception {
+        System.out.println("[9] an owned collab filters its consumed ingredients");
+        Object w = world(collabMode());
+        ContentCatalog.CollabDef bl = collab("bl_fujoshi");
+        ContentCatalog.CollabDef frozen = collab("frozen_sea");        // also wants BL Book
+        ContentCatalog.CollabDef blood = collab("blood_lust");         // also wants Psycho Axe
+        expect(bl != null && frozen != null && blood != null,
+            "the recipes are in the catalog");
+        if (bl == null || frozen == null || blood == null) return;
+        expect(frozen.weaponA.equals(bl.weaponA) || frozen.weaponB.equals(bl.weaponA),
+            "a sibling recipe still lists the first ingredient");
+        expect(blood.weaponA.equals(bl.weaponB) || blood.weaponB.equals(bl.weaponB),
+            "and another still lists the second");
+        addWeapon(w, weaponIndex(bl.weaponA), 1);
+        addWeapon(w, weaponIndex(bl.weaponB), 1);
+        addWeapon(w, weaponIndex(bl.id), 1);   // owned, so its ingredients were consumed
+
+        expect(feedsOwnedCollab(w, bl.weaponA),
+            "the first ingredient is filtered even though a sibling recipe still lists it");
+        expect(feedsOwnedCollab(w, bl.weaponB),
+            "and so is the second, even though both are absent from the inventory");
+    }
+
+    /**
+     * Nothing is filtered before a collab is made: on a fresh inventory every basic weapon still
+     * reaches the roll, ingredient or not. Guards the filter from firing on mere membership in a
+     * recipe.
+     */
+    private static void testNothingIsFilteredBeforeACollabIsMade() throws Exception {
+        System.out.println("[10] nothing is filtered before a collab is made");
+        Object w = world(collabMode());
+        int tested = 0;
+        for (int i = 0; i < ContentCatalog.WEAPONS.length; i++) {
+            ContentCatalog.WeaponDef d = ContentCatalog.WEAPONS[i];
+            if (d == null || d.category != 0) continue;
+            expect(!feedsOwnedCollab(w, d.id), d.name + " is offered while no collab is owned");
+            tested++;
+        }
+        expect(tested > 0, "the catalog has basic weapons to test");
+    }
+
+    /**
+     * The filter is per owned collab, not global: owning Absolute Wall consumes Bounce Ball and
+     * Cutting Board but leaves every other basic weapon alone — including Glowstick and Fan Beam,
+     * which are components of live recipes of their own.
+     */
+    private static void testFilterSpansOnlyConsumedComponents() throws Exception {
+        System.out.println("[11] the filter spans only the consumed components");
+        Object w = world(collabMode());
+        ContentCatalog.CollabDef aw = collab("absolute_wall");
+        expect(aw != null, "absolute_wall is in the catalog");
+        if (aw == null) return;
+        addWeapon(w, weaponIndex(aw.weaponA), 1);
+        addWeapon(w, weaponIndex(aw.weaponB), 1);
+        addWeapon(w, weaponIndex(aw.id), 1);
+
+        expect(feedsOwnedCollab(w, aw.weaponA), "its first component is filtered");
+        expect(feedsOwnedCollab(w, aw.weaponB), "and so is the second");
+        expect(!feedsOwnedCollab(w, "glowstick"),
+            "Glowstick, another recipe's component, survives");
+        expect(!feedsOwnedCollab(w, "fan_beam"), "and so does Fan Beam");
+    }
+
+    /** The catalog entry for a collab id, or null when the CSV lacks it. */
+    private static ContentCatalog.CollabDef collab(String id) {
+        for (int i = 0; i < ContentCatalog.COLLABS.length; i++) {
+            if (ContentCatalog.COLLABS[i].id.equals(id)) return ContentCatalog.COLLABS[i];
+        }
+        return null;
+    }
+
+    /** Reads the private recipe filter, which is where the reported defect lived. */
+    private static boolean feedsOwnedCollab(Object w, String id) throws Exception {
+        Method m = worldClass().getDeclaredMethod("feedsOwnedCollab", String.class);
+        m.setAccessible(true);
+        return ((Boolean) m.invoke(w, id)).booleanValue();
     }
 
     // ---------------------------------------------------------------- helpers

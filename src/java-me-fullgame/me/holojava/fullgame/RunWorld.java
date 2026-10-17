@@ -580,6 +580,22 @@ final class RunWorld {
     /** Stacks currently held, for the HUD and the level-up label. */
     int skillStacks() { return skillStacks; }
 
+    /**
+     * True when the skill row's cell should read as owned.
+     *
+     * <p>A character owns exactly one skill, so cell 0 marks the skill itself — usable now, even on
+     * a run whose flag was set without stacks (see {@link #skillPower()}). The remaining cells
+     * report what the stacks bought instead of inventing more skills: cells 1..4 light at stacks 2
+     * up to {@link ContentCatalog#SKILL_MAX_STACKS}, and the last cell is the MAX badge that lights
+     * at the cap, completing the row.
+     */
+    boolean skillSlotOwned(int cell) {
+        if (!skillAcquired) return false;
+        if (cell <= 0) return true;
+        if (cell >= SLOT_COLS - 1) return skillStacks >= ContentCatalog.SKILL_MAX_STACKS;
+        return skillStacks >= cell + 1;
+    }
+
     private void activateSpecial(long now) {
         specialUsed = true;
         if (characterIndex == 0) { // Shark Call
@@ -1613,6 +1629,10 @@ final class RunWorld {
                     // documented recipes beyond the implemented catalog) instead
                     // of dereferencing null below.
                     if (wd == null) continue;
+                    // A collab already owned is gone from the recipe pool: its ingredients
+                    // were consumed, so its level test can never pass again and it would only
+                    // clutter the roll. See hasCollab.
+                    if (hasCollab(cd.id)) continue;
                     int a = weaponLevelById(cd.weaponA); int b = weaponLevelById(cd.weaponB);
                     if (a == wd.maxLevel && b == wd.maxLevel && !offerUsed[wd.id.hashCode() & 63]) {
                         offers[slot].type = OFFER_WEAPON; offers[slot].value = ContentCatalog.weaponIndex(wd.id);
@@ -1626,7 +1646,12 @@ final class RunWorld {
                 for (int i = 0; i < ContentCatalog.WEAPONS.length; i++) {
                     int w = (start + i) % ContentCatalog.WEAPONS.length;
                     ContentCatalog.WeaponDef def = ContentCatalog.WEAPONS[w];
-                    if (def.category != 0 || weaponSlotById(def.id) >= 0 || offerUsed[def.id.hashCode() & 63]) continue;
+                    // An ingredient whose only recipes are already owned is not offered again:
+                    // applying it could never rebuild the collab that consumed it. See
+                    // feedsOwnedCollab. This is what let BL Book and Psycho Axe keep appearing
+                    // after BL Fujoshi was made.
+                    if (def.category != 0 || weaponSlotById(def.id) >= 0
+                            || offerUsed[def.id.hashCode() & 63] || feedsOwnedCollab(def.id)) continue;
                     offers[slot].type = OFFER_WEAPON; offers[slot].value = w; offers[slot].existing = -1;
                     offers[slot].newItem = true; offerUsed[def.id.hashCode() & 63] = true; return true;
                 }
@@ -1745,6 +1770,37 @@ final class RunWorld {
         }
         weaponCount--;
         weaponSlots[weaponCount] = -1; weaponLevels[weaponCount] = 0; weaponReadyAt[weaponCount] = 0;
+    }
+
+    /**
+     * True when this collab is already equipped. Its ingredients were consumed on application, so
+     * the inventory no longer contains them and the level test alone would not see it.
+     */
+    private boolean hasCollab(String id) {
+        int slot = weaponSlotById(id);
+        if (slot < 0) return false;
+        return ContentCatalog.WEAPONS[weaponSlots[slot]].category == ContentCatalog.WEAPON_COLLAB;
+    }
+
+    /**
+     * True when a collab the player owns has consumed this weapon.
+     *
+     * <p>Once BL Fujoshi is made, BL Book and Psycho Axe leave the inventory but their recipes stay
+     * live in the catalog, so the fresh-pick roll kept re-offering them as picks that could never
+     * rebuild the collab — the reported bug. The reference rule is absolute: "Weapons that have been
+     * used in a collab cannot appear again in the rotation when leveling up or other means"
+     * (HoloCure wiki, Collab). So the filter fires as soon as ANY owned collab lists the weapon,
+     * even when a sibling recipe still wants it — BL Book also feeds Frozen Sea and Legendary
+     * Sausage, Psycho Axe also feeds Blood Lust and Crescent Bardiche, and all of those become
+     * unobtainable for the run, exactly as in the reference. A weapon no owned collab consumed is
+     * never filtered — it is just a weapon.
+     */
+    private boolean feedsOwnedCollab(String id) {
+        for (int i = 0; i < ContentCatalog.COLLABS.length; i++) {
+            ContentCatalog.CollabDef cd = ContentCatalog.COLLABS[i];
+            if ((id.equals(cd.weaponA) || id.equals(cd.weaponB)) && hasCollab(cd.id)) return true;
+        }
+        return false;
     }
 
     private int freeEnemy() {
@@ -2152,10 +2208,12 @@ final class RunWorld {
             drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + WEAPON_SLOT_Y, owned);
         }
 
-        // Skill row: a character owns exactly one skill, tracked by skillAcquired. Only that
-        // one cell can ever be marked; the rest stay empty rather than showing invented skills.
+        // Skill row: a character owns exactly one skill, so cell 0 marks the skill itself. The
+        // remaining cells report its stacks rather than inventing more skills: cells 1..4 light at
+        // stacks 2 up to the cap, and the last cell is the MAX badge that completes the row.
+        // See skillSlotOwned.
         for (int i = 0; i < SLOT_COLS; i++) {
-            drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + SKILL_SLOT_Y, i == 0 && skillAcquired);
+            drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + SKILL_SLOT_Y, skillSlotOwned(i));
         }
         g.setColor(0, 0, 0);
 
