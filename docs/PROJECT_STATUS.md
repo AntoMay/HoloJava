@@ -280,7 +280,53 @@ which `weaponLevelById` resolves to 0, and this build has no super collab system
 Pinned by `RunWorldCollabTest` (56 checks: [9] consumed components are filtered even while sibling
 recipes still list them, [10] nothing is filtered before any collab is owned, [11] the filter spans
 only the consumed components of the owned collab) and `RunWorldSkillStackingTest` (47 checks, [9]
-the skill row cells report the stack level). Full suite: 32 suites, 3030 checks, all passing.
+the skill row cells report the stack level). Full suite: 32 suites, 3030 checks, all passing. (The
+skill row and the stacking test were superseded by the Global Shop wave below.)
+
+## Global Shop, Passive Skill and Character Browser (2026-10-17)
+
+A restructuring wave with three asks: move the shop out of the character menu into the main menu
+and make it global; replace the stackable level-up skill with a one-time "Skill Pasif" purchase
+that auto-casts; and turn the character screen into a plain browser whose click only selects and
+shows the status panel.
+
+**1. The shop is global and lives on the main menu.** The main menu grew from six entries to seven
+(Play, Game Mode, Characters, Stage Select, Shop, Settings, Exit; `MAIN_SHOP = 4`). The passives
+are now one shared vector applied to every character, sold 0..5 instead of the old per-character
+0..10 (`PASSIVE_MAX_LEVEL = 5`; a full shop costs 2,201 coins). The character menu lost its Shop
+row entirely, and the shop's row highlight now follows `menuIndex` — previously the drawn highlight
+read a `shopIndex` field that was never synced, so it was stuck on row 0.
+
+**2. Skill Pasif: the skill as a permanent 0/1 upgrade.** The shop's `PASSIVES.length + 2`-th row
+sells the skill for a fixed `SKILL_PASSIVE_COST` (1,000 coins). Once bought, every character starts
+every run already holding their skill (`reset()` reads `save.skillPassiveOwned()`), and
+`updatePlayer` casts it automatically from the first tick and then every `SKILL_COOLDOWN_MS`
+(15,000 ms), at its fixed base power — no key, no slot, no HUD row. `OFFER_SKILL` was deleted
+whole: the level-up roll can no longer produce the skill in any slot, slot 0 rolls like every other
+slot, and stat upgrades keep their 25% share per slot. The old stack system (`skillStacks`,
+`skillPower`, `skillSlotOwned`, `SKILL_MAX_STACKS`) and the `KEY_SKILL`/'8' binding plus its
+`skillPressed` latch were removed; `update` and `updatePlayer` lost their skill parameters.
+`RunWorldSkillPassiveTest` replaces `RunWorldSkillStackingTest` and pins the removal itself: the
+stack field and accessors must not exist, effects are the fixed base, and the cadence is exactly
+15 s. The purchase survives a run deliberately — like the coin balance it is meta-permanent
+(`RunWorldLifecycleIntegrationTest` [11]).
+
+**3. Character screen is a browser, not a launcher.** The roster's single trailing row is now
+Back. Clicking a character selects it, persists it, pins its status panel on the right and stays on
+the screen; Play on the main menu jumps straight to Stage Select with whatever was picked, and the
+stage-select footer names the character ("Playing: ..."). Game Mode also continues to Stage Select
+directly instead of detouring through the roster.
+
+**4. Save layout v2 with an automatic fold.** Passive bytes moved from the per-character nibble
+field (bytes 10..29, 5 characters x 8 passives x 0..10) to the global vector in bytes 10..3,
+byte 14 holds the Skill Pasif flag, bytes 15..45 stay reserved and byte 46 carries
+`LAYOUT_VERSION = 2`. `migrateShopLayout()` runs inside `load()` whenever the stamp is absent: it
+folds each stat to the highest level any old character had bought, clamped to 0..5, clears bytes
+14..29 (including the old half-used skill stack) and stamps the version, leaving completion,
+settings and coins untouched. The record stays 56 bytes and the store keeps its historical name.
+`CharacterShopTest` was rewritten for the global layout (342 checks, including the fold from a
+hand-built old record, the version stamp, and the Skill Pasif transaction) and `UiStateMachineTest`
+for the new menu map. Full suite: 32 suites, 2849 checks, all passing.
 
 ## Runtime Findings (2026-10-17)
 

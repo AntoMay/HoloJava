@@ -58,13 +58,14 @@ final class ContentCatalog {
     static final int EFFECT_COIN_PCT = 12;
 
     /**
-     * How many times a character's skill can be taken from the level-up screen.
+     * Price of the one-time Skill Pasif shop purchase.
      *
-     * <p>The skill used to be a one-shot unlock, so a second skill offer could never appear and the
-     * offer mix starved the stat branch. Taking it again now raises its power instead of being
-     * wasted, which is what makes repeating the skill slot worth a level.
+     * <p>Skill Pasif is the global 0/1 meta-upgrade: once bought, every character starts each run
+     * with their skill already active — it fires on its own every 15 seconds, needs no key, takes
+     * no skill slot, and the skill no longer appears in the level-up roll. Kept as one fixed
+     * price rather than a levelled row because the purchase is taken exactly once.
      */
-    static final int SKILL_MAX_STACKS = 5;
+    static final long SKILL_PASSIVE_COST = 1000L;
 
     static final class CharacterDef {
         String id;
@@ -275,16 +276,16 @@ final class ContentCatalog {
      * </ul>
      *
      * <p>Every row runs to {@link #PASSIVE_MAX_LEVEL} levels and every purchase applies to every
-     * character, because a level bought once is not a per-character unlock.
+     * character, because the shop is global: a level bought once is not a per-character unlock.
      *
      * <p>Costs double per level and are capped, which keeps the arithmetic trivially bounded and
-     * keeps the whole catalogue affordable: buying every row to 10/10 costs 5,795,500, so
-     * the current starting capital of 9,999,999 covers a full clear-out with change left over. When
-     * the coin economy is designed for real these curves are the first thing to revisit.
+     * keeps the whole catalogue affordable: buying every row to 5/5 costs 2,201, so the current
+     * starting capital of 9,999,999 covers a full clear-out with change left over. When the coin
+     * economy is designed for real these curves are the first thing to revisit.
      *
      * <p>Order is the shop's display order and is load-bearing only for readability.
      */
-    static final int PASSIVE_MAX_LEVEL = 10;
+    static final int PASSIVE_MAX_LEVEL = 5;
 
     static final PassiveDef[] PASSIVES = {
         passive("body",     "Vitality",   EFFECT_MAX_HP,       10, 2000, 2, 150000),

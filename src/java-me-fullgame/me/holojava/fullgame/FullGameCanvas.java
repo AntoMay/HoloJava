@@ -19,6 +19,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int CONTROLS = 8;
     private static final int SPLASH = 9;
     private static final int SHOP = 10;
+    /** Main menu rows, in draw order: Play, Game Mode, Characters, Stage Select, Shop, Settings, Exit. */
+    private static final int MAIN_ITEM_COUNT = 7;
+    private static final int MAIN_CHARACTERS = 2;
+    private static final int MAIN_SHOP = 4;
     private static final int CHARACTER_PAGE_SIZE = 8;
 
     /**
@@ -38,12 +42,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      *
      * <p>Basic attack lives on GAME_A and 1. FIRE and 5 are pause in gameplay.
      * Menu confirm uses FIRE, L, R. Level-up confirm uses FIRE.
-     * 8 is skill, 9 is special, 0 is alternate pause.
+     * 9 is special, 0 is alternate pause. There is no skill key: the skill is the one-time
+     * Skill Pasif shop purchase and fires on its own during the run.
      */
     private static final int KEY_ATTACK = '5';       // pause in gameplay (also attack alt in old scheme)
     private static final int KEY_ATTACK_ALT = '1';   // basic attack
     private static final int KEY_PAUSE = '0';        // alternate pause
-    private static final int KEY_SKILL = '8';
     private static final int KEY_SPECIAL = '9';
 
     // Shared HoloJava UI palette. The page and the panel are both light, so every piece of menu
@@ -90,8 +94,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private int stageIndex;
     private int resultIndex;
     private int pauseIndex;
-    /** Highlighted shop row and the window's first visible row, so long lists scroll. */
-    private int shopIndex;
+    /** First visible shop row, so the list scrolls while menuIndex stays the highlight. */
     private int shopScroll;
     private boolean fireWasDown;
     private boolean upWasDown;
@@ -99,9 +102,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private boolean leftWasDown;
     private boolean rightWasDown;
     // keyPressed() runs on the device event thread while update() runs on the game thread, so
-    // these three latches must be volatile or the press can be missed entirely. The other flags
+    // these latches must be volatile or the press can be missed entirely. The other flags
     // below follow the same convention for the same reason.
-    private volatile boolean skillPressed;
     private volatile boolean specialPressed;
     private boolean attackWasDown;
     private volatile boolean attackPulse;
@@ -176,7 +178,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             pauseFrom5 = true;       // pause in gameplay (FIRE/5 both pause)
         }
         if (key == KEY_ATTACK_ALT) attackPulse = true;
-        if (key == KEY_SKILL) skillPressed = true;
         if (key == KEY_SPECIAL) specialPressed = true;
         if (key == KEY_PAUSE) pausePressed = true;
     }
@@ -227,7 +228,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                     // below still confirms on FIRE, and RunWorld.update ignores a non-running state,
                     // so a confirm there never also fires a weapon.
                     world.update(keys, attackHeld || attackEdge || attackPulse,
-                            skillPressed, specialPressed, now);
+                            specialPressed, now);
                 }
                 if (world.state() == RunWorld.STATE_LEVEL_UP) {
                     if (upEdge) world.moveOffer(-1);
@@ -242,7 +243,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             // is not ticked, so 5, 9 and 1 would otherwise survive the pause and fire on the first
             // tick after resuming.
             attackPulse = false;
-            skillPressed = false;
             specialPressed = false;
             pausePressed = false;
             pauseFrom5 = false;
@@ -251,7 +251,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         // L/R map onto the two menu roles the d-pad directions do not already own. A direction is
         // Back on the screens that already treat it that way and Select on the rest, so a single
         // press can never both confirm a choice and leave the screen.
-        if (screen == SPLASH) updateSplash(skillPressed || fireEdge || leftEdge || rightEdge, keys);
+        if (screen == SPLASH) updateSplash(fireEdge || leftEdge || rightEdge, keys);
         else if (screen == MENU) updateMain(upEdge, downEdge, fireEdge || leftEdge || rightEdge);
         else if (screen == MODES) updateModes(upEdge, downEdge, fireEdge || leftEdge, rightEdge);
         else if (screen == CHARACTERS) updateCharacters(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
@@ -277,15 +277,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void updateMain(boolean up, boolean down, boolean fire) {
-        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 6);
+        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), MAIN_ITEM_COUNT);
         if (!fire) return;
         switch (menuIndex) {
-            case 0: screen = CHARACTERS; menuIndex = 0; characterPage = 0; break;
+            // Play goes straight to Stage Select with the character picked on the Characters page;
+            // that screen is a browser now, so it no longer stands between the menu and a run.
+            case 0: screen = STAGES; menuIndex = 0; break;
             case 1: screen = MODES; menuIndex = modeIndex; break;
-            case 2: screen = CHARACTERS; menuIndex = characterIndex; characterPage = characterIndex / CHARACTER_PAGE_SIZE; break;
+            case MAIN_CHARACTERS:
+                screen = CHARACTERS; menuIndex = characterIndex;
+                characterPage = characterIndex / CHARACTER_PAGE_SIZE; break;
             case 3: screen = STAGES; menuIndex = 0; break;
-            case 4: screen = SETTINGS; menuIndex = 0; break;
-            case 5: exitRequested = true; stopped = true; shutdownRequest.requestShutdown(); break;
+            case MAIN_SHOP: screen = SHOP; menuIndex = 0; shopScroll = 0; break;
+            case 5: screen = SETTINGS; menuIndex = 0; break;
+            case 6: exitRequested = true; stopped = true; shutdownRequest.requestShutdown(); break;
             default: break;
         }
     }
@@ -297,14 +302,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (back) { screen = MENU; menuIndex = 1; return; }
         if (!fire) return;
         if (menuIndex == 1) { screen = MENU; menuIndex = 1; }
-        else { modeIndex = 0; screen = CHARACTERS; menuIndex = characterIndex; characterPage = characterIndex / CHARACTER_PAGE_SIZE; }
+        // Picking a mode goes straight to Stage Select: choosing a character is done on the
+        // Characters page, which is a browser rather than a step of the start-up flow now.
+        else { modeIndex = 0; screen = STAGES; menuIndex = 0; }
     }
 
     private void updateCharacters(boolean up, boolean down, boolean fire, boolean left, boolean right) {
-        // Two trailing rows: the shop, then Back. The shop row buys permanent upgrades for whichever
-        // character is currently selected, which is why it sits here rather than on a separate
-        // top-level menu: choosing a character and strengthening it are the same decision.
-        int count = ContentCatalog.CHARACTERS.length + 2;
+        // The roster is a browser, not a launcher: clicking a character selects it and pins its
+        // status panel on the right, and the screen stays put. Play on the main menu starts the
+        // run with whatever was picked. One trailing row: Back.
+        int count = ContentCatalog.CHARACTERS.length + 1;
         if (left) {
             if (characterPage > 0) { characterPage--; menuIndex = Math.max(0, menuIndex - CHARACTER_PAGE_SIZE); }
             else { screen = MENU; menuIndex = 0; }
@@ -317,41 +324,35 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
         if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), count);
         if (!fire) return;
-        if (menuIndex == ContentCatalog.CHARACTERS.length) { // shop row
-            characterIndex = Math.max(0, Math.min(characterIndex, ContentCatalog.CHARACTERS.length - 1));
-            screen = SHOP;
-            shopIndex = 0;
-            shopScroll = 0;
-            return;
-        }
-        if (menuIndex == ContentCatalog.CHARACTERS.length + 1) { screen = MENU; menuIndex = 2; return; }
+        if (menuIndex == ContentCatalog.CHARACTERS.length) { screen = MENU; menuIndex = MAIN_CHARACTERS; return; }
         characterIndex = menuIndex;
         characterPage = characterIndex / CHARACTER_PAGE_SIZE;
         save.setSelectedCharacter(characterIndex);
-        screen = STAGES;
-        menuIndex = 0;
     }
 
     /**
-     * Shop input. FIRE buys the highlighted passive's next level; the purchase is refused, with no
-     * state change at all, when the balance is short or the passive is already maxed.
+     * Shop input, reached from the main menu. Rows are the global passives, then the one-time
+     * Skill Pasif purchase, then Back. FIRE buys; a purchase is refused, with no state change at
+     * all, when the balance is short, the passive is maxed or Skill Pasif is already owned.
      */
     private void updateShop(boolean up, boolean down, boolean fire, boolean left, boolean right) {
-        int count = ContentCatalog.PASSIVES.length + 1;
-        if (left) { screen = CHARACTERS; menuIndex = characterIndex; return; }
+        int passives = ContentCatalog.PASSIVES.length;
+        int count = passives + 2;
+        if (left) { screen = MENU; menuIndex = MAIN_SHOP; return; }
         if (up || down) {
             menuIndex = wrap(menuIndex + (up ? -1 : 1), count);
             keepShopRowVisible();
         }
         if (right) return;
         if (!fire) return;
-        if (menuIndex == ContentCatalog.PASSIVES.length) { screen = CHARACTERS; menuIndex = characterIndex; return; }
+        if (menuIndex == passives) { buySkillPassive(); return; }
+        if (menuIndex == count - 1) { screen = MENU; menuIndex = MAIN_SHOP; return; }
         buyPassive(menuIndex);
     }
 
     /** Keeps the highlighted row inside the visible window as the list scrolls. */
     private void keepShopRowVisible() {
-        int maxScroll = Math.max(0, ContentCatalog.PASSIVES.length - SHOP_PAGE_SIZE);
+        int maxScroll = Math.max(0, ContentCatalog.PASSIVES.length + 2 - SHOP_PAGE_SIZE);
         if (menuIndex < shopScroll) shopScroll = menuIndex;
         if (menuIndex >= shopScroll + SHOP_PAGE_SIZE) shopScroll = menuIndex - SHOP_PAGE_SIZE + 1;
         if (shopScroll > maxScroll) shopScroll = maxScroll;
@@ -359,21 +360,32 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Buys one level of a passive for the selected character.
+     * Buys one level of a passive, globally: the level applies to every character at once.
      *
      * <p>Order matters: the level is only written after {@code spendCoins} has reported a
      * committed write, so a storage failure costs the player the coins but not the level rather than
      * the reverse. {@code setPassiveLevel} validates its own range, so a stale price cannot corrupt
-     * a neighbouring character's packed bits.
+     * a neighbouring passive's packed bits.
      */
     private void buyPassive(int passiveIndex) {
         ContentCatalog.PassiveDef def = ContentCatalog.passive(passiveIndex);
         if (def == null) return;
-        int level = save.passiveLevel(characterIndex, passiveIndex);
+        int level = save.passiveLevel(passiveIndex);
         long cost = ContentCatalog.passiveCost(def, level);
         if (cost < 0) return;                       // already maxed
         if (!save.spendCoins(cost)) return;         // not enough, or storage refused
-        save.setPassiveLevel(characterIndex, passiveIndex, level + 1);
+        save.setPassiveLevel(passiveIndex, level + 1);
+    }
+
+    /**
+     * Records the one-time Skill Pasif purchase. Refused without any state change when it is
+     * already owned or the balance is short; like a passive level, the coins are only spent when
+     * the write that grants the skill can follow.
+     */
+    private void buySkillPassive() {
+        if (save.skillPassiveOwned()) return;   // one-time: nothing left to buy
+        if (!save.spendCoins(ContentCatalog.SKILL_PASSIVE_COST)) return;
+        save.setSkillPassiveOwned(true);
     }
 
     private void updateStages(boolean up, boolean down, boolean fire, boolean left) {
@@ -557,9 +569,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Splash input. FIRE, L and R all leave the splash, and so does key 5 (skillPressed), so the
-     * prompt and the accepted keys agree on how to start. The transition is one-way: screen is
-     * only ever assigned SPLASH during construction, so there is no path back.
+     * Splash input. FIRE, L and R all leave the splash, so the prompt and the accepted keys agree
+     * on how to start. The transition is one-way: screen is only ever assigned SPLASH during
+     * construction, so there is no path back.
      */
     private void updateSplash(boolean advance, int keys) {
         if (!advance) return;
@@ -584,7 +596,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void clearInputLatches(int keys) {
-        skillPressed = false;
         specialPressed = false;
         attackPulse = false;
         pausePressed = false;
@@ -599,7 +610,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
     /**
      * Main Menu, and the visual reference for every other menu screen: the logo sits above the
-     * list on the left, A-chan decorates the right side, and the six entries keep their original
+     * list on the left, A-chan decorates the right side, and the seven entries keep their original
      * order, wrap behaviour and actions. A-chan is one static frame and is never added to the
      * selectable list, so it cannot be picked and cannot move the cursor.
      */
@@ -614,7 +625,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         drawText(g, x + MENU_LIST_X, y + 88, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
-        String[] items = { "Play", "Game Mode", "Characters", "Stage Select", "Settings", "Exit" };
+        String[] items = { "Play", "Game Mode", "Characters", "Stage Select", "Shop", "Settings", "Exit" };
         for (int i = 0; i < items.length; i++) {
             boolean selected = i == menuIndex;
             int rowY = y + MENU_LIST_Y + i * MENU_ROW_PITCH;
@@ -693,16 +704,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         int tailY = y + CHARS_ROW_Y + (last - first) * CHARS_ROW_PITCH;
-        // Two trailing rows below the roster: Shop, then Back. Both are always drawn rather than
-        // only the selected one, so the shop is discoverable without highlighting it first.
+        // One trailing row below the roster: Back. The shop lives on the main menu now.
         drawText(g, x + CHARS_LIST_X, tailY,
-                (menuIndex == count ? "> " : "  ") + "Shop",
+                (menuIndex == count ? "> " : "  ") + "Back",
                 menuIndex == count ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + CHARS_LIST_X, tailY + CHARS_ROW_PITCH,
-                (menuIndex == count + 1 ? "> " : "  ") + "Back",
-                menuIndex == count + 1 ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
 
-        int selected = Math.min(menuIndex, count - 1);
+        // The panel follows the SELECTED character — the one a click pinned — not the moving
+        // cursor: moving down the list changes nothing until the player clicks, which is exactly
+        // the "click to see its status beside the list" behaviour this screen has now.
+        int selected = Math.max(0, Math.min(characterIndex, count - 1));
         ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[selected];
 
         // Middle column: the selected character's portrait, native size, centred in the box. The
@@ -791,46 +801,65 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int STAGE_FRAME_H = 14;
 
     /**
-     * Shop screen. Lists every passive with its level, its effect and the price of the next level,
-     * plus the live coin balance.
+     * Shop screen, reached from the main menu. Lists the global passives with their level, effect
+     * and the price of the next level, then the one-time Skill Pasif purchase, then Back, plus the
+     * live coin balance.
      *
      * <p>Colour carries the same meaning as the stage list: the ink for a row that can be bought,
      * the cyan accent for one that cannot, so affordability stays readable without relying on the
-     * text alone. Maxed rows say so in words rather than only by colour.
+     * text alone. Maxed rows and an owned Skill Pasif say so in words rather than only by colour.
      */
     private void drawShop(Graphics g, int x, int y) {
         title(g, x, y, "UPGRADE SHOP");
-        ContentCatalog.CharacterDef c = ContentCatalog.character(characterIndex);
         long balance = save.coinBalance();
         ink(g);
-        drawText(g, x + 12, y + 30, c.name + "  coins: " + balance, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 12, y + 30, "Global  coins: " + balance, Font.STYLE_PLAIN, Font.SIZE_SMALL);
 
-        int rows = Math.min(SHOP_PAGE_SIZE, ContentCatalog.PASSIVES.length);
+        int passives = ContentCatalog.PASSIVES.length;
+        int rows = Math.min(SHOP_PAGE_SIZE, passives + 2);
         for (int slot = 0; slot < rows; slot++) {
             int i = shopScroll + slot;
-            if (i >= ContentCatalog.PASSIVES.length) break;
-            ContentCatalog.PassiveDef def = ContentCatalog.passive(i);
-            int level = save.passiveLevel(characterIndex, i);
-            long cost = ContentCatalog.passiveCost(def, level);
-            boolean maxed = cost < 0;
-            boolean affordable = !maxed && balance >= cost;
-            boolean selected = i == shopIndex;
-            if (affordable) ink(g); else g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
-            String label = (selected ? "> " : "  ") + def.name + " Lv" + level + "/" + def.maxLevel;
-            if (maxed) label = label + " MAX";
-            else label = label + "  " + cost;
-            drawText(g, x + 12, y + 52 + slot * 20, label,
-                    selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
-            g.setColor(STAGE_UNLOCKED_R, STAGE_UNLOCKED_G, STAGE_UNLOCKED_B);
-            drawText(g, x + 150, y + 52 + slot * 20, passiveEffect(def), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            if (i >= passives + 2) break;
+            int rowY = y + 52 + slot * 20;
+            boolean selected = i == menuIndex;
+            if (i < passives) {
+                ContentCatalog.PassiveDef def = ContentCatalog.passive(i);
+                int level = save.passiveLevel(i);
+                long cost = ContentCatalog.passiveCost(def, level);
+                boolean maxed = cost < 0;
+                boolean affordable = !maxed && balance >= cost;
+                if (affordable) ink(g); else g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
+                String label = (selected ? "> " : "  ") + def.name + " Lv" + level + "/" + def.maxLevel;
+                if (maxed) label = label + " MAX";
+                else label = label + "  " + cost;
+                drawText(g, x + 12, rowY, label,
+                        selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+                g.setColor(STAGE_UNLOCKED_R, STAGE_UNLOCKED_G, STAGE_UNLOCKED_B);
+                drawText(g, x + 150, rowY, passiveEffect(def), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            } else if (i == passives) {
+                boolean owned = save.skillPassiveOwned();
+                boolean affordable = !owned && balance >= ContentCatalog.SKILL_PASSIVE_COST;
+                if (owned || affordable) ink(g); else g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
+                String label = (selected ? "> " : "  ") + "Skill Pasif  ";
+                if (owned) label = label + "[OWNED]";
+                else label = label + ContentCatalog.SKILL_PASSIVE_COST;
+                drawText(g, x + 12, rowY, label,
+                        selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+                g.setColor(STAGE_UNLOCKED_R, STAGE_UNLOCKED_G, STAGE_UNLOCKED_B);
+                drawText(g, x + 150, rowY, "skill auto every 15 s", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            } else {
+                ink(g);
+                drawText(g, x + 12, rowY, (selected ? "> " : "  ") + "Back",
+                        selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            }
             if (selected) {
                 g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-                g.drawRect(x + 8, y + 50 + slot * 20, 288, 14);
+                g.drawRect(x + 8, rowY - 2, 288, 14);
             }
         }
         ink(g);
         drawText(g, x + 12, y + 186, "FIRE: buy    Left/Right: Back", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 12, y + 204, "Upgrades are permanent and apply to " + c.name + ".",
+        drawText(g, x + 12, y + 204, "Upgrades are permanent and apply to every character.",
                 Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
@@ -870,7 +899,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
         }
         ink(g);
-        drawText(g, x + 12, y + 214, "Hard and Time stages are not available yet.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 12, y + 214, "Playing: " + ContentCatalog.character(characterIndex).name
+                + ".  Hard and Time stages are not available yet.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawSettings(Graphics g, int x, int y) {
@@ -890,7 +920,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, x + 24, y + 82, "GAME A / 1: basic attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 104, "FIRE / 5: pause in gameplay", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 126, "0: pause (alt)   FIRE: select / confirm in menus", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 148, "8: skill   9: special attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, y + 148, "9: special attack   (the skill fires by itself)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 24, y + 180, "Orbiting and passive weapons may fire autonomously.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 

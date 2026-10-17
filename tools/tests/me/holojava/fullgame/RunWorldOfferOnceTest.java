@@ -22,7 +22,6 @@ public final class RunWorldOfferOnceTest {
     private static int checks = 0;
     private static int failures = 0;
 
-    private static final int OFFER_SKILL = 0;
     private static final int OFFER_WEAPON = 1;
     private static final int OFFER_STAT = 3;
     private static final int OFFER_COINS = 5;

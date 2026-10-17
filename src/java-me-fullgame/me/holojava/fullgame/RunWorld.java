@@ -24,7 +24,6 @@ final class RunWorld {
     static final int STATE_GAME_OVER = 3;
     static final int STATE_VICTORY = 4;
 
-    private static final int OFFER_SKILL = 0;
     private static final int OFFER_WEAPON = 1;
     private static final int OFFER_ITEM = 2;
     private static final int OFFER_STAT = 3;
@@ -61,7 +60,7 @@ final class RunWorld {
     private static final int HP_BAR_X = 4;
     private static final int HP_BAR_Y = 18;
     // Short bar: 66px is 20.6% of the 320px design width. It also defines the slot-row width,
-    // so the weapon and skill rows stay exactly as long as the HP bar.
+    // so the weapon row stays exactly as long as the HP bar.
     private static final int HP_BAR_W = 66;
     private static final int HP_BAR_H = 10;
     private static final int HP_BAR_INSET = 2;
@@ -70,17 +69,16 @@ final class RunWorld {
     private static final int BOSS_BAR_H = 18;
     private static final int BOSS_BAR_INSET = 3;
 
-    // Compact slot rows. Both rows are six equal cells spanning HP_BAR_W.
+    // Compact slot row: six equal cells spanning HP_BAR_W, directly under the HP bar.
     private static final int SLOT_COLS = 6;
     private static final int SLOT_W = HP_BAR_W / SLOT_COLS; // 66 / 6 = 11
     private static final int SLOT_H = 11;
     private static final int SLOT_INSET = 1;
     private static final int WEAPON_SLOT_Y = 30;
-    private static final int SKILL_SLOT_Y = 42;
     private static final int SLOT_FILL = 30;
     private static final int SLOT_FILL_EMPTY = 18;
     private static final int SLOT_BORDER = 78;
-    // Neutral ownership marker. Weapon/skill slots carry no weapon-specific art: no HoloJava
+    // Neutral ownership marker. Weapon slots carry no weapon-specific art: no HoloJava
     // sprite except bullet (7x7) fits the 9px interior, and no HoloCure icon is below 12x17,
     // so nothing could be shown without scaling, which MIDP cannot do.
     private static final int SLOT_MARK = 175;
@@ -198,16 +196,15 @@ final class RunWorld {
     private Boss boss = new Boss();
     private int bossEncounterIndex = -1;
 
-    private boolean skillAcquired;
+    /** Cadence of the passive skill, in milliseconds: it fires by itself this often, no key. */
+    private static final long SKILL_COOLDOWN_MS = 15000L;
+
     /**
-     * How many times the skill has been taken this run, 0..ContentCatalog.SKILL_MAX_STACKS.
-     *
-     * <p>{@code skillAcquired} stays the authoritative "has a skill" flag because the skill is what
-     * the player presses, and tests drive that flag directly. Stacks are the power multiplier:
-     * {@code skillPower()} returns {@code max(1, skillStacks)} so a run whose flag was set without
-     * a stack count, which is how several suites construct a world, behaves exactly as it did before.
+     * Whether this run has the character's skill — now granted only by the global one-time Skill
+     * Pasif shop purchase, never by the level-up roll. When true the skill fires on its own every
+     * {@link #SKILL_COOLDOWN_MS} from the first tick; no key is involved and no stacks exist.
      */
-    private int skillStacks;
+    private boolean skillAcquired;
     private long skillReadyAt;
     private boolean specialUsed;
 
@@ -289,7 +286,7 @@ final class RunWorld {
         ringEventDone = false; hordeEventDone = false;
         nextSpawnAt = startTime + 1000;
         nextWaveAt = startTime + 180000L;
-        skillAcquired = false; skillReadyAt = 0; specialUsed = false; skillStacks = 0;
+        skillAcquired = false; skillReadyAt = 0; specialUsed = false;
         rerolls = mode.standardLoadout ? 10 : 0;
         holds = 5;
         offerCount = 0; selectedOffer = 0; heldOffer = -1;
@@ -317,14 +314,15 @@ final class RunWorld {
         // each time instead of adding shop passives on top of an already-modified value.
         characterBaseMaxHp = baseMaxHp;
         if (mode.id.equals("endless") && save.hardcore()) { baseMaxHp = 1; characterBaseMaxHp = 1; }
-        // Shop passives are permanent and bought per character, so the selected character's own
-        // levels are read once here and then treated as part of the run. Guarded because most
-        // suites build a world with a null save.
+        // Shop passives are permanent and global: one vector serves every character, so it is read
+        // once here and treated as part of the run. The Skill Pasif flag, when owned, grants the
+        // character's skill from the first tick. Guarded because most suites use a null save.
         if (save != null) {
             int[] levels = passives();
             for (int i = 0; i < levels.length; i++) {
-                levels[i] = save.passiveLevel(characterIndex, i);
+                levels[i] = save.passiveLevel(i);
             }
+            skillAcquired = save.skillPassiveOwned();
         }
         recomputeStats();
         playerHp = playerMaxHp;
@@ -416,10 +414,6 @@ final class RunWorld {
             int level = o.existing >= 0 ? itemLevels[o.existing] : 0;
             return d.name + (o.newItem ? " NEW" : " Lv" + Math.min(d.maxLevel, level + 1));
         }
-        if (o.type == OFFER_SKILL) {
-            return character.skill + (skillStacks >= ContentCatalog.SKILL_MAX_STACKS
-                    ? " MAX" : " Lv" + (skillStacks + 1));
-        }
         if (o.type == OFFER_STAT) return statName(o.value);
         if (o.type == OFFER_FOOD) return "Food +20% HP";
         if (o.type == OFFER_COINS) return "100 HoloCoins";
@@ -431,7 +425,6 @@ final class RunWorld {
         int t = offers[index].type;
         if (t == OFFER_WEAPON) return "WEAPON";
         if (t == OFFER_ITEM) return "ITEM";
-        if (t == OFFER_SKILL) return "SKILL";
         if (t == OFFER_STAT) return "STAT";
         if (t == OFFER_FOOD) return "FOOD";
         if (t == OFFER_COINS) return "COIN";
@@ -476,13 +469,13 @@ final class RunWorld {
         }
     }
 
-    void update(int keys, boolean attackPressed, boolean skillPressed, boolean specialPressed, long now) {
+    void update(int keys, boolean attackPressed, boolean specialPressed, long now) {
         if (state != STATE_RUNNING) return;
         if (now - startTime > 120000L && lastMinuteScaled != now / 60000L) {
             lastMinuteScaled = now / 60000L;
             updateScaling();
         }
-        updatePlayer(keys, skillPressed, specialPressed, now);
+        updatePlayer(keys, specialPressed, now);
         updateTimedEvents(now);
         updateSpawns(now);
         updateBossDirector(now);
@@ -513,7 +506,7 @@ final class RunWorld {
         scaleB = minutePast30 + 60.0 * (double) hourTimer;
     }
 
-    private void updatePlayer(int keys, boolean skillPressed, boolean specialPressed, long now) {
+    private void updatePlayer(int keys, boolean specialPressed, long now) {
         double speed = 120.0 * (double) character.spdPercent / 100.0;
         speed *= 1.0 + (double) speedPercentBonus / 100.0;
         if (now < slowEnemiesUntil) { /* player remains unaffected by enemy slow */ }
@@ -538,62 +531,35 @@ final class RunWorld {
         if (py < 0) py = 0;
         if (px > worldWidth - 24) px = worldWidth - 24;
         if (py > worldHeight - 24) py = worldHeight - 24;
-        if (skillPressed && skillAcquired && now >= skillReadyAt) activateSkill(now);
+        // The skill is a shop passive now: it fires on its own whenever the cooldown is clear.
+        if (skillAcquired && now >= skillReadyAt) activateSkill(now);
         if (specialPressed && !specialUsed) activateSpecial(now);
     }
 
     /**
-     * Fires the character's skill at the strength the player has bought into it.
+     * Fires the character's skill at its fixed passive power.
      *
-     * <p>Every stack multiplies the skill's damage and its radius. Duration-based skills
-     * (Hunter's Instinct, Second Flame) lengthen instead, because their value is the window, not the
-     * burst, and multiplying a debuff's duration would change what the skill <em>is</em>. The
-     * Undying shield grows per stack because it is the only numeric quantity it has.
+     * <p>Power is fixed because Skill Pasif is a one-time 0/1 purchase: there are no stacks left to
+     * scale it. Duration-based skills (Hunter's Instinct, Second Flame) keep their window as the
+     * effect, because the window is what they <em>are</em>. The skill fires automatically on the
+     * cooldown — the player never presses anything.
      */
     private void activateSkill(long now) {
-        int stacks = skillPower();
-        skillReadyAt = now + 15000L;
+        skillReadyAt = now + SKILL_COOLDOWN_MS;
         if (characterIndex == 0) { // Shark Bite
-            damageEnemiesInRadius(70 * stacks, 6 * stacks, true);
+            damageEnemiesInRadius(70, 6, true);
         } else if (characterIndex == 1) { // Hunter's Instinct
-            slowEnemiesUntil = now + 3500L * stacks;
+            slowEnemiesUntil = now + 3500L;
             for (int i = 0; i < enemies.length; i++) if (enemies[i].active) enemies[i].nextAttack = now + 1200L;
         } else if (characterIndex == 2) { // Undying
-            shield = 20 * stacks;
+            shield = 20;
             shieldReadyAt = now + 15000L;
         } else if (characterIndex == 3) { // Second Flame
-            lifestealUntil = now + 8000L * stacks;
+            lifestealUntil = now + 8000L;
         } else { // The Ancient One
-            invulUntil = now + 2500L * stacks;
-            damageEnemiesInRadius(45 * stacks, 4 * stacks, false);
+            invulUntil = now + 2500L;
+            damageEnemiesInRadius(45, 4, false);
         }
-    }
-
-    /**
-     * Skill strength for this run. Floored at 1 so a world whose {@code skillAcquired} flag was set
-     * directly, without a stack count, still casts at the original power.
-     */
-    private int skillPower() {
-        return skillStacks < 1 ? 1 : skillStacks;
-    }
-
-    /** Stacks currently held, for the HUD and the level-up label. */
-    int skillStacks() { return skillStacks; }
-
-    /**
-     * True when the skill row's cell should read as owned.
-     *
-     * <p>A character owns exactly one skill, so cell 0 marks the skill itself — usable now, even on
-     * a run whose flag was set without stacks (see {@link #skillPower()}). The remaining cells
-     * report what the stacks bought instead of inventing more skills: cells 1..4 light at stacks 2
-     * up to {@link ContentCatalog#SKILL_MAX_STACKS}, and the last cell is the MAX badge that lights
-     * at the cap, completing the row.
-     */
-    boolean skillSlotOwned(int cell) {
-        if (!skillAcquired) return false;
-        if (cell <= 0) return true;
-        if (cell >= SLOT_COLS - 1) return skillStacks >= ContentCatalog.SKILL_MAX_STACKS;
-        return skillStacks >= cell + 1;
     }
 
     private void activateSpecial(long now) {
@@ -1572,19 +1538,14 @@ final class RunWorld {
     }
 
     /**
- * Picks the offer *category* for one of the four upgrade slots.
- *
- * <p>The skill is a one-time pickup, so slot 0 offers it outright rather than rolling for it.
- * The previous version rolled with {@code rand(20)} and then tested {@code r < 20}, which is true
- * for every value {@code rand(20)} can return, so slots 0 and 1 both offered the same unacquired
- * skill on every level-up and never reached the branches below. Combined with slots 2 and 3 being
- * weapon/item only, that meant character stat upgrades almost never appeared in a real run, which
- * is what left early levels feeling far too punishing: the player gained weapons but no survivability.
- *
- * <p>Stats now take 25% of rolls in every slot, so Max HP and ATK growth are actually reachable.
- */
+     * Picks the offer *category* for one of the four upgrade slots.
+     *
+     * <p>There is no skill branch at all: the skill is the one-time Skill Pasif shop purchase, so
+     * the roll never offers it. What used to be the slot-0 skill slot rolls normally now, which is
+     * what makes stat upgrades reachable every level-up: stats take 25% of rolls in every slot, so
+     * Max HP and ATK growth appear regularly instead of being starved by a guaranteed skill offer.
+     */
     private int chooseOfferType(int slot) {
-        if (slot == 0 && skillStacks < ContentCatalog.SKILL_MAX_STACKS) return OFFER_SKILL;
         int r = rand(100);
         if (r < 30) return OFFER_WEAPON;
         if (r < 55) return OFFER_ITEM;
@@ -1593,10 +1554,6 @@ final class RunWorld {
     }
 
     private boolean fillOffer(int slot, int type) {
-        if (type == OFFER_SKILL && skillStacks < ContentCatalog.SKILL_MAX_STACKS) {
-            offers[slot].type = OFFER_SKILL; offers[slot].value = 0; offers[slot].existing = -1;
-            offers[slot].newItem = false; return true;
-        }
         if (type == OFFER_STAT) {
             int[] weights = { 2, 3, 4, 3, 4, 2 };
             int total = 0;
@@ -1689,10 +1646,7 @@ final class RunWorld {
     private void applyOffer(int index) {
         if (index < 0 || index >= 4) return;
         Offer o = offers[index];
-        if (o.type == OFFER_SKILL) {
-            skillAcquired = true;
-            if (skillStacks < ContentCatalog.SKILL_MAX_STACKS) skillStacks++;
-        } else if (o.type == OFFER_WEAPON) {
+        if (o.type == OFFER_WEAPON) {
             ContentCatalog.WeaponDef def = ContentCatalog.weapon(o.value);
             if (o.collab) {
                 removeWeaponById(def.prerequisiteA);
@@ -2208,13 +2162,8 @@ final class RunWorld {
             drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + WEAPON_SLOT_Y, owned);
         }
 
-        // Skill row: a character owns exactly one skill, so cell 0 marks the skill itself. The
-        // remaining cells report its stacks rather than inventing more skills: cells 1..4 light at
-        // stacks 2 up to the cap, and the last cell is the MAX badge that completes the row.
-        // See skillSlotOwned.
-        for (int i = 0; i < SLOT_COLS; i++) {
-            drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + SKILL_SLOT_Y, skillSlotOwned(i));
-        }
+        // The skill has no HUD row: Skill Pasif is a shop passive that fires on its own, so it
+        // takes no slot here and nothing in this row could ever change during a run.
         g.setColor(0, 0, 0);
 
         // Level & EXP line (drawn in the status run block, top-right)

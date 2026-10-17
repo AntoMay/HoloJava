@@ -10,9 +10,10 @@ import java.util.Random;
  * expiry and use limits for the locked five roster (IMPLEMENTED_UNVERIFIED:
  * effects are the build's own definitions, not reference parity claims).
  *
- * <p>Covered via {@code updatePlayer} latches, the real activation path:
+ * <p>Covered via {@code updatePlayer} ticks, the real activation path:
  * <ul>
- *   <li>skill needs {@code skillAcquired} and the 15s cooldown;</li>
+ *   <li>the skill fires by itself once Skill Pasif has granted it ({@code skillAcquired}),
+ *       and the 15 s cooldown gates repeat activations;</li>
  *   <li>special works once ({@code specialUsed}) and never re-fires;</li>
  *   <li>each character's effect touches only its own mechanic (radius damage,
  *       slow, shield, lifesteal window, heal, invulnerability, shot clear);</li>
@@ -173,13 +174,12 @@ public final class RunWorldCharacterSkillsTest {
         return getInt(((Object[]) f.get(w))[slot], "hp");
     }
 
-    private static void updatePlayer(Object w, boolean skill, boolean special, long now)
+    private static void updatePlayer(Object w, boolean special, long now)
             throws Exception {
         Method m = worldClass().getDeclaredMethod("updatePlayer", int.class,
-            boolean.class, boolean.class, long.class);
+            boolean.class, long.class);
         m.setAccessible(true);
-        m.invoke(w, Integer.valueOf(0), Boolean.valueOf(skill),
-            Boolean.valueOf(special), Long.valueOf(now));
+        m.invoke(w, Integer.valueOf(0), Boolean.valueOf(special), Long.valueOf(now));
     }
 
     // ---------------------------------------------------------------- tests
@@ -208,7 +208,7 @@ public final class RunWorldCharacterSkillsTest {
         System.out.println("[1] skill needs acquisition");
         Object w = world(0);
         placeEnemy(w, 0, 100);
-        updatePlayer(w, true, false, 50000L);
+        updatePlayer(w, false, 50000L);
         expectEq(enemyHp(w, 0), 100, "unacquired skill deals no damage");
         expectEq(getLong(w, "skillReadyAt"), 0L, "unacquired skill sets no cooldown");
     }
@@ -217,12 +217,12 @@ public final class RunWorldCharacterSkillsTest {
         System.out.println("[2] skill cooldown gates repeat activation");
         Object w = world(1);
         set(w, "skillAcquired", Boolean.TRUE);
-        updatePlayer(w, true, false, 50000L);
+        updatePlayer(w, false, 50000L);
         expectEq(getLong(w, "slowEnemiesUntil"), 50000L + 3500L, "first activation applies");
         expectEq(getLong(w, "skillReadyAt"), 50000L + 15000L, "cooldown starts at 15s");
-        updatePlayer(w, true, false, 50001L);
+        updatePlayer(w, false, 50001L);
         expectEq(getLong(w, "skillReadyAt"), 50000L + 15000L, "repeat press inside cooldown does nothing");
-        updatePlayer(w, true, false, 65000L);
+        updatePlayer(w, false, 65000L);
         expectEq(getLong(w, "skillReadyAt"), 65000L + 15000L, "activation works again after cooldown");
     }
 
@@ -231,7 +231,7 @@ public final class RunWorldCharacterSkillsTest {
         Object w = world(0);
         set(w, "skillAcquired", Boolean.TRUE);
         placeEnemy(w, 0, 100);
-        updatePlayer(w, true, false, 50000L);
+        updatePlayer(w, false, 50000L);
         expect(enemyHp(w, 0) < 100, "gura skill damaged the enemy");
         expectEq(getLong(w, "lifestealUntil"), 0L, "gura skill grants no lifesteal");
         expectEq(getInt(w, "shield"), 0, "gura skill grants no shield");
@@ -242,7 +242,7 @@ public final class RunWorldCharacterSkillsTest {
         Object w = world(1);
         set(w, "skillAcquired", Boolean.TRUE);
         placeEnemy(w, 0, 100);
-        updatePlayer(w, true, false, 50000L);
+        updatePlayer(w, false, 50000L);
         expectEq(getLong(w, "slowEnemiesUntil"), 50000L + 3500L, "slow window opens");
         expectEq(enemyHp(w, 0), 100, "ame skill deals no direct damage");
     }
@@ -251,7 +251,7 @@ public final class RunWorldCharacterSkillsTest {
         System.out.println("[5] calli skill raises a shield");
         Object w = world(2);
         set(w, "skillAcquired", Boolean.TRUE);
-        updatePlayer(w, true, false, 50000L);
+        updatePlayer(w, false, 50000L);
         expectEq(getInt(w, "shield"), 20, "shield raised to 20");
         expectEq(getLong(w, "lifestealUntil"), 0L, "calli skill grants no lifesteal");
     }
@@ -260,7 +260,7 @@ public final class RunWorldCharacterSkillsTest {
         System.out.println("[6] kiara skill opens a lifesteal window");
         Object w = world(3);
         set(w, "skillAcquired", Boolean.TRUE);
-        updatePlayer(w, true, false, 50000L);
+        updatePlayer(w, false, 50000L);
         expectEq(getLong(w, "lifestealUntil"), 50000L + 8000L, "lifesteal window opens");
         expectEq(getInt(w, "shield"), 0, "kiara skill grants no shield");
     }
@@ -270,7 +270,7 @@ public final class RunWorldCharacterSkillsTest {
         Object w = world(4);
         set(w, "skillAcquired", Boolean.TRUE);
         placeEnemy(w, 0, 100);
-        updatePlayer(w, true, false, 50000L);
+        updatePlayer(w, false, 50000L);
         expectEq(getLong(w, "invulUntil"), 50000L + 2500L, "invulnerability window opens");
         expect(enemyHp(w, 0) < 100, "ina skill damaged the enemy");
     }
@@ -279,11 +279,11 @@ public final class RunWorldCharacterSkillsTest {
         System.out.println("[8] specials fire exactly once");
         for (int c = 0; c < 5; c++) {
             Object w = world(c);
-            updatePlayer(w, false, true, 50000L);
+            updatePlayer(w, true, 50000L);
             expect(getBool(w, "specialUsed"), "char " + c + " special consumed on use");
             placeEnemy(w, 0, 1000);
             int before = enemyHp(w, 0);
-            updatePlayer(w, false, true, 50001L);
+            updatePlayer(w, true, 50001L);
             expectEq(enemyHp(w, 0), before, "char " + c + " second press is inert");
         }
     }
@@ -292,22 +292,22 @@ public final class RunWorldCharacterSkillsTest {
         System.out.println("[9] special effects per character");
         Object gura = world(0);
         placeEnemy(gura, 0, 1000);
-        updatePlayer(gura, false, true, 50000L);
+        updatePlayer(gura, true, 50000L);
         expect(enemyHp(gura, 0) < 1000, "gura special damages");
 
         Object ame = world(1);
-        updatePlayer(ame, false, true, 50000L);
+        updatePlayer(ame, true, 50000L);
         expectEq(getLong(ame, "slowEnemiesUntil"), 50000L + 6000L, "ame special slows 6s");
 
         Object calli = world(2);
         set(calli, "playerHp", Integer.valueOf(50));
-        updatePlayer(calli, false, true, 50000L);
+        updatePlayer(calli, true, 50000L);
         expect(getInt(calli, "playerHp") > 50, "calli special heals");
         expect(getLong(calli, "lifestealUntil") > 50000L, "calli special opens lifesteal");
 
         Object kiara = world(3);
         placeEnemy(kiara, 0, 1000);
-        updatePlayer(kiara, false, true, 50000L);
+        updatePlayer(kiara, true, 50000L);
         expect(enemyHp(kiara, 0) < 1000, "kiara special damages");
 
         Object ina = world(4);
@@ -316,7 +316,7 @@ public final class RunWorldCharacterSkillsTest {
         Object[] shots = (Object[]) sf.get(ina);
         set(shots[0], "active", Boolean.TRUE);
         set(shots[0], "fromPlayer", Boolean.FALSE);
-        updatePlayer(ina, false, true, 50000L);
+        updatePlayer(ina, true, 50000L);
         expectEq(getInt(ina, "shield"), 30, "ina special raises shield 30");
         expect(!getBool(shots[0], "active"), "ina special clears enemy shots");
     }
@@ -325,7 +325,7 @@ public final class RunWorldCharacterSkillsTest {
         System.out.println("[10] timed effects expire");
         Object w = world(4);
         set(w, "skillAcquired", Boolean.TRUE);
-        updatePlayer(w, true, false, 50000L);
+        updatePlayer(w, false, 50000L);
         expect(getLong(w, "invulUntil") == 50000L + 2500L, "invulnerability starts");
         Method inv = worldClass().getDeclaredMethod("playerInvulnerable", long.class);
         inv.setAccessible(true);
@@ -334,7 +334,7 @@ public final class RunWorldCharacterSkillsTest {
 
         Object ame = world(1);
         set(ame, "skillAcquired", Boolean.TRUE);
-        updatePlayer(ame, true, false, 50000L);
+        updatePlayer(ame, false, 50000L);
         long slowUntil = getLong(ame, "slowEnemiesUntil");
         expectEq(slowUntil, 50000L + 3500L, "slow window starts");
         expect(50000L + 3501L > slowUntil, "slow window ends after its duration");

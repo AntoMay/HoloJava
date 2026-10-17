@@ -21,6 +21,10 @@ import java.util.Random;
  * touches {@code statOfferCounts} only to initialise it, reset it, and index it for the increment —
  * it never reads a counter value either.
  *
+ * <p>The skill's acquisition has since moved: it is the one-time Skill Pasif shop purchase, not a
+ * level-up offer, and once the run has it, it fires on its own from {@code updatePlayer} with no
+ * key involved. The cooldown and effect checks below drive that real gate.
+ *
  * <p>Instances are allocated without running the constructor and written through
  * {@code sun.misc.Unsafe} by real field type. Test-only: nothing under {@code src/} uses
  * {@code sun.*}.
@@ -180,7 +184,7 @@ public final class RunWorldSkillAndStatTest {
     // ---------------------------------------------------------------- tests
 
     public static void main(String[] args) throws Exception {
-        testSkillCannotBeUsedBeforeItIsAcquired();
+        testSkillIsInertUntilTheShopGrantsIt();
         testSkillOpensAFifteenSecondCooldown();
         testSpecialIsAvailableExactlyOncePerRun();
         testStatOfferIndexAlwaysStaysInRange();
@@ -194,41 +198,41 @@ public final class RunWorldSkillAndStatTest {
     }
 
     /** Drives the real gate in updatePlayer, not just the field it reads. */
-    private static void press(Object w, boolean skill, boolean special, long now) throws Exception {
+    private static void tick(Object w, boolean special, long now) throws Exception {
         Method m = worldClass().getDeclaredMethod("updatePlayer", int.class, boolean.class,
-                boolean.class, long.class);
+                long.class);
         m.setAccessible(true);
-        m.invoke(w, Integer.valueOf(0), Boolean.valueOf(skill), Boolean.valueOf(special),
-                Long.valueOf(now));
+        m.invoke(w, Integer.valueOf(0), Boolean.valueOf(special), Long.valueOf(now));
     }
 
     /**
-     * The skill key does nothing until the skill has been taken. Both halves are driven through
-     * {@code updatePlayer}, which is where the gate actually lives.
+     * The skill is inert until the Skill Pasif shop purchase has granted it. Both halves are
+     * driven through {@code updatePlayer}, which is where the gate actually lives: once the flag
+     * is set, the very next tick fires the skill by itself, with no key involved at all.
      */
-    private static void testSkillCannotBeUsedBeforeItIsAcquired() throws Exception {
-        System.out.println("[1] the skill is inert until acquired");
+    private static void testSkillIsInertUntilTheShopGrantsIt() throws Exception {
+        System.out.println("[1] the skill is inert until Skill Pasif grants it");
         Object w = world(3);                       // Second Flame: sets lifestealUntil
         set(w, "skillReadyAt", Long.valueOf(0L));
         long t = 700000L;
 
-        expect(!getBool(w, "skillAcquired"), "no skill at the start of a run");
-        press(w, true, false, t);
-        expectEq(getLong(w, "lifestealUntil"), 0L, "pressing the skill key did nothing");
+        expect(!getBool(w, "skillAcquired"), "no skill at the start of a run without Skill Pasif");
+        tick(w, false, t);
+        expectEq(getLong(w, "lifestealUntil"), 0L, "nothing fired without it");
         expectEq(getLong(w, "skillReadyAt"), 0L, "and no cooldown was opened");
 
-        applyOffer(w, 0, 0);                       // OFFER_SKILL
-        expect(getBool(w, "skillAcquired"), "taking the skill offer grants it");
+        set(w, "skillAcquired", Boolean.TRUE);   // what reset() writes from save.skillPassiveOwned()
+        expect(getBool(w, "skillAcquired"), "the Skill Pasif flag grants the skill");
 
-        press(w, true, false, t);
+        tick(w, false, t);
         expectEq(getLong(w, "skillReadyAt"), t + 15000L,
-            "the same key now works and opens the cooldown");
+            "the next tick fires the skill by itself and opens the cooldown");
         expectEq(getLong(w, "lifestealUntil"), t + 8000L, "and applies the skill effect");
     }
 
     /**
-     * The 15000 ms cooldown comes from the reference's {@code activateSkill} bytecode. Re-pressing
-     * inside it must not refresh the timer, which would let a player chain the skill forever.
+     * The 15000 ms cooldown comes from the reference's {@code activateSkill} bytecode. Another
+     * tick inside it must not refresh the timer, which would let the skill chain forever.
      */
     private static void testSkillOpensAFifteenSecondCooldown() throws Exception {
         System.out.println("[2] the skill opens a fifteen second cooldown");
@@ -237,24 +241,24 @@ public final class RunWorldSkillAndStatTest {
         set(w, "skillReadyAt", Long.valueOf(0L));
 
         long t = 100000L;
-        press(w, true, false, t);
+        tick(w, false, t);
         expectEq(getLong(w, "skillReadyAt"), t + 15000L, "the gate is now 15 s ahead");
         expectEq(getLong(w, "lifestealUntil"), t + 8000L, "the skill effect was applied");
 
-        // Pressing again inside the window must be refused by the gate, so neither the cooldown
+        // Another tick inside the window must be refused by the gate, so neither the cooldown
         // nor the effect is refreshed. Asserting the fields alone would miss a dropped gate.
         long insideWindow = t + 2000L;
-        press(w, true, false, insideWindow);
+        tick(w, false, insideWindow);
         expectEq(getLong(w, "skillReadyAt"), t + 15000L,
-            "a press inside the cooldown did not extend it");
+            "a tick inside the cooldown did not extend it");
         expectEq(getLong(w, "lifestealUntil"), t + 8000L,
             "and did not refresh the skill effect");
 
-        // Once the window has passed, the skill works again.
+        // Once the window has passed, the skill fires again on its own.
         long afterWindow = t + 15000L;
-        press(w, true, false, afterWindow);
+        tick(w, false, afterWindow);
         expectEq(getLong(w, "skillReadyAt"), afterWindow + 15000L,
-            "the skill is usable again after the cooldown expires");
+            "the skill fires again after the cooldown expires");
         expectEq(getLong(w, "lifestealUntil"), afterWindow + 8000L,
             "and refreshes its effect");
     }
@@ -266,13 +270,13 @@ public final class RunWorldSkillAndStatTest {
         expect(!getBool(w, "specialUsed"), "the special is unused at the start of a run");
 
         long t = 500000L;
-        press(w, false, true, t);
+        tick(w, true, t);
         expect(getBool(w, "specialUsed"), "using it marks it spent");
         expectEq(getLong(w, "slowEnemiesUntil"), t + 6000L, "and applied its effect");
 
         // Pressing again through the real gate must do nothing.
         long later = t + 60000L;
-        press(w, false, true, later);
+        tick(w, true, later);
         expect(getBool(w, "specialUsed"), "it stays spent");
         expectEq(getLong(w, "slowEnemiesUntil"), t + 6000L,
             "and the effect was not applied a second time");

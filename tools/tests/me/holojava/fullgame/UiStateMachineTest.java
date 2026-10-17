@@ -249,11 +249,15 @@ public final class UiStateMachineTest {
         expectEq(getInt(c, "menuIndex"), 0, "and the selection starts at the top");
     }
 
-    /** Each of the six menu entries routes somewhere sensible. */
+    /**
+     * Each of the seven menu entries routes somewhere sensible. Play and Stage Select both land on
+     * stage select — Play with the character chosen on the Characters page, which is a browser now
+     * rather than a step of the start-up flow — and the Shop entry is the global upgrade shop.
+     */
     private static void testMainMenuRoutesToEveryScreen() throws Exception {
         System.out.println("[2] the main menu routes to every screen");
-        int[][] routes = { { 0, CHARACTERS }, { 1, MODES }, { 2, CHARACTERS }, { 3, STAGES },
-                { 4, SETTINGS } };
+        int[][] routes = { { 0, STAGES }, { 1, MODES }, { 2, CHARACTERS }, { 3, STAGES },
+                { 4, SHOP }, { 5, SETTINGS } };
         for (int[] r : routes) {
             Object c = canvas(MENU, r[0]);
             mainMenu(c, false, false, true);
@@ -262,16 +266,16 @@ public final class UiStateMachineTest {
         }
     }
 
-    /** Selection wraps in both directions and can never leave the six-entry range. */
+    /** Selection wraps in both directions and can never leave the seven-entry range. */
     private static void testMainMenuIndexWrapsAtBothEnds() throws Exception {
         System.out.println("[3] the menu index wraps at both ends");
         Object c = canvas(MENU, 0);
         mainMenu(c, false, false, false);
         expectEq(getInt(c, "menuIndex"), 0, "the index is unchanged without input");
 
-        mainMenu(c, true, false, false);                 // up from 0 wraps to 5
-        expectEq(getInt(c, "menuIndex"), 5, "up from the top wraps to the bottom");
-        mainMenu(c, false, true, false);                 // down from 5 wraps to 0
+        mainMenu(c, true, false, false);                 // up from 0 wraps to 6
+        expectEq(getInt(c, "menuIndex"), 6, "up from the top wraps to the bottom");
+        mainMenu(c, false, true, false);                 // down from 6 wraps to 0
         expectEq(getInt(c, "menuIndex"), 0, "down from the bottom wraps to the top");
 
         // Walk far past both ends and confirm the index is always in range.
@@ -279,14 +283,14 @@ public final class UiStateMachineTest {
         for (int i = 0; i < 40; i++) {
             mainMenu(walker, false, true, false);
             int idx = getInt(walker, "menuIndex");
-            expect(idx >= 0 && idx < 6, "index " + idx + " stayed within [0,6)");
+            expect(idx >= 0 && idx < 7, "index " + idx + " stayed within [0,7)");
         }
     }
 
     /** The exit entry must set the shutdown flags rather than navigating anywhere. */
     private static void testExitItemRequestsShutdown() throws Exception {
         System.out.println("[4] the exit item requests shutdown");
-        Object c = canvas(MENU, 5);
+        Object c = canvas(MENU, 6);
         // A null request would throw, so give the canvas a working stub instead.
         ShutdownStub stub = new ShutdownStub();
         set(c, "shutdownRequest", stub);
@@ -314,8 +318,8 @@ public final class UiStateMachineTest {
 
         Object pick = canvas(MODES, 0);
         modes(pick, false, false, true, false);
-        expectEq(getInt(pick, "screen"), CHARACTERS,
-            "choosing the available mode continues to character select");
+        expectEq(getInt(pick, "screen"), STAGES,
+            "choosing the available mode continues to stage select");
         expectEq(getInt(pick, "modeIndex"), 0, "and records the chosen mode");
 
         // The index is bounded to the two entries this build exposes.
@@ -325,19 +329,31 @@ public final class UiStateMachineTest {
         expect(idx >= 0 && idx < 2, "the mode index stayed within [0,2), saw " + idx);
     }
 
-    /** Choosing a character records it, persists it, and moves to stage select. */
+    /**
+     * Choosing a character records it and persists it, and the screen stays on the roster: the
+     * status panel beside the list is the only thing a click changes. Play on the main menu is
+     * what starts the run, so this screen is a browser rather than a launcher.
+     */
     private static void testCharacterScreenSelectsAndPersists() throws Exception {
-        System.out.println("[6] choosing a character records and persists it");
+        System.out.println("[6] choosing a character records, persists and stays put");
         Object c = canvas(CHARACTERS, 2);
         characters(c, false, false, true, false, false);
         expectEq(getInt(c, "characterIndex"), 2, "the selection became the character index");
-        expectEq(getInt(c, "screen"), STAGES, "and the flow continued to stage select");
-        expectEq(getInt(c, "menuIndex"), 0, "with the stage selection reset to the top");
+        expectEq(getInt(c, "screen"), CHARACTERS, "and the screen stayed on the roster");
+        expectEq(getInt(c, "menuIndex"), 2, "with the cursor still on the chosen character");
 
         Field save = canvasClass().getDeclaredField("save");
         save.setAccessible(true);
         SaveStore s = (SaveStore) save.get(c);
         expectEq(s.selectedCharacter(), 2, "the choice was persisted for the next session");
+
+        // A later click re-persists: the last character clicked is the one Play will use.
+        characters(c, true, false, false, false, false);   // up to character 1
+        characters(c, false, false, true, false, false);   // click it
+        expectEq(getInt(c, "characterIndex"), 1, "a later click re-selects");
+        expectEq(((SaveStore) save.get(c)).selectedCharacter(), 1,
+            "and re-persists for the next session");
+        expectEq(getInt(c, "screen"), CHARACTERS, "still without leaving the roster");
     }
 
     /** Paging only moves when another page exists, and left on the first page leaves the screen. */
@@ -365,27 +381,21 @@ public final class UiStateMachineTest {
         expect(count > 1, "the character list is non-empty");
     }
 
-    /**
-     * Up and down wrap over the roster plus two trailing rows: Shop, then Back.
-     */
+    /** Up and down wrap over the roster plus one trailing row: Back. */
     private static void testCharacterIndexWraps() throws Exception {
         System.out.println("[8] the character index wraps");
-        int count = ContentCatalog.CHARACTERS.length + 2;
+        int count = ContentCatalog.CHARACTERS.length + 1;
         Object c = canvas(CHARACTERS, 0);
         for (int i = 0; i < count + 5; i++) {
             characters(c, false, true, false, false, false);
             int idx = getInt(c, "menuIndex");
             expect(idx >= 0 && idx < count, "index " + idx + " stayed within [0," + count + ")");
         }
-        // The last trailing entry is Back, which returns to the menu.
-        Object back = canvas(CHARACTERS, ContentCatalog.CHARACTERS.length + 1);
+        // The one trailing entry is Back, which returns to the menu at the Characters entry.
+        Object back = canvas(CHARACTERS, ContentCatalog.CHARACTERS.length);
         characters(back, false, false, true, false, false);
         expectEq(getInt(back, "screen"), MENU, "the trailing entry goes back to the menu");
-
-        // The entry before it is the shop, which opens the shop rather than leaving the roster.
-        Object shop = canvas(CHARACTERS, ContentCatalog.CHARACTERS.length);
-        characters(shop, false, false, true, false, false);
-        expectEq(getInt(shop, "screen"), SHOP, "the shop row opens the shop");
+        expectEq(getInt(back, "menuIndex"), 2, "with the cursor on the Characters entry");
     }
 
     /** A locked stage is refused outright: no selection, no transition. */
@@ -514,16 +524,16 @@ public final class UiStateMachineTest {
     private static void testLatchesAreClearedAfterLeavingGameplay() throws Exception {
         System.out.println("[16] input latches are cleared leaving gameplay");
         Object c = canvas(GAME, 0);
-        set(c, "skillPressed", Boolean.TRUE);
         set(c, "specialPressed", Boolean.TRUE);
         set(c, "attackPulse", Boolean.TRUE);
+        set(c, "pausePressed", Boolean.TRUE);
         set(c, "leftWasDown", Boolean.TRUE);
 
         call(c, "clearInputLatches", new Class<?>[] { int.class },
                 new Object[] { Integer.valueOf(0) });
-        expect(!getBool(c, "skillPressed"), "the skill latch was dropped");
         expect(!getBool(c, "specialPressed"), "the special latch was dropped");
         expect(!getBool(c, "attackPulse"), "the attack pulse was dropped");
+        expect(!getBool(c, "pausePressed"), "the pause latch was dropped");
         expect(!getBool(c, "leftWasDown"), "the held-key latch was rebased to not-held");
     }
 

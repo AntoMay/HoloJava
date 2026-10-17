@@ -148,9 +148,9 @@ public final class RunWorldMovementBoundsTest {
 
     private static void updatePlayer(Object w, int keys, long now) throws Exception {
         Method m = worldClass().getDeclaredMethod("updatePlayer", int.class, boolean.class,
-                boolean.class, long.class);
+                long.class);
         m.setAccessible(true);
-        m.invoke(w, Integer.valueOf(keys), Boolean.FALSE, Boolean.FALSE, Long.valueOf(now));
+        m.invoke(w, Integer.valueOf(keys), Boolean.FALSE, Long.valueOf(now));
     }
 
     private static int cameraX(Object w) throws Exception {

@@ -6,21 +6,21 @@ import java.lang.reflect.Method;
 /**
  * Pins the level-up offer mix.
  *
- * <p>This exists because of a real defect. {@code chooseOfferType} used to roll
- * {@code int r = rand(20)} and then test {@code r < 20}, which is true for every value
- * {@code rand(20)} can return, so both leading slots offered the same unacquired skill on every
- * single level-up and never reached the branches below it. Slots 2 and 3 were weapon/item only.
- * The net effect was that character stat upgrades (Max HP, ATK, SPD, crit, pickup, haste) almost
- * never appeared: a player gained weapons but no survivability, which made early levels feel far
- * too punishing.
+ * <p>Two defects lived here historically. The original rolled {@code int r = rand(20)} and then
+ * tested {@code r < 20}, which is true for every value {@code rand(20)} can return, so both
+ * leading slots offered the same unacquired skill on every single level-up and never reached the
+ * branches below it: character stat upgrades (Max HP, ATK, SPD, crit, pickup, haste) almost never
+ * appeared. The fix gave stat upgrades a real share of every roll.
  *
- * <p>The fix guarantees the one-time skill on slot 0 and gives stat upgrades a real share of every
- * roll. These checks drive the production method through reflection, so they cannot drift from it.
- * {@code rand} is seeded from the run seed, so the distribution below is deterministic.
+ * <p>Since Skill Pasif became the one-time shop purchase, the skill is not part of the roll at
+ * all: no slot may ever offer it, and slot 0 — which used to guarantee it — now rolls exactly
+ * like every other slot. These checks drive the production method through reflection, so they
+ * cannot drift from it. {@code rand} is seeded from the run seed, so the distribution below is
+ * deterministic.
  */
 public final class RunWorldOfferMixTest {
 
-    private static final int OFFER_SKILL = 0;
+    private static final int OFFER_SKILL = 0;      // retired: pinned as never-offered below
     private static final int OFFER_WEAPON = 1;
     private static final int OFFER_ITEM = 2;
     private static final int OFFER_STAT = 3;
@@ -82,13 +82,12 @@ public final class RunWorldOfferMixTest {
         expect(got == want, label + ": expected " + want + " got " + got);
     }
 
-    /** A world whose skill has the given number of stacks, with a fixed seed. */
-    private static Object world(boolean skillAcquired, int stacks, long seed) throws Exception {
+    /** A world with a fixed seed. The skill flag no longer influences the roll at all. */
+    private static Object world(boolean skillAcquired, long seed) throws Exception {
         Class<?> wc = Class.forName("me.holojava.fullgame.RunWorld");
         Object w = allocate(wc);
         set(w, "random", new java.util.Random(seed));
         set(w, "skillAcquired", Boolean.valueOf(skillAcquired));
-        set(w, "skillStacks", Integer.valueOf(stacks));
         return w;
     }
 
@@ -99,10 +98,10 @@ public final class RunWorldOfferMixTest {
     }
 
     public static void main(String[] args) throws Exception {
-        testSkillIsOfferedUntilMaxStacks();
+        testSkillIsNeverOffered();
         testStatsAreReachableFromEverySlot();
         testStatsAreNotRarerThanItems();
-        testNoDuplicateSkillOffers();
+        testSlotZeroRollsNormally();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -112,36 +111,35 @@ public final class RunWorldOfferMixTest {
         System.out.println("RESULT: PASS");
     }
 
-    /** Slot 0 hands out the skill until it is taken, and never offers it again after that. */
     /**
-     * The skill is now stackable, so slot 0 keeps offering it until the stack cap and never after.
-     * The old behaviour, one offer then never again, is exactly what made repeating the skill slot a
-     * wasted level once the skill was already taken.
+     * The skill is the one-time Skill Pasif shop purchase, so the roll must never produce it — in
+     * any slot, whether the run already has the skill or not. Slot 0 used to guarantee it.
      */
-    private static void testSkillIsOfferedUntilMaxStacks() throws Exception {
-        System.out.println("[1] the skill is offered on slot 0 until the stack cap");
-        int max = ContentCatalog.SKILL_MAX_STACKS;
-        for (int stacks = 0; stacks < max; stacks++) {
-            Object w = world(stacks > 0, stacks, 99L);
-            expectEq(choose(w, 0), OFFER_SKILL,
-                "slot 0 offers the skill at " + stacks + " stacks");
-        }
-        Object capped = world(true, max, 99L);
-        for (int i = 0; i < 40; i++) {
-            expect(choose(capped, 0) != OFFER_SKILL,
-                "slot 0 stops offering the skill once it is at the cap of " + max);
+    private static void testSkillIsNeverOffered() throws Exception {
+        System.out.println("[1] the skill is never offered, in any slot");
+        boolean[] acquired = { false, true };
+        for (int a = 0; a < acquired.length; a++) {
+            Object w = world(acquired[a], 99L);
+            for (int slot = 0; slot < 4; slot++) {
+                int skillRolls = 0;
+                for (int i = 0; i < 200; i++) {
+                    if (choose(w, slot) == OFFER_SKILL) skillRolls++;
+                }
+                expectEq(skillRolls, 0,
+                    "slot " + slot + " never offers the skill (acquired=" + acquired[a] + ")");
+            }
         }
     }
 
     /**
-     * The regression that mattered: with the skill already taken, every slot must be able to roll
-     * a stat. Under the old {@code r < 20} test, slots 0 and 1 were pinned to the skill and slots
-     * 2 and 3 to weapon/item, so no slot could ever produce OFFER_STAT.
+     * The regression that mattered: every slot, including the old skill slot 0, must be able to
+     * roll a stat. Under the old {@code r < 20} test, slots 0 and 1 were pinned to the skill and
+     * slots 2 and 3 to weapon/item, so no slot could ever produce OFFER_STAT.
      */
     private static void testStatsAreReachableFromEverySlot() throws Exception {
         System.out.println("[2] stat upgrades are reachable from every slot");
         int[] statsPerSlot = new int[4];
-        Object w = world(true, ContentCatalog.SKILL_MAX_STACKS, 4242L);
+        Object w = world(true, 4242L);
         for (int round = 0; round < 500; round++) {
             for (int slot = 0; slot < 4; slot++) {
                 if (choose(w, slot) == OFFER_STAT) statsPerSlot[slot]++;
@@ -169,7 +167,7 @@ public final class RunWorldOfferMixTest {
     private static void testStatsAreNotRarerThanItems() throws Exception {
         System.out.println("[3] the mix still offers weapons and items");
         int stats = 0, weapons = 0, items = 0;
-        Object w = world(true, ContentCatalog.SKILL_MAX_STACKS, 4242L);
+        Object w = world(true, 4242L);
         for (int round = 0; round < 500; round++) {
             for (int slot = 0; slot < 4; slot++) {
                 int t = choose(w, slot);
@@ -186,19 +184,19 @@ public final class RunWorldOfferMixTest {
             "weapons are the most common category (got " + weapons + " vs " + stats + ")");
     }
 
-    /** No level-up may fill two slots with the same unacquired skill, which was the old symptom. */
-    private static void testNoDuplicateSkillOffers() throws Exception {
-        System.out.println("[4] a single level-up never offers the skill twice");
-        Object w = world(false, 0, 777L);
-        int duplicated = 0;
-        for (int round = 0; round < 300; round++) {
-            int skills = 0;
-            for (int slot = 0; slot < 4; slot++) {
-                if (choose(w, slot) == OFFER_SKILL) skills++;
-            }
-            if (skills > 1) duplicated++;
+    /** Slot 0 used to be the guaranteed skill slot; it must now produce every other category. */
+    private static void testSlotZeroRollsNormally() throws Exception {
+        System.out.println("[4] slot 0 rolls every category, like the other slots");
+        Object w = world(false, 777L);
+        int stats = 0, weapons = 0, items = 0;
+        for (int round = 0; round < 500; round++) {
+            int t = choose(w, 0);
+            if (t == OFFER_STAT) stats++;
+            else if (t == OFFER_WEAPON) weapons++;
+            else if (t == OFFER_ITEM) items++;
         }
-        expectEq(duplicated, 0,
-            "level-ups offering the skill in more than one slot (the old r<20 symptom)");
+        expect(stats > 0, "slot 0 rolls stats (got " + stats + "/500)");
+        expect(weapons > 0, "slot 0 rolls weapons (got " + weapons + "/500)");
+        expect(items > 0, "slot 0 rolls items (got " + items + "/500)");
     }
 }

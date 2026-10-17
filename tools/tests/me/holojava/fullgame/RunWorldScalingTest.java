@@ -486,10 +486,9 @@ public final class RunWorldScalingTest {
 
     private static void runUpdate(Object w, long now) throws Exception {
         Method m = worldClass().getDeclaredMethod("update", int.class, boolean.class,
-                boolean.class, boolean.class, long.class);
+                boolean.class, long.class);
         m.setAccessible(true);
-        m.invoke(w, Integer.valueOf(0), Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
-                Long.valueOf(now));
+        m.invoke(w, Integer.valueOf(0), Boolean.FALSE, Boolean.FALSE, Long.valueOf(now));
     }
 
     /** A brand new run starts from zero scaling and an unstamped schedule. */

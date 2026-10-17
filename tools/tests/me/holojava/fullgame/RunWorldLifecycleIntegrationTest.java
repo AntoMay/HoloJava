@@ -147,11 +147,11 @@ public final class RunWorldLifecycleIntegrationTest {
     // ---------------------------------------------------------------- driving the world
 
     private static void tick(RunWorld w, long now) {
-        w.update(0, false, false, false, now);
+        w.update(0, false, false, now);
     }
 
-    private static void tick(RunWorld w, long now, boolean skill, boolean special) {
-        w.update(0, false, skill, special, now);
+    private static void tick(RunWorld w, long now, boolean special) {
+        w.update(0, false, special, now);
     }
 
     /** Places an EXP pickup exactly on the player and ticks once, driving the real pickup path. */
@@ -164,33 +164,13 @@ public final class RunWorldLifecycleIntegrationTest {
         tick(w, now);
     }
 
-    /** The label of the skill offer that was taken, captured before the offers were regenerated. */
-    private static String acquiredSkillLabel;
-
     /**
-     * Drives real level-ups until the generated offers contain a skill, then takes it through the
-     * public selection path. Leftover experience re-opens the level-up screen immediately after a
-     * choice, so the screen is drained afterwards; otherwise the world would sit in
-     * {@code STATE_LEVEL_UP} and every later tick would be ignored by {@code update}.
+     * Grants the Skill Pasif purchase on the fixture save. This is the only way a run can hold a
+     * skill now: the level-up roll never offers one, so the grant has to happen before the run is
+     * built — {@code reset()} reads the flag from the save.
      */
-    private static boolean acquireSkillViaOffers(RunWorld w, int maxLevelUps, long now) {
-        acquiredSkillLabel = null;
-        for (int i = 0; i < maxLevelUps && !w.skillAcquired(); i++) {
-            if (w.state() != RunWorld.STATE_LEVEL_UP) grantExp(w, 400, now += 1000L);
-            if (w.state() != RunWorld.STATE_LEVEL_UP) continue;
-            int skillSlot = -1;
-            for (int s = 0; s < w.offerCount(); s++) {
-                if ("SKILL".equals(w.offerType(s))) { skillSlot = s; break; }
-            }
-            if (skillSlot < 0) { tick(w, now += 1000L); continue; }
-            acquiredSkillLabel = w.offerLabel(skillSlot);
-            int steps = skillSlot - w.selectedOffer();
-            w.moveOffer(steps >= 0 ? steps : steps + w.offerCount());
-            if (w.selectedOffer() != skillSlot) w.moveOffer(w.offerCount());
-            w.selectOffer();
-        }
-        drainLevelUps(w);
-        return w.skillAcquired();
+    private static void grantSkillPassive() {
+        save.setSkillPassiveOwned(true);
     }
 
     /** Takes choices until the world is running again, so later ticks are actually processed. */
@@ -256,7 +236,7 @@ public final class RunWorldLifecycleIntegrationTest {
 
         testStartInitialisesTheWholeRun();
         testExpPickupTriggersLevelUpAndOffers();
-        testChoosingTheSkillGrantsItAndTheEffectFires();
+        testSkillPasifGrantsTheSkillAndItFiresByItself();
         testSkillEffectMatrix();
         testSpecialEffectMatrix();
         testEffectsAreActuallyConsumedByCombat();
@@ -302,8 +282,7 @@ public final class RunWorldLifecycleIntegrationTest {
         expect(getLongArray(w, "weaponReadyAt")[0] > 0L, "with its first shot on a short cooldown");
         expectEq(w.itemCount(), 0, "no items");
 
-        expect(!w.skillAcquired(), "no skill yet");
-        expectEq(w.skillStacks(), 0, "and no skill stacks on a fresh run");
+        expect(!w.skillAcquired(), "no skill without the Skill Pasif purchase");
         expect(!w.specialUsed(), "the special is unused");
         expectEq(getLong(w, "skillReadyAt"), 0L, "no skill cooldown running");
         expectEq(getInt(w, "shield"), 0, "no shield");
@@ -354,33 +333,24 @@ public final class RunWorldLifecycleIntegrationTest {
     // ---------------------------------------------------------------- 3. skill chain end to end
 
     /**
-     * The whole acquisition-to-effect chain in one run: EXP pickup, level-up, a generated skill
-     * offer, selection, and then a combat tick in which the skill visibly damages an enemy.
+     * The whole chain in one run: the Skill Pasif purchase on the save, a run built on top of it
+     * that already holds the skill at t=0, and then a combat tick in which the skill visibly
+     * damages an enemy — with no level-up, no offer and no key anywhere in the path.
      */
-    private static void testChoosingTheSkillGrantsItAndTheEffectFires() throws Exception {
-        System.out.println("[3] acquiring a skill through real offers, then seeing it fire");
+    private static void testSkillPasifGrantsTheSkillAndItFiresByItself() throws Exception {
+        System.out.println("[3] Skill Pasif grants the skill, which then fires by itself");
         resetFixture();
+        grantSkillPassive();
         RunWorld w = start(0, 0, 0);
         long now = System.currentTimeMillis() + 1000L;
 
-        boolean acquired = acquireSkillViaOffers(w, 12, now);
-        expect(acquired, "the real offer generator produced a skill within 12 level-ups");
-        expect(w.skillAcquired(), "and taking it granted the skill");
-        expect(w.skillStacks() >= 1, "with at least one stack (" + w.skillStacks() + ")");
-        expect(w.skillStacks() <= ContentCatalog.SKILL_MAX_STACKS,
-            "and never more than the cap (" + w.skillStacks() + ")");
-        expectEq(w.state(), RunWorld.STATE_RUNNING, "the run resumed after the choice");
-
-        // The label came from the character's declared skill, so the offer really was this
-        // character's row and not some other offer type. The skill is now stackable, so the label
-        // carries the level it would take the skill to, which is Lv1 on a run with no stacks.
-        expectEq(acquiredSkillLabel, ContentCatalog.CHARACTERS[0].skill + " Lv1",
-                "the offer carried the character's own skill name and its next level");
+        expect(w.skillAcquired(), "the run starts with the skill already held");
+        expectEq(w.state(), RunWorld.STATE_RUNNING, "the run is running");
 
         Object enemy = spawnEnemyAt(w, now, 10, 0, 500);
         expect(enemy != null, "an enemy was spawned for the skill to hit");
         int hpBefore = getInt(enemy, "hp");
-        tick(w, now + 100L, true, false);
+        tick(w, now + 100L);
         expect(getInt(enemy, "hp") < hpBefore,
                 "Shark Bite reduced the nearby enemy from " + hpBefore + " to " + getInt(enemy, "hp"));
         expect(getLong(w, "skillReadyAt") > 0L, "and put the skill on cooldown");
@@ -389,23 +359,22 @@ public final class RunWorldLifecycleIntegrationTest {
     // ---------------------------------------------------------------- 4. skill matrix
 
     /**
-     * Every character's skill: acquisition is the same level-up offer, but the state each one writes
-     * and the place that effect is later read differ. Each row is asserted on its own run.
+     * Every character's skill at its fixed base power: the Skill Pasif purchase is the same for
+     * all, but the state each skill writes and the place that effect is later read differ. Each
+     * row is asserted on its own run.
      */
     private static void testSkillEffectMatrix() throws Exception {
         System.out.println("[4] skill effect matrix, one run per character");
         for (int ci = 0; ci < ContentCatalog.CHARACTERS.length; ci++) {
             resetFixture();
+            grantSkillPassive();
             RunWorld w = start(ci, 0, 0);
             long now = System.currentTimeMillis() + 1000L;
 
-            boolean acquired = acquireSkillViaOffers(w, 12, now);
-            expect(acquired, ContentCatalog.CHARACTERS[ci].name + ": skill acquired through offers");
-            // Skills now scale with how many times they were taken. This matrix checks the per-stack
-            // values, so the stack count is pinned to exactly one; the level-up flow legitimately
-            // hands out several stacks in the twelve level-ups above, and stack scaling is asserted
-            // on its own in RunWorldSkillStackingTest.
-            set(w, "skillStacks", Integer.valueOf(1));
+            // Skills fire at their fixed base power now — there are no stacks left to scale them,
+            // so this matrix pins the base values outright.
+            expect(w.skillAcquired(), ContentCatalog.CHARACTERS[ci].name
+                    + ": the Skill Pasif purchase carried the skill into the run");
 
             long before = now;
             // 30 puts the enemy at px+42: outside the player's 24-wide box, so contact damage
@@ -413,7 +382,7 @@ public final class RunWorldLifecycleIntegrationTest {
             // Note damageEnemiesInRadius measures from px/py, not the player's centre.
             Object enemy = spawnEnemyAt(w, now, 30, 0, 500);
             int hpBefore = enemy == null ? -1 : getInt(enemy, "hp");
-            tick(w, now + 100L, true, false);
+            tick(w, now + 100L);
             expectEq(getLong(w, "skillReadyAt"), before + 100L + 15000L,
                     ContentCatalog.CHARACTERS[ci].name + ": skill goes on a 15 second cooldown");
 
@@ -477,7 +446,7 @@ public final class RunWorldLifecycleIntegrationTest {
                 set(w, "invulUntil", Long.valueOf(0L));
                 hpAtCast = w.playerHp();
             }
-            tick(w, now + 100L, false, true);
+            tick(w, now + 100L, true);
 
             expect(w.specialUsed(), ContentCatalog.CHARACTERS[ci].name + ": the special is now spent");
             switch (ci) {
@@ -516,7 +485,7 @@ public final class RunWorldLifecycleIntegrationTest {
                         Object s = shots[i];
                         if (getBool(s, "active")) { set(s, "active", Boolean.FALSE); hostile++; }
                     }
-                    tick(w, now + 200L, false, true);
+                    tick(w, now + 200L, true);
                     expect(hostile == 0 || activeCount(w, "shots") == 0,
                             "Ninomae Inanis: the special cleared enemy projectiles from the screen");
                     break;
@@ -526,7 +495,7 @@ public final class RunWorldLifecycleIntegrationTest {
             // Single use: a second press must do nothing at all.
             if (enemy != null && (ci == 0 || ci == 3)) {
                 int hpAfterFirst = getInt(enemy, "hp");
-                tick(w, now + 300L, false, true);
+                tick(w, now + 300L, true);
                 expectEq(getInt(enemy, "hp"), hpAfterFirst,
                         ContentCatalog.CHARACTERS[ci].name + ": a spent special cannot fire again");
             }
@@ -625,23 +594,22 @@ public final class RunWorldLifecycleIntegrationTest {
     private static void testCooldownsAndLevelCapsHold() throws Exception {
         System.out.println("[7] cooldowns and level caps");
         resetFixture();
+        grantSkillPassive();
         RunWorld w = start(0, 0, 0);
         long now = System.currentTimeMillis() + 1000L;
 
-        acquireSkillViaOffers(w, 12, now);
-
-        // A second press inside the cooldown does nothing at all.
+        // Another tick inside the cooldown does nothing at all.
         Object enemy = spawnEnemyAt(w, now, 8, 0, 900);
         long firstCast = now + 100L;
-        tick(w, firstCast, true, false);
+        tick(w, firstCast);
         long readyAfterFirst = getLong(w, "skillReadyAt");
         int hpAfterFirst = getInt(enemy, "hp");
-        tick(w, firstCast + 1000L, true, false);
-        expectEq(getInt(enemy, "hp"), hpAfterFirst, "a skill press inside the cooldown does nothing");
+        tick(w, firstCast + 1000L);
+        expectEq(getInt(enemy, "hp"), hpAfterFirst, "a tick inside the cooldown does nothing");
         expectEq(getLong(w, "skillReadyAt"), readyAfterFirst, "and does not extend the cooldown");
 
         // After the cooldown lapses the skill fires again.
-        tick(w, readyAfterFirst, true, false);
+        tick(w, readyAfterFirst);
         expect(getInt(enemy, "hp") < hpAfterFirst, "the skill fires again once the cooldown lapses");
         expectEq(getLong(w, "skillReadyAt"), readyAfterFirst + 15000L, "and rearms a fresh 15 seconds");
 
@@ -831,15 +799,15 @@ public final class RunWorldLifecycleIntegrationTest {
     private static void testANewRunInheritsNothing() throws Exception {
         System.out.println("[11] a new run inherits nothing from the previous one");
         resetFixture();
+        grantSkillPassive();
 
-        // ---- run one: acquire, fight, die, earn
+        // ---- run one: fight with the passive skill, die, earn
         RunWorld first = start(3, 1, 0);
         long now = System.currentTimeMillis() + 1000L;
-        acquireSkillViaOffers(first, 12, now);
 
         Object enemy = spawnEnemyAt(first, now, 6, 0, 900);
-        tick(first, now + 100L, true, false);       // lifesteal window opens
-        tick(first, now + 200L, false, true);       // special fires
+        tick(first, now + 100L);                   // lifesteal window opens
+        tick(first, now + 200L, true);             // special fires
 
         // Put enemies, projectiles, melee arcs and pickups on the field.
         spawnEnemyAt(first, now + 300L, 40, 0, 300);
@@ -872,7 +840,8 @@ public final class RunWorldLifecycleIntegrationTest {
         RunWorld second = start(3, 1, 0);
 
         expectEq(second.state(), RunWorld.STATE_RUNNING, "the second run starts running");
-        expect(!second.skillAcquired(), "no skill carried over");
+        expect(second.skillAcquired(),
+            "the Skill Pasif purchase does survive: it is permanent, like the coin balance");
         expect(!second.specialUsed(), "the special is unspent again");
         expectEq(getLong(second, "skillReadyAt"), 0L, "no skill cooldown carried over");
         expectEq(getInt(second, "shield"), 0, "no shield carried over");
@@ -920,11 +889,11 @@ public final class RunWorldLifecycleIntegrationTest {
     private static void testResetClearsADirtiedRun() throws Exception {
         System.out.println("[12] reset clears every run-scoped field of a dirtied world");
         resetFixture();
+        grantSkillPassive();
         RunWorld w = start(2, 1, 0);
         long now = System.currentTimeMillis() + 1000L;
-        acquireSkillViaOffers(w, 12, now);
-        tick(w, now + 100L, true, false);              // skill: shield + recharge
-        tick(w, now + 200L, false, true);              // special
+        tick(w, now + 100L);                           // skill: shield + recharge
+        tick(w, now + 200L, true);                     // special
 
         // Dirty every category the reset is supposed to clear.
         spawnEnemyAt(w, now + 300L, 30, 0, 300);
@@ -954,7 +923,7 @@ public final class RunWorldLifecycleIntegrationTest {
 
         call(w, "reset", new Class<?>[] { SaveStore.class }, new Object[] { save });
 
-        expect(!w.skillAcquired(), "reset cleared the skill");
+        expect(w.skillAcquired(), "reset re-granted the Skill Pasif skill from the save");
         expect(!w.specialUsed(), "reset unspent the special");
         expectEq(getLong(w, "skillReadyAt"), 0L, "reset cleared the skill cooldown");
         expectEq(getInt(w, "shield"), 0, "reset cleared the shield");

@@ -1,22 +1,23 @@
 package me.holojava.fullgame;
 
-import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
- * Covers the shop: the passive catalog, the price curve, the packed save layout, the purchase
+ * Covers the global shop: the passive catalog, the price curve, the packed save layout, the
+ * one-time Skill Pasif purchase, the migration from the old per-character layout, the purchase
  * transaction, and the way a purchased passive actually reaches a run's stats.
  *
  * <p>Nothing here reimplements game logic. Prices come from {@code ContentCatalog.passiveCost},
  * storage from {@code SaveStore}, the effect from {@code RunWorld.recomputeStats}, and the
- * purchase from {@code FullGameCanvas.buyPassive}. Those are driven through reflection because
- * {@code Canvas} and {@code RunWorld} cannot be constructed on a desktop JVM and several of their
- * fields are final.
+ * purchases from {@code FullGameCanvas.updateShop}, which routes rows to {@code buyPassive} and
+ * {@code buySkillPassive}. Those are driven through reflection because {@code Canvas} and
+ * {@code RunWorld} cannot be constructed on a desktop JVM and several of their fields are final.
  *
- * <p>The save layout matters most here: passive levels are packed per character as nibbles into
- * bytes that were already reserved and never occupied, so a careless accessor could silently
- * spill one character's purchase into another's.
+ * <p>The save layout matters most here: the shop is global, so the eight passives are eight
+ * nibbles in bytes 10..13, the Skill Pasif flag is byte 14, and byte 46 carries the layout
+ * version that makes the fold from the old per-character vector (bytes 10..29) detectable. A
+ * careless accessor could silently spill one passive's purchase into its neighbour's nibble.
  */
 public final class CharacterShopTest {
 
@@ -70,12 +71,6 @@ public final class CharacterShopTest {
         }
     }
 
-    private static Object get(Object target, String field) throws Exception {
-        Field f = target.getClass().getDeclaredField(field);
-        f.setAccessible(true);
-        return f.get(target);
-    }
-
     private static int getInt(Object target, String field) throws Exception {
         Field f = target.getClass().getDeclaredField(field);
         f.setAccessible(true);
@@ -104,10 +99,6 @@ public final class CharacterShopTest {
         expect(got == want, label + ": expected " + want + " got " + got);
     }
 
-    private static void expectEq(String got, String want, String label) {
-        expect(want.equals(got), label + ": expected " + want + " got " + got);
-    }
-
     private static final class Recording implements SaveStore.RecordStorage {
         byte[] record;
         Recording(byte[] initial) { record = initial; }
@@ -132,16 +123,21 @@ public final class CharacterShopTest {
         set(c, "characterIndex", Integer.valueOf(characterIndex));
         set(c, "screen", Integer.valueOf(10));      // SHOP
         set(c, "menuIndex", Integer.valueOf(0));
-        set(c, "shopIndex", Integer.valueOf(0));
         set(c, "shopScroll", Integer.valueOf(0));
         return c;
     }
 
-    private static void buy(Object canvas, int passiveIndex) throws Exception {
-        set(canvas, "menuIndex", Integer.valueOf(passiveIndex));
-        Method m = canvasClass().getDeclaredMethod("buyPassive", int.class);
+    /** Fires on the highlighted shop row through the real updateShop input path. */
+    private static void shopFire(Object canvas, int row) throws Exception {
+        set(canvas, "menuIndex", Integer.valueOf(row));
+        Method m = canvasClass().getDeclaredMethod("updateShop", boolean.class, boolean.class,
+                boolean.class, boolean.class, boolean.class);
         m.setAccessible(true);
-        m.invoke(canvas, Integer.valueOf(passiveIndex));
+        m.invoke(canvas, Boolean.FALSE, Boolean.FALSE, Boolean.TRUE, Boolean.FALSE, Boolean.FALSE);
+    }
+
+    private static int canvasInt(Object canvas, String field) throws Exception {
+        return getInt(canvas, field);
     }
 
     /** A world with its pools and stat inputs present, plus the given passive levels applied. */
@@ -181,10 +177,14 @@ public final class CharacterShopTest {
     public static void main(String[] args) throws Exception {
         testCatalogIsCoherent();
         testPriceCurveGrowsAndStops();
-        testSaveStoresLevelsPerCharacter();
+        testSaveStoresOneGlobalVector();
         testSaveRefusesImpossibleValues();
-        testPurchaseSpendsCoinsAndRaisesLevel();
+        testOldPerCharacterSavesFoldIntoTheGlobalVector();
+        testMigrationPreservesEverythingElse();
+        testPurchaseSpendsCoinsAndRaisesTheGlobalLevel();
         testPurchaseRefusedWhenTooPoorOrMaxed();
+        testSkillPasifIsBoughtOnce();
+        testShopRowsRouteToTheirActions();
         testPassivesReachRunStats();
         testDefenseAndCoinRateAreActuallyWired();
         testStartingCapitalConstant();
@@ -201,6 +201,8 @@ public final class CharacterShopTest {
     private static void testCatalogIsCoherent() {
         System.out.println("[1] the passive catalog is coherent");
         expect(ContentCatalog.PASSIVES.length >= 5, "there are enough passives to be a choice");
+        expectEq(ContentCatalog.PASSIVE_MAX_LEVEL, 5,
+            "the shop sells 0-5 upgrades, as asked — not the old 0-10");
         boolean[] seenEffect = new boolean[ContentCatalog.EFFECT_COIN_PCT + 1];
         for (int i = 0; i < ContentCatalog.PASSIVES.length; i++) {
             ContentCatalog.PassiveDef d = ContentCatalog.passive(i);
@@ -247,36 +249,30 @@ public final class CharacterShopTest {
         expectEq(ContentCatalog.passiveCost(null, 0), -1L, "a null passive has no price");
     }
 
-    /** Packed levels round-trip across the whole 0..10 range and never bleed between characters. */
-    private static void testSaveStoresLevelsPerCharacter() {
-        System.out.println("[3] passive levels are stored per character");
+    /** The global vector round-trips across the whole 0..5 range and stamps the layout version. */
+    private static void testSaveStoresOneGlobalVector() {
+        System.out.println("[3] passive levels are stored as one global vector");
         Recording storage = new Recording(new byte[56]);
         SaveStore save = new SaveStore(storage);
         int n = ContentCatalog.PASSIVES.length;
         // The modulus spans the full range the shop sells, so this pins 0 and the cap itself, not
         // just small values that any packing scheme would survive.
         int span = ContentCatalog.PASSIVE_MAX_LEVEL + 1;
-        for (int c = 0; c < ContentCatalog.CHARACTERS.length; c++) {
-            for (int p = 0; p < n; p++) {
-                save.setPassiveLevel(c, p, (c + p) % span);
-            }
+        for (int p = 0; p < n; p++) {
+            save.setPassiveLevel(p, p % span);
         }
-        for (int c = 0; c < ContentCatalog.CHARACTERS.length; c++) {
-            for (int p = 0; p < n; p++) {
-                expectEq(save.passiveLevel(c, p), (c + p) % span,
-                    "character " + c + " passive " + p + " read back");
-            }
+        for (int p = 0; p < n; p++) {
+            expectEq(save.passiveLevel(p), p % span, "passive " + p + " read back");
         }
         // Reload from the stored bytes: the packing must survive persistence, not just memory.
         SaveStore reloaded = new SaveStore(storage);
-        for (int c = 0; c < ContentCatalog.CHARACTERS.length; c++) {
-            for (int p = 0; p < n; p++) {
-                expectEq(reloaded.passiveLevel(c, p), (c + p) % span,
-                    "character " + c + " passive " + p + " survived a reload");
-            }
+        for (int p = 0; p < n; p++) {
+            expectEq(reloaded.passiveLevel(p), p % span, "passive " + p + " survived a reload");
         }
         expectEq(storage.record.length, 56,
             "the record kept its historical length, so no save has to migrate");
+        expectEq(storage.record[46] & 0xff, 2, "the persisted record carries the layout version");
+        expectEq(storage.record[14] & 0xff, 0, "and the Skill Pasif flag starts unowned");
     }
 
     /** Out-of-range input is refused rather than corrupting a neighbour's bits. */
@@ -284,32 +280,107 @@ public final class CharacterShopTest {
         System.out.println("[4] impossible passive writes are refused");
         Recording storage = new Recording(new byte[56]);
         SaveStore save = new SaveStore(storage);
-        save.setPassiveLevel(0, 0, 5);
-        save.setPassiveLevel(0, 8, 3);        // no such passive: the catalog holds eight, 0..7
-        save.setPassiveLevel(0, 9, 3);        // neither is this one
-        save.setPassiveLevel(0, ContentCatalog.PASSIVES.length, 3);   // no such passive
-        save.setPassiveLevel(-1, 0, 3);                               // no such character
-        save.setPassiveLevel(ContentCatalog.CHARACTERS.length, 0, 3);
-        expectEq(save.passiveLevel(0, 0), 5, "the one valid level survived");
-        expectEq(save.passiveLevel(0, 1), 0, "an unknown passive did not spill into its neighbour");
-        expectEq(save.passiveLevel(0, 2), 0, "a second unknown passive wrote nothing");
-        expectEq(save.passiveLevel(0, ContentCatalog.PASSIVES.length), 0, "an unknown passive reads 0");
-        expectEq(save.passiveLevel(-1, 0), 0, "an unknown character reads 0");
-        expectEq(save.passiveLevel(ContentCatalog.CHARACTERS.length, 0), 0, "so does an out-of-range one");
+        save.setPassiveLevel(0, 5);
+        save.setPassiveLevel(ContentCatalog.PASSIVES.length, 3);   // no such passive
+        save.setPassiveLevel(-1, 3);                               // no such passive either
+        expectEq(save.passiveLevel(0), 5, "the one valid level survived");
+        expectEq(save.passiveLevel(1), 0, "an unknown passive did not spill into its neighbour");
+        expectEq(save.passiveLevel(2), 0, "a second unknown passive wrote nothing");
+        expectEq(save.passiveLevel(ContentCatalog.PASSIVES.length), 0, "an unknown passive reads 0");
+        expectEq(save.passiveLevel(-1), 0, "a negative passive reads 0");
 
         // The catalog cap is the ceiling: the cap itself stores, one past it does not, so the
-        // storage layer enforces the same 0..10 range the shop sells.
-        save.setPassiveLevel(0, 0, ContentCatalog.PASSIVE_MAX_LEVEL);
-        expectEq(save.passiveLevel(0, 0), ContentCatalog.PASSIVE_MAX_LEVEL,
+        // storage layer enforces the same 0..5 range the shop sells.
+        save.setPassiveLevel(0, ContentCatalog.PASSIVE_MAX_LEVEL);
+        expectEq(save.passiveLevel(0), ContentCatalog.PASSIVE_MAX_LEVEL,
             "the cap itself is storable");
-        save.setPassiveLevel(0, 0, ContentCatalog.PASSIVE_MAX_LEVEL + 1);
-        expectEq(save.passiveLevel(0, 0), ContentCatalog.PASSIVE_MAX_LEVEL,
+        save.setPassiveLevel(0, ContentCatalog.PASSIVE_MAX_LEVEL + 1);
+        expectEq(save.passiveLevel(0), ContentCatalog.PASSIVE_MAX_LEVEL,
             "one past the cap is refused and the stored level is untouched");
     }
 
-    /** A purchase moves exactly the price, raises exactly one level, and is per character. */
-    private static void testPurchaseSpendsCoinsAndRaisesLevel() throws Exception {
-        System.out.println("[5] a purchase spends coins and raises one level");
+    /**
+     * The migration: a record written by the per-character era (5 characters x 8 passives, 0..10,
+     * bytes 10..29, no version stamp) folds into the global vector at one level per stat — the
+     * highest any character had bought, clamped to the new cap — and the version is stamped so
+     * later loads skip the fold.
+     */
+    private static void testOldPerCharacterSavesFoldIntoTheGlobalVector() {
+        System.out.println("[5] an old per-character save folds into the global vector");
+        int n = ContentCatalog.PASSIVES.length;
+        byte[] old = new byte[56];
+        for (int c = 0; c < ContentCatalog.CHARACTERS.length; c++) {
+            for (int p = 0; p < n; p++) {
+                int nibble = c * n + p;
+                int index = 10 + nibble / 2;
+                int shift = (nibble & 1) * 4;
+                old[index] = (byte) ((old[index] & 0xff) | (((c + p) % 11) << shift));
+            }
+        }
+        // Settings and coins must survive the fold untouched.
+        old[47] = 0x01;                                     // hardcore
+        for (int i = 0; i < 8; i++) old[48 + i] = (byte) (17 + i);
+
+        SaveStore save = new SaveStore(new Recording(old));
+        for (int p = 0; p < n; p++) {
+            int best = 0;
+            for (int c = 0; c < ContentCatalog.CHARACTERS.length; c++) {
+                int v = (c + p) % 11;
+                if (v > best) best = v;
+            }
+            if (best > ContentCatalog.PASSIVE_MAX_LEVEL) best = ContentCatalog.PASSIVE_MAX_LEVEL;
+            expectEq(save.passiveLevel(p), best,
+                "passive " + p + " folded to the best across characters, clamped");
+        }
+        expect(!save.skillPassiveOwned(), "the fold leaves Skill Pasif unowned");
+        expect(save.hardcore(), "the settings byte survived the fold");
+        // The coin bytes are big-endian, mirroring how SaveStore writes them: byte 48 is the most
+        // significant, byte 55 the least.
+        long coins = 0;
+        for (int i = 0; i < 8; i++) coins = (coins << 8) | (old[48 + i] & 0xff);
+        expectEq(save.coinBalance(), coins, "the coin balance survived the fold");
+
+        // Reloading the same old record must fold to exactly the same result — the fold is
+        // deterministic, so a save written by the old build always lands on the same vector.
+        save.setSkillPassiveOwned(false);
+        int[] first = new int[n];
+        for (int p = 0; p < n; p++) first[p] = save.passiveLevel(p);
+        SaveStore reloaded = new SaveStore(new Recording(old));
+        for (int p = 0; p < n; p++) {
+            expectEq(reloaded.passiveLevel(p), first[p],
+                "a second load from the same old record folds to the same result");
+        }
+    }
+
+    /** The fold may only touch the shop bytes: completion, settings and coins stay put. */
+    private static void testMigrationPreservesEverythingElse() {
+        System.out.println("[6] the migration touches nothing but the shop bytes");
+        int n = ContentCatalog.PASSIVES.length;
+        byte[] old = new byte[56];
+        old[0] = (byte) 0x05;                               // character 0 cleared stages 0 and 2
+        for (int c = 0; c < ContentCatalog.CHARACTERS.length; c++) {
+            for (int p = 0; p < n; p++) {
+                int nibble = c * n + p;
+                int index = 10 + nibble / 2;
+                int shift = (nibble & 1) * 4;
+                old[index] = (byte) ((old[index] & 0xff) | (7 << shift));
+            }
+        }
+        SaveStore save = new SaveStore(new Recording(old));
+        expect(save.isCompleted(0, 0) && save.isCompleted(0, 2), "completion bits survived");
+        expect(!save.isCompleted(0, 1) && !save.isCompleted(1, 0), "and unrelated ones stayed clear");
+        for (int i = 15; i <= 29; i++) {
+            expectEq(old[i] == 0 ? 0 : 1, 1, "the input record is never mutated (byte " + i + ")");
+        }
+        for (int p = 0; p < n; p++) {
+            expectEq(save.passiveLevel(p), ContentCatalog.PASSIVE_MAX_LEVEL,
+                "a 7 in the old 0..10 range clamps to the new cap (passive " + p + ")");
+        }
+    }
+
+    /** A purchase moves exactly the price, raises exactly one global level, and stacks. */
+    private static void testPurchaseSpendsCoinsAndRaisesTheGlobalLevel() throws Exception {
+        System.out.println("[7] a purchase spends coins and raises the global level");
         Recording storage = new Recording(new byte[56]);
         SaveStore save = new SaveStore(storage);
         save.creditCoins(1000000L);
@@ -319,63 +390,127 @@ public final class CharacterShopTest {
         long cost = ContentCatalog.passiveCost(def, 0);
 
         Object c = canvas(save, 0);
-        buy(c, passive);
+        shopFire(c, passive);
 
-        expectEq(save.passiveLevel(0, passive), 1, "the level went up");
+        expectEq(save.passiveLevel(passive), 1, "the level went up");
         expectEq(save.coinBalance(), before - cost, "exactly the price was spent");
         expect(save.coinBalance() >= 0, "the balance did not go negative");
 
-        // Another character is unaffected: the purchase is per character, not global.
-        expectEq(save.passiveLevel(1, passive), 0, "a different character is unaffected");
-
         // A second purchase of the same passive costs more, because the curve grows.
         long secondCost = ContentCatalog.passiveCost(def, 1);
-        buy(c, passive);
-        expectEq(save.passiveLevel(0, passive), 2, "a second purchase stacks");
+        shopFire(c, passive);
+        expectEq(save.passiveLevel(passive), 2, "a second purchase stacks");
         expectEq(save.coinBalance(), before - cost - secondCost, "and charged the grown price");
         expect(secondCost > cost, "the second price is higher than the first");
     }
 
     /** Too few coins and maxed rows both refuse, leaving the balance and level untouched. */
     private static void testPurchaseRefusedWhenTooPoorOrMaxed() throws Exception {
-        System.out.println("[6] a purchase is refused when it cannot be paid or is maxed");
+        System.out.println("[8] a purchase is refused when it cannot be paid or is maxed");
         Recording storage = new Recording(new byte[56]);
         SaveStore save = new SaveStore(storage);
         Object c = canvas(save, 0);
         ContentCatalog.PassiveDef def = ContentCatalog.passive(0);
 
         // Nothing bought and no coins at all.
-        buy(c, 0);
-        expectEq(save.passiveLevel(0, 0), 0, "nothing was bought with an empty balance");
+        shopFire(c, 0);
+        expectEq(save.passiveLevel(0), 0, "nothing was bought with an empty balance");
         expectEq(save.coinBalance(), 0L, "the balance stayed at zero");
 
         // Just under the price.
         long cost = ContentCatalog.passiveCost(def, 0);
         save.creditCoins(cost - 1);
         long before = save.coinBalance();
-        buy(c, 0);
-        expectEq(save.passiveLevel(0, 0), 0, "a short balance bought nothing");
+        shopFire(c, 0);
+        expectEq(save.passiveLevel(0), 0, "a short balance bought nothing");
         expectEq(save.coinBalance(), before, "and left the balance untouched");
 
         // Exactly the price is enough.
         save.creditCoins(1);
-        buy(c, 0);
-        expectEq(save.passiveLevel(0, 0), 1, "the exact price is sufficient");
+        shopFire(c, 0);
+        expectEq(save.passiveLevel(0), 1, "the exact price is sufficient");
 
         // Max the row out, then try once more.
         long plenty = 100000000L;
         save.creditCoins(plenty);
-        for (int level = 1; level < def.maxLevel; level++) buy(c, 0);
-        expectEq(save.passiveLevel(0, 0), def.maxLevel, "the row reached its cap");
+        for (int level = 1; level < def.maxLevel; level++) shopFire(c, 0);
+        expectEq(save.passiveLevel(0), def.maxLevel, "the row reached its cap");
         long afterMax = save.coinBalance();
-        buy(c, 0);
-        expectEq(save.passiveLevel(0, 0), def.maxLevel, "a maxed row refuses another level");
+        shopFire(c, 0);
+        expectEq(save.passiveLevel(0), def.maxLevel, "a maxed row refuses another level");
         expectEq(save.coinBalance(), afterMax, "and charges nothing for the refusal");
+    }
+
+    /** Skill Pasif is a one-time 0/1 purchase: bought once, then refused forever. */
+    private static void testSkillPasifIsBoughtOnce() throws Exception {
+        System.out.println("[9] Skill Pasif is bought exactly once");
+        Recording storage = new Recording(new byte[56]);
+        SaveStore save = new SaveStore(storage);
+        Object c = canvas(save, 0);
+        int row = ContentCatalog.PASSIVES.length;    // the Skill Pasif row
+
+        expect(!save.skillPassiveOwned(), "a fresh save has not bought it");
+        shopFire(c, row);
+        expect(!save.skillPassiveOwned(), "an empty balance buys nothing");
+        expectEq(save.coinBalance(), 0L, "and charges nothing");
+
+        save.creditCoins(ContentCatalog.SKILL_PASSIVE_COST);
+        long before = save.coinBalance();
+        shopFire(c, row);
+        expect(save.skillPassiveOwned(), "the exact price buys the skill");
+        expectEq(save.coinBalance(), before - ContentCatalog.SKILL_PASSIVE_COST,
+            "and only the fixed price was spent");
+
+        // Buying again changes nothing: not the balance, not the flag.
+        save.creditCoins(ContentCatalog.SKILL_PASSIVE_COST);
+        long rich = save.coinBalance();
+        shopFire(c, row);
+        expect(save.skillPassiveOwned(), "it stays owned");
+        expectEq(save.coinBalance(), rich, "a repeat purchase charges nothing");
+
+        // The purchase survives persistence, like every other permanent upgrade.
+        SaveStore reloaded = new SaveStore(storage);
+        expect(reloaded.skillPassiveOwned(), "and survives a reload");
+    }
+
+    /** Row routing: passives buy, the Skill Pasif row buys it, Back and Left return to the menu. */
+    private static void testShopRowsRouteToTheirActions() throws Exception {
+        System.out.println("[10] shop rows route to their actions");
+        Recording storage = new Recording(new byte[56]);
+        SaveStore save = new SaveStore(storage);
+        save.creditCoins(1000000L);
+        Object c = canvas(save, 0);
+
+        // Every passive row buys its own passive and nothing else.
+        for (int p = 0; p < ContentCatalog.PASSIVES.length; p++) {
+            shopFire(c, p);
+        }
+        for (int p = 0; p < ContentCatalog.PASSIVES.length; p++) {
+            expectEq(save.passiveLevel(p), 1, "row " + p + " bought passive " + p + " exactly once");
+        }
+        expectEq(save.skillPassiveOwned() ? 1 : 0, 0,
+            "no passive row accidentally bought Skill Pasif");
+
+        // The Back row returns to the main menu at the Shop entry.
+        Object back = canvas(save, 0);
+        shopFire(back, ContentCatalog.PASSIVES.length + 1);
+        expectEq(canvasInt(back, "screen"), 0, "Back returns to the main menu");
+        expectEq(canvasInt(back, "menuIndex"), 4, "with the cursor on the Shop entry");
+
+        // Left does the same, from anywhere in the list.
+        Object lefted = canvas(save, 0);
+        set(lefted, "menuIndex", Integer.valueOf(2));
+        Method m = canvasClass().getDeclaredMethod("updateShop", boolean.class, boolean.class,
+                boolean.class, boolean.class, boolean.class);
+        m.setAccessible(true);
+        m.invoke(lefted, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE, Boolean.TRUE, Boolean.FALSE);
+        expectEq(canvasInt(lefted, "screen"), 0, "Left returns to the main menu");
+        expectEq(canvasInt(lefted, "menuIndex"), 4, "with the cursor on the Shop entry");
     }
 
     /** Purchased levels move real run fields, through the production recompute path. */
     private static void testPassivesReachRunStats() throws Exception {
-        System.out.println("[7] purchased passives reach the run's stats");
+        System.out.println("[11] purchased passives reach the run's stats");
         int n = ContentCatalog.PASSIVES.length;
         int indexOf = -1;
         for (int i = 0; i < n; i++) {
@@ -410,6 +545,14 @@ public final class CharacterShopTest {
         expectEq(getInt(hpWorld, "playerMaxHp"), expected,
             "max HP gained the passive's share of the character's base HP");
 
+        // The vector is global now, so another character sees the same purchase.
+        Object other = world(null, 3, hpLevels);
+        recompute(other);
+        int otherExpected = ContentCatalog.CHARACTERS[3].hp
+            + ContentCatalog.CHARACTERS[3].hp * hp.value * 2 / 100;
+        expectEq(getInt(other, "playerMaxHp"), otherExpected,
+            "a different character gains the same global purchase off its own base HP");
+
         // recomputeStats runs again on every item pickup; it must not compound.
         recompute(hpWorld);
         recompute(hpWorld);
@@ -419,7 +562,7 @@ public final class CharacterShopTest {
 
     /** The two effects the shop introduced are the ones that were dead or missing before. */
     private static void testDefenseAndCoinRateAreActuallyWired() throws Exception {
-        System.out.println("[8] damage reduction and coin rate are wired");
+        System.out.println("[12] damage reduction and coin rate are wired");
         int n = ContentCatalog.PASSIVES.length;
         int defIndex = -1, coinIndex = -1, spdIndex = -1;
         for (int i = 0; i < n; i++) {
@@ -464,7 +607,7 @@ public final class CharacterShopTest {
 
     /** The temporary starting capital exists, is positive, and fits the balance model. */
     private static void testStartingCapitalConstant() throws Exception {
-        System.out.println("[9] the starting capital is usable by the balance model");
+        System.out.println("[13] the starting capital is usable by the balance model");
         long capital = FullGameCanvas.SHOP_STARTING_CAPITAL;
         expect(capital > 0, "the starting capital is positive");
         expect(capital == 9999999L, "and is the amount that was asked for");
@@ -474,7 +617,9 @@ public final class CharacterShopTest {
         for (int i = 0; i < ContentCatalog.PASSIVES.length; i++) {
             total += ContentCatalog.passiveCost(ContentCatalog.passive(i), 0);
         }
+        total += ContentCatalog.SKILL_PASSIVE_COST;
         expect(capital >= total,
-            "the capital covers buying every passive once (" + capital + " vs " + total + ")");
+            "the capital covers buying every passive once plus Skill Pasif (" + capital
+                + " vs " + total + ")");
     }
 }
