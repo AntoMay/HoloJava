@@ -586,6 +586,46 @@ purchase completed (Reroll Lv0→Lv1, 9999999→9997499), and a 600 ms Right hol
 menu exactly one icon. Full suite: 32 suites, 3609 checks; phone JAR 1364288 B, desktop JAR
 1363232 B, `verify_fullgame_build.py` passes.
 
+## Gameplay HUD Rebuild and Level-Up Popup (2026-10-18)
+
+A gameplay-UI wave requested as one list; all items are in and verified on the emulator.
+
+**Top-left block.** The HP text and HP bar are untouched ("pertahankan ui Bar HP"). The
+key-hint line ("5/FIRE/1 Attack 8 Skill 9 Special 0 Pause") is gone — its cache field went
+with it. Under the HP bar sits the new **special bar** (66x6): full violet #AA7CFF while the
+bought special is still held, a dark #3A2C5C track once it is locked or spent. Violet is the
+recommendation because it reads as an "ultimate meter" by convention and never collides with
+the HP pair (green/red) or the EXP gold. The weapon tray moved down to sit under it, and a
+second identical six-cell tray was added below: the **item/skill row**, showing the passive
+skills (items) collected this run — items fill `itemSlots` in pickup order, so the same
+prefix rule as weapons marks the owned cells.
+
+**Top-centre.** The run timer moved here, bold and centred like the original game.
+
+**Top-right run card**, in the requested order: "Lv n", then a gold **EXP bar** (#FFCE4A —
+the genre convention, the only warm bar on the HUD, black-bordered for any sky), then the
+"Status run" label, "Coins n  Kill n", and the wave line "W n | stage". The wave counter is
+`waveNumber()`, incremented in `spawnWave` and floored at 1. The Time-mode Fans progress line
+stays, parked below the wave line.
+
+**Level-up popup.** `FullGameCanvas.drawLevelUp` is now a popup, not a black page: a 50%
+dithered dim (MIDP has no alpha, so a 2x2 checkerboard of near-black reads as the requested
+"background agak transparan") over the frozen run, with a panel in the menu trio — #A8E7FC
+panel, #246C91 ink border/text, #42BFEF accent selection bar (ink on accent keeps the 4.27:1
+contrast the menus already chose). Collab offers keep a deeper gold when idle. The offer list
+lives in a five-row window that scrolls inside the box (`levelUpScroll`, reset when the popup
+closes), so Reroll/Tahan rows can never stretch the popup; ink triangles mark more rows
+above/below.
+
+The pickup-magnet suite's source-reading `read()` helper grew a dynamic buffer: the fixed
+16 KB cap clipped the very `reset()` body it pins once this wave pushed the file past it.
+
+Verified end-to-end on the desktop emulator: full run on Grassy Plains with the new HUD
+(special bar violet, timer centred, gold EXP bar filling at Lv 2, item row marking Sake the
+moment it was taken), the popup stayed open across a long idle, d-pad moved the selection in
+place, and FIRE applied the offer and closed it. Full suite: 32 suites, 3609 checks; phone
+JAR 1364921 B, desktop JAR 1364083 B, `verify_fullgame_build.py` passes (188 assets).
+
 ## Completed in Existing Project Stage
 
 - Phase 1 reports: asset manifest, symbol classification, cross-reference, phase backlog.

@@ -238,10 +238,19 @@ public final class RunWorldPickupMagnetTest {
 
     private static String read(String path) throws Exception {
         java.io.FileInputStream in = new java.io.FileInputStream(path);
-        byte[] data = new byte[16384];
+        // Growable buffer: RunWorld.java keeps growing with each HUD wave, and a fixed cap once
+        // clipped the very reset() body this test pins.
+        byte[] data = new byte[32768];
         int n = 0;
         int r;
-        while ((r = in.read(data, n, data.length - n)) > 0) n += r;
+        while ((r = in.read(data, n, data.length - n)) > 0) {
+            n += r;
+            if (n == data.length) {
+                byte[] bigger = new byte[data.length * 2];
+                System.arraycopy(data, 0, bigger, 0, n);
+                data = bigger;
+            }
+        }
         in.close();
         return new String(data, 0, n, "ISO-8859-1");
     }

@@ -694,6 +694,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             world.setViewport(viewport);
             world.draw(g, viewport.offsetX, viewport.offsetY, System.currentTimeMillis());
             if (world.state() == RunWorld.STATE_LEVEL_UP) drawLevelUp(g, ox, oy);
+            else levelUpScroll = 0; // popup closed: the next level-up starts at the top row
             if (world.state() == RunWorld.STATE_PAUSED) drawPause(g, ox, oy);
             if (world.state() == RunWorld.STATE_GAME_OVER || world.state() == RunWorld.STATE_VICTORY) { /* results handled next tick */ }
         } else if (screen == RESULTS) drawResults(g, ox, oy);
@@ -1353,17 +1354,79 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, x + 24, y + 160, "Boss schedule and enemy pool will load on start.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
+    /** Scroll offset of the level-up offer list, kept in screen space and reset whenever the
+     *  popup closes (see render). The window slides so the selected row always stays visible. */
+    private int levelUpScroll;
+
+    /** Level-up popup: a themed panel over a dithered dim of the frozen run behind it. The
+     *  offer list scrolls inside the box once the rows no longer fit, so the popup keeps one
+     *  fixed size no matter how many offers (or Reroll/Tahan rows) the roll produced. */
     private void drawLevelUp(Graphics g, int x, int y) {
-        g.setColor(0, 0, 0); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
-        drawText(g, x + 100, y + 14, "LEVEL UP", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
-        for (int i = 0; i < world.offerCount(); i++) {
-            int yy = y + 46 + i * 24;
-            boolean selected = i == world.selectedOffer();
-            if (world.offerIsCollab(i)) g.setColor(selected ? 255 : 230, selected ? 190 : 138, selected ? 90 : 40);
-            else g.setColor(selected ? 255 : 190, selected ? 230 : 190, selected ? 60 : 190);
-            drawText(g, x + 24, yy, (selected ? "> " : "  ") + world.offerLabel(i), Font.STYLE_PLAIN, Font.SIZE_SMALL);
-            g.setColor(130, 130, 130);
-            drawText(g, x + 240, yy, world.offerType(i), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        dimBackdrop(g, x, y);
+        int panelW = 248;
+        int rowH = 20;
+        int rows = 5; // list window: how many offers fit the box before the list scrolls
+        int panelH = 34 + rows * rowH + 6;
+        int px = x + (Viewport.MIN_W - panelW) / 2;
+        int py = y + (Viewport.MIN_H - panelH) / 2;
+        // Same panel/ink/accent trio as every menu page: the popup wears the game's own tone.
+        g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
+        g.fillRect(px, py, panelW, panelH);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        g.drawRect(px, py, panelW - 1, panelH - 1);
+        g.drawRect(px + 2, py + 2, panelW - 5, panelH - 5);
+        Font titleFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        g.setFont(titleFont);
+        g.drawString("LEVEL UP", px + (panelW - titleFont.stringWidth("LEVEL UP")) / 2, py + 8,
+                Graphics.TOP | Graphics.LEFT);
+
+        int count = world.offerCount();
+        int sel = world.selectedOffer();
+        if (sel < levelUpScroll) levelUpScroll = sel;
+        if (sel >= levelUpScroll + rows) levelUpScroll = sel - rows + 1;
+        if (levelUpScroll > count - rows) levelUpScroll = count - rows;
+        if (levelUpScroll < 0) levelUpScroll = 0;
+
+        int listY = py + 34;
+        Font rowFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        g.setFont(rowFont);
+        for (int row = 0; row < rows; row++) {
+            int i = levelUpScroll + row;
+            if (i >= count) break;
+            int ry = listY + row * rowH;
+            boolean selected = i == sel;
+            if (selected) {
+                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+                g.fillRect(px + 5, ry, panelW - 10, rowH - 2);
+            }
+            // Ink text on the accent selection bar (4.27:1); collabs keep a deeper gold when
+            // idle so the rare offer still stands out on the light panel.
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+            if (!selected && world.offerIsCollab(i)) g.setColor(176, 116, 20);
+            g.drawString((selected ? "> " : "  ") + world.offerLabel(i), px + 10, ry + 5,
+                    Graphics.TOP | Graphics.LEFT);
+            String tag = world.offerType(i);
+            g.setColor(104, 126, 140);
+            g.drawString(tag, px + panelW - 10 - rowFont.stringWidth(tag), ry + 5, Graphics.TOP | Graphics.LEFT);
+        }
+        // Scroll affordances: ink triangles on the right edge while rows sit above/below.
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        int ax = px + panelW - 8;
+        if (levelUpScroll > 0) g.fillTriangle(ax, listY + 1, ax - 3, listY + 6, ax + 3, listY + 6);
+        if (levelUpScroll + rows < count) {
+            int ay = listY + rows * rowH - 7;
+            g.fillTriangle(ax, ay + 5, ax - 3, ay, ax + 3, ay);
+        }
+    }
+
+    /** 50% dim for popups over a frozen run: MIDP Graphics has no alpha, so a 2x2 checkerboard
+     *  of near-black blocks is what reads as a semi-transparent backdrop while the gameplay
+     *  underneath stays visible. */
+    private void dimBackdrop(Graphics g, int x, int y) {
+        g.setColor(12, 20, 28);
+        for (int py = 0; py < Viewport.MIN_H; py += 2) {
+            int start = ((py / 2) & 1) == 0 ? 0 : 2;
+            for (int px = start; px < Viewport.MIN_W; px += 4) g.fillRect(x + px, y + py, 2, 2);
         }
     }
 

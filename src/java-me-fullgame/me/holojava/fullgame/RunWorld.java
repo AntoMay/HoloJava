@@ -65,16 +65,29 @@ final class RunWorld {
     private static final int HP_BAR_H = 10;
     private static final int HP_BAR_INSET = 2;
     private static final int HP_BAR_LOW_PERCENT = 25;
+    // Special bar: same width as the HP bar, parked directly under it. Violet is the
+    // recommendation for an "ultimate meter": it reads instantly as a charged special and never
+    // collides with the HP pair (green/red) or the EXP gold, on any stage backdrop.
+    private static final int SPECIAL_BAR_X = HP_BAR_X;
+    private static final int SPECIAL_BAR_Y = HP_BAR_Y + HP_BAR_H + 2; // 30
+    private static final int SPECIAL_BAR_W = HP_BAR_W;
+    private static final int SPECIAL_BAR_H = 6;
+    private static final int SPECIAL_BAR_INSET = 1;
+    private static final int SPECIAL_READY_R = 170, SPECIAL_READY_G = 120, SPECIAL_READY_B = 255; // #AA7CFF
+    private static final int SPECIAL_TRACK_R = 58, SPECIAL_TRACK_G = 44, SPECIAL_TRACK_B = 92;   // #3A2C5C
     private static final int BOSS_BAR_W = 250;
     private static final int BOSS_BAR_H = 18;
     private static final int BOSS_BAR_INSET = 3;
 
-    // Compact slot row: six equal cells spanning HP_BAR_W, directly under the HP bar.
+    // Compact slot rows: six equal cells spanning HP_BAR_W. The weapon row sits under the
+    // special bar; the item row mirrors it one row below and holds the passive skills (items)
+    // collected during the run, so the two trays read as one storage block.
     private static final int SLOT_COLS = 6;
     private static final int SLOT_W = HP_BAR_W / SLOT_COLS; // 66 / 6 = 11
     private static final int SLOT_H = 11;
     private static final int SLOT_INSET = 1;
-    private static final int WEAPON_SLOT_Y = 30;
+    private static final int WEAPON_SLOT_Y = SPECIAL_BAR_Y + SPECIAL_BAR_H + 3; // 39
+    private static final int ITEM_SLOT_Y = WEAPON_SLOT_Y + SLOT_H + 2;          // 52
     private static final int SLOT_FILL = 30;
     private static final int SLOT_FILL_EMPTY = 18;
     private static final int SLOT_BORDER = 78;
@@ -85,11 +98,22 @@ final class RunWorld {
     private static final int SLOT_MARK_G = 180;
     private static final int SLOT_MARK_B = 190;
 
-    // Status run block, top-right, right-aligned to the world edge.
+    // Status run block, top-right, right-aligned to the world edge. Order follows the run card:
+    // Lv with its EXP bar first, then the Status run label, Coins/Kill, and the wave counter.
     private static final int STATUS_MARGIN = 4;
-    private static final int STATUS_TITLE_Y = 4;
-    private static final int STATUS_ROW_H = 15;
-    private static final int FANS_LINE_Y = 64;
+    private static final int STATUS_LV_Y = 4;
+    // EXP bar colour recommendation: XP gold (#FFCE4A). Gold is the genre convention for
+    // experience, it is the only warm bar on the HUD, and its black border keeps it legible on
+    // both light (beach) and dark stage skies.
+    private static final int EXP_BAR_W = 76;
+    private static final int EXP_BAR_H = 8;
+    private static final int EXP_FILL_R = 255, EXP_FILL_G = 206, EXP_FILL_B = 74; // #FFCE4A
+    private static final int STATUS_EXP_Y = STATUS_LV_Y + 10;   // 14
+    private static final int STATUS_LABEL_Y = STATUS_EXP_Y + EXP_BAR_H + 3; // 25
+    private static final int STATUS_ROW_H = 13;
+    private static final int STATUS_COINS_Y = STATUS_LABEL_Y + STATUS_ROW_H;  // 38
+    private static final int STATUS_WAVE_Y = STATUS_COINS_Y + STATUS_ROW_H;   // 51
+    private static final int STATUS_FANS_Y = STATUS_WAVE_Y + STATUS_ROW_H;    // 64
 
     private final AssetLibrary assets;
     private final ContentCatalog.CharacterDef character;
@@ -218,6 +242,8 @@ final class RunWorld {
 
     private long nextSpawnAt;
     private long nextWaveAt;
+    /** Number of timed wave groups spawned so far; the HUD's "W n" reads it via waveNumber(). */
+    private int waveCount;
     private boolean ringEventDone;
     private boolean hordeEventDone;
     private int nextEndlessEncounter;
@@ -250,25 +276,20 @@ final class RunWorld {
 
     // HUD string cache fields for allocation optimization
     private String cachedHpString;
-    private String cachedLevelExpString;
-    private String cachedTimeKillString;
-    private String cachedCoinsString;
+    private String cachedLvString;
+    private String cachedCoinsKillString;
+    private String cachedWaveString;
     private String cachedFansString;
     private String cachedBossName;
-    private String cachedControlsHint = "5/FIRE/1 Attack  8 Skill  9 Special  0 Pause";
 
     private int lastPlayerHp = -1;
     private int lastPlayerMaxHp = -1;
     private int lastPlayerLevel = -1;
-    private int lastExperience = -1;
-    private int lastExpNeed = -1;
     private long lastTimeStringUpdate = 0;
     private String cachedTimeString;
-    private String lastCachedTimeString;
-    private int lastKills = -1;
     private int lastCoins = -1;
-    private int lastWeaponCount = -1;
-    private int lastItemCount = -1;
+    private int lastKills = -1;
+    private int lastWaveNumber = -1;
     private int lastFansKills = -1;
     private String lastBossName = null;
 
@@ -330,18 +351,18 @@ final class RunWorld {
 
         // Reset HUD string cache
         cachedHpString = null;
-        cachedLevelExpString = null;
-        cachedTimeKillString = null;
-        cachedCoinsString = null;
+        cachedLvString = null;
+        cachedCoinsKillString = null;
+        cachedWaveString = null;
         cachedFansString = null;
         cachedBossName = null;
         lastPlayerHp = -1; lastPlayerMaxHp = -1;
-        lastPlayerLevel = -1; lastExperience = -1; lastExpNeed = -1;
-        lastTimeStringUpdate = 0; cachedTimeString = null; lastCachedTimeString = null;
-        lastKills = -1;
-        lastCoins = -1; lastWeaponCount = -1; lastItemCount = -1;
+        lastPlayerLevel = -1;
+        lastTimeStringUpdate = 0; cachedTimeString = null;
+        lastCoins = -1; lastKills = -1; lastWaveNumber = -1;
         lastFansKills = -1;
         lastBossName = null;
+        waveCount = 0;
 
         addWeapon(ContentCatalog.weaponIndex(character.mainWeapon), 1);
         if (mode.standardLoadout) weaponLevels[0] = ContentCatalog.weapon(0).maxLevel;
@@ -439,6 +460,9 @@ final class RunWorld {
     String bossName() { return boss.active ? ContentCatalog.BOSSES[boss.defIndex].name : ""; }
     boolean won() { return won; }
     long elapsedSeconds() { return Math.max(0L, (System.currentTimeMillis() - startTime) / 1000L); }
+
+    /** Waves fired this run, floored at 1: the opening field always counts as wave one. */
+    int waveNumber() { return waveCount < 1 ? 1 : waveCount; }
 
     void pause() { if (state == STATE_RUNNING) state = STATE_PAUSED; }
     void resume() { if (state == STATE_PAUSED) state = STATE_RUNNING; }
@@ -1468,6 +1492,7 @@ final class RunWorld {
     }
 
     private void spawnWave(int count, boolean ring) {
+        waveCount++;
         for (int i = 0; i < count; i++) {
             int index = freeEnemy();
             if (index == -1) return;
@@ -2234,7 +2259,23 @@ final class RunWorld {
         g.fillRect(offX + HP_BAR_X + HP_BAR_INSET, offY + HP_BAR_Y + HP_BAR_INSET, hpFillW, HP_BAR_H - 2 * HP_BAR_INSET);
         g.setColor(0, 0, 0);
 
-        // Weapon row: six equal cells directly under the HP bar, spanning the same width.
+        // Special bar: directly under the HP bar. Full violet while the bought special is still
+        // held; an empty dark track when the Special Attack upgrade is locked or the special has
+        // already been spent this run.
+        int specialFillW = (!specialLocked && !specialUsed) ? SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET : 0;
+        g.setColor(20, 20, 20);
+        g.fillRect(offX + SPECIAL_BAR_X, offY + SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H);
+        g.setColor(SPECIAL_TRACK_R, SPECIAL_TRACK_G, SPECIAL_TRACK_B);
+        g.fillRect(offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET, offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET,
+                SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
+        if (specialFillW > 0) {
+            g.setColor(SPECIAL_READY_R, SPECIAL_READY_G, SPECIAL_READY_B);
+            g.fillRect(offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET, offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET,
+                    specialFillW, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
+        }
+        g.setColor(0, 0, 0);
+
+        // Weapon row: six equal cells spanning the HP bar width, under the special bar.
         // A cell is marked as owned only when the slot holds a real, in-range weapon entry.
         for (int i = 0; i < SLOT_COLS; i++) {
             boolean owned = false;
@@ -2245,57 +2286,70 @@ final class RunWorld {
             drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + WEAPON_SLOT_Y, owned);
         }
 
-        // The skill has no HUD row: Skill Pasif is a shop passive that fires on its own, so it
-        // takes no slot here and nothing in this row could ever change during a run.
+        // Item row: the same six-cell tray under the weapons, holding the passive skills (the
+        // items) picked up during the run. Items always fill the first free cells in pickup
+        // order, so a plain prefix test marks the acquired ones.
+        for (int i = 0; i < SLOT_COLS; i++) {
+            drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + ITEM_SLOT_Y, i < itemCount);
+        }
         g.setColor(0, 0, 0);
 
-        // Level & EXP line (drawn in the status run block, top-right)
-        if (cachedLevelExpString == null || playerLevel != lastPlayerLevel || experience != lastExperience || expNeed != lastExpNeed) {
-            cachedLevelExpString = "Lv " + playerLevel + "  EXP " + experience + "/" + expNeed;
-            lastPlayerLevel = playerLevel;
-            lastExperience = experience;
-            lastExpNeed = expNeed;
-        }
-
-        // Time & Kill line (timeString cached per second)
+        // Run timer, top-centre like the original game. Black like the rest of the top HUD,
+        // which is tuned for the light stage skies (timeString cached per second).
         if (cachedTimeString == null || now - lastTimeStringUpdate >= 1000) {
             cachedTimeString = timeString();
             lastTimeStringUpdate = now;
         }
-        if (cachedTimeKillString == null || kills != lastKills || !cachedTimeString.equals(lastCachedTimeString)) {
-            cachedTimeKillString = "Time " + cachedTimeString + "  Kill " + kills;
-            lastKills = kills;
-            lastCachedTimeString = cachedTimeString;
-        }
+        Font medium = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        g.setFont(medium);
+        g.drawString(cachedTimeString, offX + viewWidth / 2, offY + STATUS_LV_Y, Graphics.TOP | Graphics.HCENTER);
+        g.setFont(small);
 
-        // Coins, Weapons, Items line (drawn in the status run block, top-right)
-        if (cachedCoinsString == null || coins != lastCoins || weaponCount != lastWeaponCount || itemCount != lastItemCount) {
-            cachedCoinsString = "Coins " + coins + "  W " + weaponCount + "  I " + itemCount;
-            lastCoins = coins;
-            lastWeaponCount = weaponCount;
-            lastItemCount = itemCount;
-        }
-
-        // Status run block, top-right. Graphics.RIGHT anchors each line to the right edge of the
-        // visible playfield, so the block tracks the viewport rather than the world: a world wider
-        // than the view would otherwise push the whole block off screen.
+        // Status run block, top-right, in run-card order: Lv with its EXP bar, the Status run
+        // label, Coins/Kill, and the wave counter. Graphics.RIGHT anchors each line to the
+        // right edge of the visible playfield, so the block tracks the viewport rather than
+        // the world: a world wider than the view would otherwise push it off screen.
         int statusX = offX + viewWidth - STATUS_MARGIN;
-        g.setColor(0, 0, 0);
-        g.drawString("Status run", statusX, offY + STATUS_TITLE_Y, Graphics.TOP | Graphics.RIGHT);
-        g.drawString(cachedLevelExpString, statusX, offY + STATUS_TITLE_Y + STATUS_ROW_H,
-                Graphics.TOP | Graphics.RIGHT);
-        g.drawString(cachedTimeKillString, statusX, offY + STATUS_TITLE_Y + 2 * STATUS_ROW_H,
-                Graphics.TOP | Graphics.RIGHT);
-        g.drawString(cachedCoinsString, statusX, offY + STATUS_TITLE_Y + 3 * STATUS_ROW_H,
-                Graphics.TOP | Graphics.RIGHT);
+        if (cachedLvString == null || playerLevel != lastPlayerLevel) {
+            cachedLvString = "Lv " + playerLevel;
+            lastPlayerLevel = playerLevel;
+        }
+        g.drawString(cachedLvString, statusX, offY + STATUS_LV_Y, Graphics.TOP | Graphics.RIGHT);
 
-        // Fans line (Time Mode only), parked below the status block so the two never overlap.
+        // EXP bar: gold fill on a dark track with a black border, legible on any sky.
+        double expRatio = expNeed > 0 ? MathUtil.clamp((double) experience / (double) expNeed, 0.0, 1.0) : 0.0;
+        int expX = statusX - EXP_BAR_W;
+        g.setColor(25, 25, 25); g.fillRect(expX, offY + STATUS_EXP_Y, EXP_BAR_W, EXP_BAR_H);
+        g.setColor(EXP_FILL_R, EXP_FILL_G, EXP_FILL_B);
+        g.fillRect(expX + 1, offY + STATUS_EXP_Y + 1, (int) ((EXP_BAR_W - 2) * expRatio), EXP_BAR_H - 2);
+        g.setColor(0, 0, 0);
+        g.drawRect(expX, offY + STATUS_EXP_Y, EXP_BAR_W - 1, EXP_BAR_H - 1);
+
+        g.drawString("Status run", statusX, offY + STATUS_LABEL_Y, Graphics.TOP | Graphics.RIGHT);
+
+        // Coins & Kill on one line (both counters cached together)
+        if (cachedCoinsKillString == null || coins != lastCoins || kills != lastKills) {
+            cachedCoinsKillString = "Coins " + coins + "  Kill " + kills;
+            lastCoins = coins;
+            lastKills = kills;
+        }
+        g.drawString(cachedCoinsKillString, statusX, offY + STATUS_COINS_Y, Graphics.TOP | Graphics.RIGHT);
+
+        // Wave counter: timed wave groups fired this run, | the stage number.
+        int currentWave = waveNumber();
+        if (cachedWaveString == null || currentWave != lastWaveNumber) {
+            cachedWaveString = "W " + currentWave + " | " + (stageIndex + 1);
+            lastWaveNumber = currentWave;
+        }
+        g.drawString(cachedWaveString, statusX, offY + STATUS_WAVE_Y, Graphics.TOP | Graphics.RIGHT);
+
+        // Fans line (Time Mode only), parked below the wave line so the two never overlap.
         if (mode.completion == ContentCatalog.COMPLETE_KILL_TARGET) {
             if (cachedFansString == null || kills != lastFansKills) {
                 cachedFansString = "Fans " + kills + "/" + mode.targetKills;
                 lastFansKills = kills;
             }
-            g.drawString(cachedFansString, statusX, offY + FANS_LINE_Y, Graphics.TOP | Graphics.RIGHT);
+            g.drawString(cachedFansString, statusX, offY + STATUS_FANS_Y, Graphics.TOP | Graphics.RIGHT);
         }
 
         // Boss HP bar and name. The bar is centred on the visible playfield, the same axis as the
@@ -2314,10 +2368,6 @@ final class RunWorld {
             }
             g.drawString(cachedBossName, offX + viewWidth / 2, offY + 96, Graphics.TOP | Graphics.HCENTER);
         }
-
-        // Controls hint (constant string, no cache needed but kept for consistency)
-        g.setColor(200, 200, 200);
-        g.drawString(cachedControlsHint, offX + viewWidth - 105, offY + viewHeight - 14, Graphics.TOP | Graphics.LEFT);
     }
 
     /**
