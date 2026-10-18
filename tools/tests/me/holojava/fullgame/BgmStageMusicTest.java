@@ -43,18 +43,14 @@ public final class BgmStageMusicTest {
 
     // ------------------------------------------------------------------ tests
 
-    /** [1] Every stage maps somewhere under assets/fullgame/audio; stage6 maps nowhere. */
+    /** [1] Every stage maps somewhere under assets/fullgame/audio; stage6 now has custom BGM. */
     private static void testEveryStageHasMusicExceptHutanSawit() {
-        System.out.println("[1] every stage except Arena Hutan Sawit maps to a midi");
+        System.out.println("[1] every stage maps to a midi (including Arena Hutan Sawit)");
         for (int i = 0; i < ContentCatalog.STAGES.length; i++) {
             String id = ContentCatalog.stage(i).id;
             String path = BgmAudio.musicFor(i);
-            if ("stage6".equals(id)) {
-                expect(path == null, "Arena Hutan Sawit stays silent, got " + path);
-            } else {
-                expect(path != null && path.startsWith("/assets/fullgame/audio/"),
-                        "stage " + id + " maps under assets/fullgame/audio, got " + path);
-            }
+            expect(path != null && path.startsWith("/assets/fullgame/audio/"),
+                    "stage " + id + " maps under assets/fullgame/audio, got " + path);
         }
     }
 

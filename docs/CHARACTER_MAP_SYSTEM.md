@@ -204,35 +204,32 @@ stage("map_id", "Nama Map", false, false, order,
 ## 4. BGM untuk Map Tanpa Musik (Hutan Sawit)
 
 ### Kebijakan
-- **stage6 (Arena Hutan Sawit)** sengaja diam di mapping BGM lama (`musicFor(5)` → `null`)
-- User request: pakai MP3 `/home/antomay/Downloads/M.B.G (Mas Bahlil Ganteng) Full Lirik Lagu Viral 2026.mp3` untuk map ini saja.
+- **stage6 (Arena Hutan Sawit)** sekarang memiliki BGM kustom: transkripsi dari MP3 viral "M.B.G (Mas Bahlil Ganteng)".
+- Stage index 10 (ContentCatalog.STAGES[10]) → `bgm_palm_forest.mid` (24 KB).
 
-### Pipeline Transkripsi MP3 → MIDI
-Sama dengan pipeline BGM stage (basic-pitch), tapi input MP3:
+### Pipeline Transkripsi MP3 → MIDI (Selesai)
+Sama dengan pipeline BGM stage (basic-pitch), input MP3:
 
 ```bash
-# 1. Convert MP3 → OGG/WAV (basic-pitch butuh audio PCM)
+# 1. Convert MP3 → WAV (basic-pitch butuh audio PCM)
 ffmpeg -i "input.mp3" -ar 44100 -ac 2 temp.wav
 
 # 2. Jalankan basic-pitch dengan threshold padat (sama stage BGM)
-python -m basic_pitch.infer temp.wav --output-dir /tmp/midi_out \
-       --onset-threshold 0.3 --frame-threshold 0.3 --minimum-note-length 60
+basic-pitch /tmp/midi_out temp.wav --onset-threshold 0.3 --frame-threshold 0.3 --minimum-note-length 60
 
 # 3. Post-process (register-split, type-0, dedupe, quantize ≤60KB)
-#    Pakai script pipeline existing: /tmp/opencode/holojava_midi_pipeline.py
-#    Tambah track "palm_forest" ke TRACKS list.
-
-# 4. Output: assets/fullgame/audio/bgm_palm_forest.mid (~20-30 KB)
+#    Script: /tmp/opencode/post_process_midi.py
+#    Output: assets/fullgame/audio/bgm_palm_forest.mid (24 KB)
 ```
 
 ### Daftarkan di BgmAudio.java
 ```java
 // Di musicFor():
-case 5: return "/assets/fullgame/audio/bgm_palm_forest.mid"; // Arena Hutan Sawit
+case 10: return "/assets/fullgame/audio/bgm_palm_forest.mid"; // Arena Hutan Sawit (index 10)
 ```
 
 ### Update Budget Test
-`BgmStageMusicTest.MAX_TOTAL_BYTES` sudah 614400 (cukup untuk +1 track).
+`BgmStageMusicTest.MAX_TOTAL_BYTES` = 614400 (cukup untuk 11 track).
 
 ---
 
@@ -254,25 +251,25 @@ case 5: return "/assets/fullgame/audio/bgm_palm_forest.mid"; // Arena Hutan Sawi
 
 ## 6. Checklist Implementasi (Untuk PR/Commit)
 
-- [ ] **Choose Your Idol screen** (`CHOOSE_IDOL`)
-    - [ ] Grid 5×1 (atau 3×2) character boxes
-    - [ ] Navigasi L/R/U/D antar kotak
-    - [ ] Panel detail: nama, tab STATUS/SKILL, sprite animasi, stats, skill desc
-    - [ ] Enter → ke CHOOSE_MODE
-- [ ] **Choose Mode screen** (`CHOOSE_MODE`)
-    - [ ] Hanya "Stage Mode" (Endless/Time nanti)
-    - [ ] Enter → ke STAGES
-- [ ] **StageDef mapCols/mapRows** > 0 untuk composed background
-- [ ] **Generator map baru** di `tools/generate_{map}_map.py`
-- [ ] **MP3 → MIDI** untuk `bgm_palm_forest.mid`
-- [ ] **BgmAudio.musicFor(5)** → `bgm_palm_forest.mid`
-- [ ] **Test suite** 33/33 pass
-- [ ] **Build phone + desktop** pass verify
-- [ ] **Dokumentasi** update di file ini
+- [x] **Choose Your Idol screen** (`CHOOSE_IDOL`)
+    - [x] Grid 5×1 character boxes
+    - [x] Navigasi L/R antar kotak (wrap)
+    - [x] Panel detail: nama, tab STATUS/SKILL, sprite animasi, stats, skill desc
+    - [x] FIRE → ke CHOOSE_MODE, LEFT di index 0 → MENU
+- [x] **Choose Mode screen** (`CHOOSE_MODE`)
+    - [x] Hanya "Stage Mode" (Endless/Time nanti)
+    - [x] FIRE → ke STAGES, LEFT → CHOOSE_IDOL
+- [x] **StageDef mapCols/mapRows** > 0 untuk composed background (stage6: 4×4)
+- [x] **Generator map** sudah ada: `tools/generate_palm_forest_map.py`
+- [x] **MP3 → MIDI** untuk `bgm_palm_forest.mid` (24 KB)
+- [x] **BgmAudio.musicFor(10)** → `bgm_palm_forest.mid`
+- [x] **Test suite** 33/33 pass
+- [x] **Build phone + desktop** pass verify
+- [x] **Dokumentasi** update di file ini
 
 ---
 
-## 7. Catatan Teknis
+## 7. Catatan Teknis (Lengkap)
 
 ### AssetLibrary Character Loading
 ```java
@@ -282,14 +279,24 @@ case 5: return "/assets/fullgame/audio/bgm_palm_forest.mid"; // Arena Hutan Sawi
 ```
 
 ### Animasi Sprite di Menu
-- Gunakan `MeleeAnimation` atau buat `IdleAnimation` sederhana
-- Frame rate: ~8 FPS (125 ms/frame) untuk idle, ~10 FPS untuk run
+- Gunakan `AssetLibrary.characterIdle(index, frame)` untuk idle animation
+- Frame rate: ~8 FPS (125 ms/frame) untuk idle
 - Loop tak hingga di panel detail
 
 ### Performa
 - Grid 4×4 parts = 16 image draw per frame (sudah dipakai Hutan Sawit, OK)
 - MIDI ≤60 KB/track, total ≤600 KB (sudah di-enforce test)
-- JAR size target < 2 MB (sekarang ~1.5 MB)
+- JAR size target < 2 MB (sekarang ~1.52 MB)
+
+---
+
+## 8. Riwayat Perubahan (Changelog)
+
+| Tanggal | Commit | Perubahan |
+|---------|--------|-----------|
+| 2026-10-18 | `7a5776e` | Menu redesign: Choose Your Idol flow (Main → Idol → Mode → Stage) |
+| 2026-10-18 | *(commit ini)* | BGM Hutan Sawit: MP3→MIDI transkripsi, update BgmAudio.musicFor(10) |
+| 2026-10-18 | *(commit ini)* | Test update: BgmStageMusicTest, UiStateMachineTest untuk flow baru |
 
 ---
 
