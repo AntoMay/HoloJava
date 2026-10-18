@@ -778,27 +778,12 @@ public final class CharacterShopTest {
             "coin value stops at the +200% cap");
     }
 
-    /** The temporary starting capital exists, is positive, and fits the balance model. */
+    /** Public build has zero starting capital; balance model still accepts crediting. */
     private static void testStartingCapitalConstant() throws Exception {
         System.out.println("[14] the starting capital is usable by the balance model");
         long capital = FullGameCanvas.SHOP_STARTING_CAPITAL;
-        expect(capital > 0, "the starting capital is positive");
-        expect(capital == 9999999L, "and is the amount that was asked for");
-        expect(CoinBalance.canAdd(0L, capital), "the balance model accepts crediting it");
-
-        // Enough to buy the first level of every row at least once, which is the point of the
-        // temporary grant: a tester can open every tab and buy across it.
-        long total = 0;
-        int priced = 0;
-        for (int i = 0; i < ContentCatalog.UPGRADES.length; i++) {
-            ContentCatalog.UpgradeDef d = ContentCatalog.upgrade(i);
-            if (d.prices == null || d.prices.length == 0) continue;
-            total += d.prices[0];
-            priced++;
-        }
-        expect(priced == 34, "every row has a first-level price (" + priced + ")");
-        expect(capital >= total,
-            "the capital covers buying every row's first level (" + capital + " vs " + total + ")");
+        expect(capital == 0L, "public build starts with 0 coins");
+        // canAdd(0, 0) is false by design (amount must be > 0), which is fine for public build.
     }
 
     /**

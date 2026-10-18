@@ -52,7 +52,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * policy instead of a persistence change. Deleting this constant and the single call to
      * {@code ensureStartingCapital()} restores a zero balance with no other edit.
      */
-    static final long SHOP_STARTING_CAPITAL = 9999999L;
+    static final long SHOP_STARTING_CAPITAL = 0L;
     /** Rows the shop draws per screen; the rest are reached by scrolling. */
     private static final int SHOP_PAGE_SIZE = 5;
 
