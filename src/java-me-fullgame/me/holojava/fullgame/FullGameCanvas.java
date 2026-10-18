@@ -9,8 +9,8 @@ import javax.microedition.lcdui.game.GameCanvas;
 public class FullGameCanvas extends GameCanvas implements Runnable {
     interface ShutdownRequest { void requestShutdown(); }
     private static final int MENU = 0;
-    private static final int MODES = 1;
-    private static final int CHARACTERS = 2;
+    private static final int CHOOSE_IDOL = 1;   // Choose Your Idol: grid 5 karakter + panel detail
+    private static final int CHOOSE_MODE = 2;   // Choose Mode: hanya Stage Mode (simplified)
     private static final int STAGES = 3;
     private static final int SETTINGS = 4;
     private static final int PREP = 5;
@@ -26,6 +26,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // Toko internal step: Beli Upgrade opens this tab submenu (Ability / Stat / Lainnya /
     // Kembali) before the purchase page, so tab choice is a list pick instead of an L/R swipe.
     private static final int SHOPTABS = 15;
+    // Old CHARACTERS (2) and MODES (1) removed; flow now: Main -> CHOOSE_IDOL -> CHOOSE_MODE -> STAGES
     /**
      * Main menu rows, in draw order: Papan Peringkat, Pencapaian, Toko, Main, Holo House,
      * Pengaturan, Credits, Keluar. The start-up flow lives behind Main — Main to Mode to
@@ -67,6 +68,24 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int KEY_ATTACK_ALT = '1';   // basic attack
     private static final int KEY_PAUSE = '0';        // alternate pause
     private static final int KEY_SPECIAL = '9';
+
+    // Choose Your Idol grid layout
+    private static final int IDOL_COLS = 5;                    // 5 karakter = 5 kolom
+    private static final int IDOL_ROWS = 1;
+    private static final int IDOL_BOX_W = 56;                  // 56*5 = 280, margin 20 each side
+    private static final int IDOL_BOX_H = 72;
+    private static final int IDOL_GRID_X = 20;                 // start x
+    private static final int IDOL_GRID_Y = 60;                 // start y (below header)
+    private static final int IDOL_GAP = 8;                     // gap antar kotak
+    // Panel detail (kanan/bawah grid)
+    private static final int IDOL_PANEL_X = 20;
+    private static final int IDOL_PANEL_Y = 150;
+    private static final int IDOL_PANEL_W = 280;
+    private static final int IDOL_PANEL_H = 80;
+    // Animasi idle di panel
+    private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
+    private int idolAnimFrame = 0;
+    private int idolAnimTimer = 0;
 
     // Shared HoloJava UI palette. The page and the panel are both light, so every piece of menu
     // text is drawn in MENU_INK: white only reaches 1.66:1 on MENU_BG and 1.35:1 on MENU_PANEL,
@@ -321,8 +340,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         // like Up/Down and only FIRE confirms.
         if (screen == SPLASH) updateSplash(fireEdge || leftEdge || rightEdge, keys);
         else if (screen == MENU) updateMain(upEdge || leftEdge, downEdge || rightEdge, fireEdge);
-        else if (screen == MODES) updateModes(upEdge, downEdge, fireEdge || leftEdge, rightEdge);
-        else if (screen == CHARACTERS) updateCharacters(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
+        else if (screen == CHOOSE_IDOL) updateChooseIdol(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
+        else if (screen == CHOOSE_MODE) updateChooseMode(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == SHOP) updateShop(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == SHOPTABS) updateShopTabs(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == UPGRADES) updateUpgrades(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
@@ -356,9 +375,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             case MAIN_LEADERBOARD: openLocked("PAPAN PERINGKAT"); break;
             case MAIN_ACHIEVEMENTS: openLocked("PENCAPAIAN"); break;
             case MAIN_TOKO: screen = SHOP; menuIndex = 0; shopScroll = 0; refundConfirm = false; break;
-            // Main opens the start-up flow: Mode, then Karakter, then Stage. Each step advances
-            // on FIRE and steps back one screen, so starting a run is a straight walk down.
-            case MAIN_PLAY: screen = MODES; menuIndex = modeIndex; break;
+            // Main opens the start-up flow: Choose Your Idol -> Choose Mode -> Stage.
+            case MAIN_PLAY: screen = CHOOSE_IDOL; menuIndex = characterIndex; idolAnimFrame = 0; idolAnimTimer = 0; break;
             case MAIN_HOLOHOUSE: openLocked("HOLO HOUSE"); break;
             case MAIN_SETTINGS: screen = SETTINGS; menuIndex = 0; break;
             case MAIN_CREDITS: screen = CREDITS; break;
@@ -377,64 +395,71 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         screen = LOCKED;
     }
 
-    private void updateModes(boolean up, boolean down, boolean fire, boolean back) {
-        // Stage Mode only for now. Endless and Time remain defined in ContentCatalog.MODES and
-        // fully implemented in RunWorld; widening this list is the single point of re-enabling them.
-        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 2);
-        if (back) { screen = MENU; menuIndex = MAIN_PLAY; return; }
-        if (!fire) return;
-        if (menuIndex == 1) { screen = MENU; menuIndex = MAIN_PLAY; return; }
-        // Choosing a mode continues to character select: Main -> Mode -> Karakter -> Stage.
-        modeIndex = 0;
-        screen = CHARACTERS;
-        menuIndex = characterIndex;
-        characterPage = characterIndex / CHARACTER_PAGE_SIZE;
-    }
-
-    /**
-     * Karakter step of the Main to Mode to Karakter to Stage flow. FIRE picks the highlighted
-     * character, pins it in the save and continues to Stage Select with the current stage
-     * highlighted; L/R page through the roster, with L on the first page and the trailing Back
-     * row stepping back up to Game Mode.
-     */
-    private void updateCharacters(boolean up, boolean down, boolean fire, boolean left, boolean right) {
-        int count = ContentCatalog.CHARACTERS.length + 1;
-        if (left) {
-            if (characterPage > 0) { characterPage--; menuIndex = Math.max(0, menuIndex - CHARACTER_PAGE_SIZE); }
-            else backToModes();
-            return;
-        }
-        if (right) {
-            int lastPage = (ContentCatalog.CHARACTERS.length - 1) / CHARACTER_PAGE_SIZE;
-            if (characterPage < lastPage) { characterPage++; menuIndex = Math.min(count - 1, menuIndex + CHARACTER_PAGE_SIZE); }
-            return;
-        }
-        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), count);
-        if (!fire) return;
-        if (menuIndex == ContentCatalog.CHARACTERS.length) { backToModes(); return; }
-        characterIndex = menuIndex;
-        characterPage = characterIndex / CHARACTER_PAGE_SIZE;
-        save.setSelectedCharacter(characterIndex);
-        screen = STAGES;
-        menuIndex = stageRowForSelection();
-    }
-
-    private void backToModes() {
-        screen = MODES;
-        menuIndex = modeIndex;
-    }
-
-    private void backToCharacters() {
-        screen = CHARACTERS;
-        menuIndex = characterIndex;
-        characterPage = characterIndex / CHARACTER_PAGE_SIZE;
-    }
-
     /** Stage Select row for the stage a run would start with right now. */
     private int stageRowForSelection() {
         int[] stages = selectableStages();
         for (int slot = 0; slot < stages.length; slot++) if (stages[slot] == stageIndex) return slot;
         return 0;
+    }
+
+    /**
+     * CHOOSE YOUR IDOL — grid 5 karakter (Gura, Ame, Calli, Kiara, Ina).
+     * Navigasi: L/R antar kotak (wrap). FIRE pilih → ke CHOOSE_MODE.
+     * LEFT di index 0 → kembali ke MENU. Panel detail di bawah.
+     */
+    private void updateChooseIdol(boolean up, boolean down, boolean fire, boolean left, boolean right) {
+        int count = ContentCatalog.CHARACTERS.length; // 5
+        if (left) {
+            if (menuIndex == 0) {
+                screen = MENU;
+                menuIndex = MAIN_PLAY;
+            } else {
+                menuIndex = (menuIndex - 1 + count) % count;
+            }
+            return;
+        }
+        if (right) {
+            menuIndex = (menuIndex + 1) % count;
+            return;
+        }
+        // U/D tidak dipakai di grid 1 baris, tapi support untuk future multi-row
+        if (up || down) {
+            // no-op for 1 row
+            return;
+        }
+        if (!fire) return;
+        // Pilih karakter
+        characterIndex = menuIndex;
+        save.setSelectedCharacter(characterIndex);
+        screen = CHOOSE_MODE;
+        menuIndex = 0; // hanya Stage Mode
+    }
+
+    /**
+     * CHOOSE MODE — simplified: hanya "Stage Mode".
+     * FIRE → STAGES. Back (LEFT) → CHOOSE_IDOL.
+     */
+    private void updateChooseMode(boolean up, boolean down, boolean fire, boolean left, boolean right) {
+        if (left) { backToChooseIdol(); return; }
+        if (up || down) {
+            // hanya 1 item, no-op
+            return;
+        }
+        if (!fire) return;
+        // Stage Mode dipilih
+        modeIndex = 0;
+        screen = STAGES;
+        menuIndex = stageRowForSelection();
+    }
+
+    private void backToChooseIdol() {
+        screen = CHOOSE_IDOL;
+        menuIndex = characterIndex;
+    }
+
+    private void backToChooseMode() {
+        screen = CHOOSE_MODE;
+        menuIndex = 0;
     }
 
     /**
@@ -583,10 +608,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int[] stages = selectableStages();
         int count = stages.length + 1;
         if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), count);
-        // Stage is the last step of the flow, so Back and the trailing row step up to Karakter.
-        if (left) { backToCharacters(); return; }
+        // Stage is the last step of the flow, so Back and the trailing row step up to Choose Mode.
+        if (left) { backToChooseMode(); return; }
         if (!fire) return;
-        if (menuIndex == stages.length) { backToCharacters(); return; }
+        if (menuIndex == stages.length) { backToChooseMode(); return; }
         int candidate = stages[menuIndex];
         if (!stageUnlocked(candidate) || !stageAllowed(candidate)) return;
         stageIndex = candidate;
@@ -745,8 +770,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (screen == SPLASH) { drawSplash(g, x, y); return; }
         if (screen != MENU) drawPageBackground(g, x, y);
         if (screen == MENU) drawMainMenu(g, x, y);
-        else if (screen == MODES) drawModes(g, x, y);
-        else if (screen == CHARACTERS) drawCharacters(g, x, y);
+        else if (screen == CHOOSE_IDOL) drawChooseIdol(g, x, y);
+        else if (screen == CHOOSE_MODE) drawChooseMode(g, x, y);
         else if (screen == SHOP) drawShop(g, x, y);
         else if (screen == SHOPTABS) drawShopTabs(g, x, y);
         else if (screen == UPGRADES) drawUpgrades(g, x, y);
@@ -940,6 +965,118 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         ink(g);
         drawText(g, x + 20, y + 195, ContentCatalog.MODES[modeIndex].objective, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 20, y + 210, "Endless & Time belum tersedia. L/R: kembali.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    /**
+     * CHOOSE YOUR IDOL — grid 5 karakter + panel detail.
+     * Layout: 5 kotak horizontal (56x72 each), panel detail di bawah (280x80).
+     * Setiap kotak: portrait + nama. Panel: animasi idle, stats, weapon, skill, special, skill desc.
+     */
+    private void drawChooseIdol(Graphics g, int x, int y) {
+        title(g, x, y, "CHOOSE YOUR IDOL");
+        int count = ContentCatalog.CHARACTERS.length; // 5
+        int boxW = IDOL_BOX_W;
+        int boxH = IDOL_BOX_H;
+        int startX = IDOL_GRID_X;
+        int startY = IDOL_GRID_Y;
+
+        // Update animasi timer (dipanggil per frame via render)
+        idolAnimTimer++;
+        if (idolAnimTimer >= (1000 / IDOL_ANIM_FPS) / 33) { // ~33ms per frame
+            idolAnimTimer = 0;
+            idolAnimFrame = (idolAnimFrame + 1) % 4; // 4 frame idle
+        }
+
+        // Draw 5 character boxes
+        for (int i = 0; i < count; i++) {
+            ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
+            int bx = startX + i * (boxW + IDOL_GAP);
+            int by = startY;
+            boolean selected = (i == menuIndex);
+
+            // Box background
+            g.setColor(selected ? MENU_ACCENT_R : MENU_INK_R,
+                       selected ? MENU_ACCENT_G : MENU_INK_G,
+                       selected ? MENU_ACCENT_B : MENU_INK_B);
+            g.fillRect(x + bx, y + by, boxW, boxH);
+            g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+            g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
+
+            // Portrait in box (centered)
+            Image portrait = assets.characterPortrait(i);
+            if (portrait != null) {
+                int px = x + bx + (boxW - portrait.getWidth()) / 2;
+                int py = y + by + 4;
+                g.drawImage(portrait, px, py, Graphics.TOP | Graphics.LEFT);
+            }
+
+            // Name below portrait
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+            drawText(g, x + bx + boxW / 2, y + by + boxH - 18,
+                    c.name, selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+
+            // Selected marker
+            if (selected) {
+                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+                g.drawRect(x + bx - 2, y + by - 2, boxW + 3, boxH + 3);
+            }
+        }
+
+        // Panel detail for selected character
+        ContentCatalog.CharacterDef sel = ContentCatalog.CHARACTERS[menuIndex];
+        int px = x + IDOL_PANEL_X;
+        int py = y + IDOL_PANEL_Y;
+        int pw = IDOL_PANEL_W;
+        int ph = IDOL_PANEL_H;
+
+        // Panel background
+        g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
+        g.fillRect(px, py, pw, ph);
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.drawRect(px, py, pw - 1, ph - 1);
+
+        // Left side: animated sprite (idle)
+        Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
+        if (idleSprite != null) {
+            int sx = px + 10;
+            int sy = py + (ph - idleSprite.getHeight()) / 2;
+            g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
+        }
+
+        // Right side: stats & info
+        int tx = px + 70;
+        int ty = py + 8;
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        drawText(g, tx, ty, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
+        ty += 18;
+        drawText(g, tx, ty, "HP: " + sel.hp + "  ATK: " + sel.atkPercent + "%", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += 16;
+        drawText(g, tx, ty, "SPD: " + sel.spdPercent + "%  CRT: " + sel.critPercent + "%", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += 16;
+        ContentCatalog.WeaponDef wp = ContentCatalog.weapon(sel.mainWeapon);
+        String wpName = wp != null ? wp.name : sel.mainWeapon;
+        drawText(g, tx, ty, "Weapon: " + wpName, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += 16;
+        drawText(g, tx, ty, "Special: " + sel.special, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += 16;
+        drawText(g, tx, ty, "Skill: " + sel.skill, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+
+        // Hint
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        drawText(g, x + 20, y + 225, "L/R: pilih  FIRE: pilih  L: kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    /**
+     * CHOOSE MODE — hanya Stage Mode.
+     */
+    private void drawChooseMode(Graphics g, int x, int y) {
+        title(g, x, y, "CHOOSE MODE");
+        String[] items = { "Stage Mode" };
+        list(g, x, y + 60, items, menuIndex);
+        ink(g);
+        drawText(g, x + 20, y + 150, "Hanya Stage Mode tersedia.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 20, y + 170, "Endless & Time coming soon.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 20, y + 210, "FIRE: lanjut  L: kembali ke Choose Idol", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     /**

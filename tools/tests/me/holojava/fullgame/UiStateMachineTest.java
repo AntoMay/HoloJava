@@ -25,14 +25,8 @@ public final class UiStateMachineTest {
 
     // Screen constants, mirroring FullGameCanvas.
     private static final int MENU = 0;
-    private static final int SHOP = 10;
-    private static final int UPGRADES = 11;
-    private static final int ARMORY = 12;
-    private static final int LOCKED = 13;
-    private static final int CREDITS = 14;
-    private static final int SHOPTABS = 15;
-    private static final int MODES = 1;
-    private static final int CHARACTERS = 2;
+    private static final int CHOOSE_IDOL = 1;
+    private static final int CHOOSE_MODE = 2;
     private static final int STAGES = 3;
     private static final int SETTINGS = 4;
     private static final int PREP = 5;
@@ -40,6 +34,12 @@ public final class UiStateMachineTest {
     private static final int RESULTS = 7;
     private static final int CONTROLS = 8;
     private static final int SPLASH = 9;
+    private static final int SHOP = 10;
+    private static final int UPGRADES = 11;
+    private static final int ARMORY = 12;
+    private static final int LOCKED = 13;
+    private static final int CREDITS = 14;
+    private static final int SHOPTABS = 15;
 
     private static Object unsafe;
 
@@ -175,6 +175,24 @@ public final class UiStateMachineTest {
                         Boolean.valueOf(back) });
     }
 
+    private static void chooseIdol(Object c, boolean up, boolean down, boolean fire, boolean left,
+            boolean right) throws Exception {
+        call(c, "updateChooseIdol",
+                new Class<?>[] { boolean.class, boolean.class, boolean.class, boolean.class,
+                        boolean.class },
+                new Object[] { Boolean.valueOf(up), Boolean.valueOf(down), Boolean.valueOf(fire),
+                        Boolean.valueOf(left), Boolean.valueOf(right) });
+    }
+
+    private static void chooseMode(Object c, boolean up, boolean down, boolean fire, boolean left,
+            boolean right) throws Exception {
+        call(c, "updateChooseMode",
+                new Class<?>[] { boolean.class, boolean.class, boolean.class, boolean.class,
+                        boolean.class },
+                new Object[] { Boolean.valueOf(up), Boolean.valueOf(down), Boolean.valueOf(fire),
+                        Boolean.valueOf(left), Boolean.valueOf(right) });
+    }
+
     private static void characters(Object c, boolean up, boolean down, boolean fire, boolean left,
             boolean right) throws Exception {
         call(c, "updateCharacters",
@@ -258,9 +276,8 @@ public final class UiStateMachineTest {
         testMainMenuIndexWrapsAtBothEnds();
         testExitItemRequestsShutdown();
         testModesScreenRoutesAndBacks();
-        testCharacterScreenSelectsAndPersists();
-        testCharacterScreenPaging();
-        testCharacterIndexWraps();
+        testChooseIdolSelectsAndPersists();
+        testChooseIdolIndexWraps();
         testStageScreenRefusesLockedStages();
         testStageScreenBackRestoresCharacter();
         testSettingsTogglesAndRoutes();
@@ -306,7 +323,7 @@ public final class UiStateMachineTest {
      */
     private static void testMainMenuRoutesToEveryScreen() throws Exception {
         System.out.println("[2] the main menu routes to every screen");
-        int[][] routes = { { 0, LOCKED }, { 1, LOCKED }, { 2, SHOP }, { 3, MODES },
+        int[][] routes = { { 0, LOCKED }, { 1, LOCKED }, { 2, SHOP }, { 3, CHOOSE_IDOL },
                 { 4, LOCKED }, { 5, SETTINGS }, { 6, CREDITS } };
         for (int[] r : routes) {
             Object c = canvas(MENU, r[0]);
@@ -389,99 +406,60 @@ public final class UiStateMachineTest {
 
     private static void testModesScreenRoutesAndBacks() throws Exception {
         System.out.println("[5] the mode screen routes and backs");
-        Object back = canvas(MODES, 0);
-        modes(back, false, false, false, true);
-        expectEq(getInt(back, "screen"), MENU, "back returns to the menu");
-        expectEq(getInt(back, "menuIndex"), 3, "and lands on the Main entry");
+        // Old MODES screen is now CHOOSE_MODE (reached via CHOOSE_IDOL)
+        Object back = canvas(CHOOSE_MODE, 0);
+        chooseMode(back, false, false, false, true, false);
+        expectEq(getInt(back, "screen"), CHOOSE_IDOL, "back returns to Choose Idol");
+        expectEq(getInt(back, "menuIndex"), 0, "and lands on first character");
 
-        Object pick = canvas(MODES, 0);
-        modes(pick, false, false, true, false);
-        expectEq(getInt(pick, "screen"), CHARACTERS,
-            "choosing the available mode continues to Karakter");
+        Object pick = canvas(CHOOSE_MODE, 0);
+        chooseMode(pick, false, false, true, false, false);
+        expectEq(getInt(pick, "screen"), STAGES, "choosing Stage Mode continues to Stage Select");
         expectEq(getInt(pick, "modeIndex"), 0, "and records the chosen mode");
-        expectEq(getInt(pick, "menuIndex"), 0, "with the cursor on the selected character");
 
-        // The trailing Back row does the same as the back key.
-        Object backRow = canvas(MODES, 1);
-        modes(backRow, false, false, true, false);
-        expectEq(getInt(backRow, "screen"), MENU, "the Back row returns to the menu");
-        expectEq(getInt(backRow, "menuIndex"), 3, "with the cursor on Main");
-
-        // The index is bounded to the two entries this build exposes.
-        Object walk = canvas(MODES, 0);
-        for (int i = 0; i < 20; i++) modes(walk, false, true, false, false);
+        // The index is bounded to the one entry this build exposes.
+        Object walk = canvas(CHOOSE_MODE, 0);
+        for (int i = 0; i < 20; i++) chooseMode(walk, false, true, false, false, false);
         int idx = getInt(walk, "menuIndex");
-        expect(idx >= 0 && idx < 2, "the mode index stayed within [0,2), saw " + idx);
+        expect(idx == 0, "the mode index stayed at 0, saw " + idx);
     }
 
     /**
-     * Karakter is a step of the flow now: picking a character records it, persists it and
-     * continues straight to Stage Select with the current stage highlighted.
+     * Choose Idol is the first step: picking a character records it, persists it and
+     * continues to Choose Mode.
      */
-    private static void testCharacterScreenSelectsAndPersists() throws Exception {
-        System.out.println("[6] choosing a character records, persists and continues to stages");
-        Object c = canvas(CHARACTERS, 2);
-        characters(c, false, false, true, false, false);
+    private static void testChooseIdolSelectsAndPersists() throws Exception {
+        System.out.println("[6] choosing an idol records, persists and continues to choose mode");
+        Object c = canvas(CHOOSE_IDOL, 2);
+        chooseIdol(c, false, false, true, false, false);
         expectEq(getInt(c, "characterIndex"), 2, "the selection became the character index");
-        expectEq(getInt(c, "screen"), STAGES, "and the flow continues to stage select");
-        expectEq(getInt(c, "menuIndex"), 0, "with the stage cursor on the current stage");
+        expectEq(getInt(c, "screen"), CHOOSE_MODE, "and the flow continues to choose mode");
+        expectEq(getInt(c, "menuIndex"), 0, "with the mode cursor on Stage Mode");
 
         Field save = canvasClass().getDeclaredField("save");
         save.setAccessible(true);
         SaveStore s = (SaveStore) save.get(c);
         expectEq(s.selectedCharacter(), 2, "the choice was persisted for the next session");
 
-        // Stepping back up and clicking another character re-selects and re-persists it.
-        stages(c, false, false, false, true);               // back up to Karakter
-        characters(c, true, false, false, false, false);     // up to character 1
-        characters(c, false, false, true, false, false);     // click it
-        expectEq(getInt(c, "characterIndex"), 1, "a later click re-selects");
-        expectEq(((SaveStore) save.get(c)).selectedCharacter(), 1,
-            "and re-persists for the next session");
-        expectEq(getInt(c, "screen"), STAGES, "and continues to stage select again");
+        // L/R navigation wraps
+        Object nav = canvas(CHOOSE_IDOL, 1);
+        for (int i = 0; i < 4; i++) chooseIdol(nav, false, false, false, false, true);
+        expectEq(getInt(nav, "menuIndex"), 0, "RIGHT wraps around the 5 characters");
+        // LEFT at index 0 goes back to MENU (not tested here)
     }
 
-    /** Paging only moves when another page exists, and left on the first page leaves the screen. */
-    private static void testCharacterScreenPaging() throws Exception {
-        System.out.println("[7] the character screen pages");
-        int count = ContentCatalog.CHARACTERS.length + 1;
-        int lastPage = (ContentCatalog.CHARACTERS.length - 1) / 8;
-
-        Object c = canvas(CHARACTERS, 0);
-        set(c, "characterPage", Integer.valueOf(0));
-        characters(c, false, false, false, false, true);   // right on the first page
-        expectEq(getInt(c, "characterPage"), 0, "right on the only page does not page");
-
-        characters(c, false, false, false, true, false);  // left on the first page
-        expectEq(getInt(c, "screen"), MODES, "left on the first page steps back up to Game Mode");
-        expectEq(getInt(c, "menuIndex"), 0, "with the mode cursor restored");
-
-        if (lastPage > 0) {
-            Object paged = canvas(CHARACTERS, 0);
-            set(paged, "characterPage", Integer.valueOf(0));
-            characters(paged, false, false, false, false, true);
-            expectEq(getInt(paged, "characterPage"), 1, "right advances a page when one exists");
-            characters(paged, false, false, false, true, false);
-            expectEq(getInt(paged, "characterPage"), 0, "and left comes back");
-        }
-        expect(count > 1, "the character list is non-empty");
-    }
-
-    /** Up and down wrap over the roster plus one trailing row: Back. */
-    private static void testCharacterIndexWraps() throws Exception {
-        System.out.println("[8] the character index wraps");
-        int count = ContentCatalog.CHARACTERS.length + 1;
-        Object c = canvas(CHARACTERS, 0);
+    /** L/R wraps over the 5 character grid. */
+    private static void testChooseIdolIndexWraps() throws Exception {
+        System.out.println("[7] the choose idol index wraps");
+        int count = ContentCatalog.CHARACTERS.length; // 5
+        // Test RIGHT wrapping: start at 4, press RIGHT (count+5) times
+        Object c = canvas(CHOOSE_IDOL, 4);
         for (int i = 0; i < count + 5; i++) {
-            characters(c, false, true, false, false, false);
+            chooseIdol(c, false, false, false, false, true); // right
             int idx = getInt(c, "menuIndex");
             expect(idx >= 0 && idx < count, "index " + idx + " stayed within [0," + count + ")");
         }
-        // The one trailing entry is Back, which steps back up to Game Mode.
-        Object back = canvas(CHARACTERS, ContentCatalog.CHARACTERS.length);
-        characters(back, false, false, true, false, false);
-        expectEq(getInt(back, "screen"), MODES, "the trailing entry steps back up to Game Mode");
-        expectEq(getInt(back, "menuIndex"), 0, "with the mode cursor restored");
+        // LEFT at index > 0 goes to previous index; LEFT at 0 goes back to MENU (not tested here)
     }
 
     /** A locked stage is refused outright: no selection, no transition. */
@@ -509,12 +487,12 @@ public final class UiStateMachineTest {
     }
 
     private static void testStageScreenBackRestoresCharacter() throws Exception {
-        System.out.println("[10] the stage screen backs to character select");
+        System.out.println("[10] the stage screen backs to choose mode");
         Object c = canvas(STAGES, 0);
         set(c, "characterIndex", Integer.valueOf(3));
         stages(c, false, false, false, true);
-        expectEq(getInt(c, "screen"), CHARACTERS, "back returns to character select");
-        expectEq(getInt(c, "menuIndex"), 3, "restoring the selected character as the cursor");
+        expectEq(getInt(c, "screen"), CHOOSE_MODE, "back returns to choose mode");
+        expectEq(getInt(c, "menuIndex"), 0, "cursor on Stage Mode");
     }
 
     private static void testSettingsTogglesAndRoutes() throws Exception {
@@ -755,20 +733,20 @@ public final class UiStateMachineTest {
 
     /** The whole start-up flow in order: Main -> Mode -> Karakter -> Stage, and back up again. */
     private static void testPlayFlowWalksDownAndBack() throws Exception {
-        System.out.println("[20] the play flow walks Main -> Mode -> Karakter -> Stage");
+        System.out.println("[20] the play flow walks Main -> Choose Idol -> Choose Mode -> Stage");
         Object c = canvas(MENU, 3);
         mainMenu(c, false, false, true);
-        expectEq(getInt(c, "screen"), MODES, "Main opens Game Mode");
-        modes(c, false, false, true, false);
-        expectEq(getInt(c, "screen"), CHARACTERS, "picking the mode opens Karakter");
-        characters(c, false, false, true, false, false);
-        expectEq(getInt(c, "screen"), STAGES, "picking a character opens Stage Select");
+        expectEq(getInt(c, "screen"), CHOOSE_IDOL, "Main opens Choose Idol");
+        chooseIdol(c, false, false, true, false, false);
+        expectEq(getInt(c, "screen"), CHOOSE_MODE, "picking an idol opens Choose Mode");
+        chooseMode(c, false, false, true, false, false);
+        expectEq(getInt(c, "screen"), STAGES, "picking Stage Mode opens Stage Select");
         stages(c, false, false, false, true);
-        expectEq(getInt(c, "screen"), CHARACTERS, "back from Stage steps up to Karakter");
-        characters(c, false, false, false, true, false);
-        expectEq(getInt(c, "screen"), MODES, "back from Karakter steps up to Mode");
-        modes(c, false, false, false, true);
-        expectEq(getInt(c, "screen"), MENU, "back from Mode returns to the menu");
+        expectEq(getInt(c, "screen"), CHOOSE_MODE, "back from Stage steps up to Choose Mode");
+        chooseMode(c, false, false, false, true, false);
+        expectEq(getInt(c, "screen"), CHOOSE_IDOL, "back from Choose Mode steps up to Choose Idol");
+        chooseIdol(c, false, false, false, true, false);
+        expectEq(getInt(c, "screen"), MENU, "back from Choose Idol returns to the menu");
         expectEq(getInt(c, "menuIndex"), 3, "with the cursor still on Main");
     }
 

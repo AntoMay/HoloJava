@@ -289,6 +289,17 @@ final class AssetLibrary {
         return current.portrait;
     }
 
+    /** Returns a single idle animation frame for the character (for menu display). */
+    Image characterIdle(int index, int frame) {
+        if (index < 0 || index >= characters.length) index = 0;
+        CharacterAssets current = characters[index];
+        if (current.idle == null) character(index); // force load
+        if (current.idle != null && current.idle.length > 0) {
+            return current.idle[frame % current.idle.length];
+        }
+        return null;
+    }
+
     /**
      * Resolves the portrait asset filename for a catalog id. Portrait files are named after the
      * documented wiki id, which is longer than the catalog id used by gameplay code, so the five
