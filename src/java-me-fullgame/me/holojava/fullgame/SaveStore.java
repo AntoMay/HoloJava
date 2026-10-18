@@ -10,9 +10,11 @@ final class SaveStore {
     private static final String STORE = "holojava_fullgame_v1";
     private static final int RECORD_ID = 1;
     // Bytes 0..46 are the per-character completion map, byte 47 is settings,
-    // and bytes 48..55 are the permanent global coin balance. Growing DATA_LEN is the migration:
-    // load() copies min(record length, DATA_LEN), so older shorter records load in full and the
-    // bytes they never had stay zero, which decodes to a balance of 0. No store rename, no reset.
+    // bytes 48..55 are the permanent global coin balance, and byte 56 is the audio preference.
+    // Growing DATA_LEN is the migration: load() copies min(record length, DATA_LEN), so older
+    // shorter records load in full and the bytes they never had stay zero — a zero audio byte
+    // decodes to Audio ON, which is the only behaviour those builds ever had. No store rename,
+    // no reset.
     //
     // Completion is two bytes per character, both inside the 0..46 region that was already
     // reserved for it: byte i holds stage orders 0-7, byte HIGH_BASE + i holds orders 8-15.
@@ -24,9 +26,10 @@ final class SaveStore {
     // DATA_LEN, so the record length never changes. Older records holding the eight-passive
     // global vector (layout v2) or the per-character vector before it (v1) are remapped by
     // migrateShopLayout() on load. See UPGRADE_BASE and LAYOUT_VERSION.
-    private static final int DATA_LEN = 56;
+    private static final int DATA_LEN = 57;
     private static final int SETTINGS_INDEX = 47;
     private static final int COIN_INDEX = 48;
+    private static final int AUDIO_INDEX = 56;
     private static final int COIN_LEN = 8;
     private static final int LEGACY_LEN = 6;
     private static final int LEGACY_STAGES = 5;   // legacy isCompleted required stageOrder < 5.
@@ -343,6 +346,17 @@ final class SaveStore {
         int v = data[SETTINGS_INDEX] & 0xff;
         if (value) v |= 1; else v &= ~1;
         data[SETTINGS_INDEX] = (byte) v;
+        save();
+    }
+
+    /** Pengaturan's Audio row. Inverted on disk: bit 0 clear (0 — a fresh install or any
+     *  pre-audio save) means ON, so music stays the default and no migration is needed. */
+    boolean audioEnabled() { return (data[AUDIO_INDEX] & 1) == 0; }
+
+    void setAudioEnabled(boolean value) {
+        int v = data[AUDIO_INDEX] & 0xff;
+        if (value) v &= ~1; else v |= 1;
+        data[AUDIO_INDEX] = (byte) v;
         save();
     }
 

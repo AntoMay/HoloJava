@@ -96,6 +96,18 @@ public final class UiStateMachineTest {
         }
     }
 
+    /** Reads FullGameCanvas.save.audioEnabled() through the same reflection seam as getInt. */
+    private static boolean audioEnabled(Object target) {
+        try {
+            Field f = target.getClass().getDeclaredField("save");
+            f.setAccessible(true);
+            SaveStore save = (SaveStore) f.get(target);
+            return save == null || save.audioEnabled();
+        } catch (Exception e) {
+            throw new IllegalStateException("cannot read audio preference", e);
+        }
+    }
+
     private static boolean getBool(Object target, String field) {
         try {
             Field f = target.getClass().getDeclaredField(field);
@@ -507,10 +519,14 @@ public final class UiStateMachineTest {
 
     private static void testSettingsTogglesAndRoutes() throws Exception {
         System.out.println("[11] settings routes controls, exit and back");
-        // Audio is row 0 and deliberately does nothing.
+        // Audio is row 0: it stays on the settings page but flips the saved preference.
         Object audio = canvas(SETTINGS, 0);
+        boolean before = audioEnabled(audio);
         settings(audio, false, false, true, false);
-        expectEq(getInt(audio, "screen"), SETTINGS, "the audio row has no destination yet");
+        expectEq(getInt(audio, "screen"), SETTINGS, "the audio row stays on the settings page");
+        expect(audioEnabled(audio) != before, "the audio row toggles the saved preference");
+        settings(audio, false, false, true, false);
+        expect(audioEnabled(audio) == before, "pressing the audio row again toggles it back");
 
         Object controls = canvas(SETTINGS, 1);
         settings(controls, false, false, true, false);

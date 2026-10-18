@@ -65,15 +65,16 @@ final class RunWorld {
     private static final int HP_BAR_H = 10;
     private static final int HP_BAR_INSET = 2;
     private static final int HP_BAR_LOW_PERCENT = 25;
-    // Special bar: same width as the HP bar, parked directly under it. Violet is the
-    // recommendation for an "ultimate meter": it reads instantly as a charged special and never
-    // collides with the HP pair (green/red) or the EXP gold, on any stage backdrop.
+    // Special bar: parked directly under the HP bar, now as wide as the EXP bar (both 76 px;
+    // EXP_BAR_W is declared below, so the width is mirrored by hand). Gold #FFCE4A is the fill
+    // the EXP bar used to wear, moved here as requested: it still never collides with the HP
+    // pair (green/red) or the new light-blue EXP fill, on any stage backdrop.
     private static final int SPECIAL_BAR_X = HP_BAR_X;
     private static final int SPECIAL_BAR_Y = HP_BAR_Y + HP_BAR_H + 2; // 30
-    private static final int SPECIAL_BAR_W = HP_BAR_W;
+    private static final int SPECIAL_BAR_W = 76; // == EXP_BAR_W (declared below)
     private static final int SPECIAL_BAR_H = 6;
     private static final int SPECIAL_BAR_INSET = 1;
-    private static final int SPECIAL_READY_R = 170, SPECIAL_READY_G = 120, SPECIAL_READY_B = 255; // #AA7CFF
+    private static final int SPECIAL_READY_R = 255, SPECIAL_READY_G = 206, SPECIAL_READY_B = 74;  // #FFCE4A
     private static final int SPECIAL_TRACK_R = 58, SPECIAL_TRACK_G = 44, SPECIAL_TRACK_B = 92;   // #3A2C5C
     private static final int BOSS_BAR_W = 250;
     private static final int BOSS_BAR_H = 18;
@@ -102,12 +103,12 @@ final class RunWorld {
     // Lv with its EXP bar first, then the Status run label, Coins/Kill, and the wave counter.
     private static final int STATUS_MARGIN = 4;
     private static final int STATUS_LV_Y = 4;
-    // EXP bar colour recommendation: XP gold (#FFCE4A). Gold is the genre convention for
-    // experience, it is the only warm bar on the HUD, and its black border keeps it legible on
-    // both light (beach) and dark stage skies.
+    // EXP bar: light blue, sampled from the original game's own hud_expbar_anim art (#5EDDEE)
+    // so the fill reads exactly like HoloCure's EXP bar. Its track is the matching deep blue
+    // from hud_expbar_bg (#183684); the black border keeps both legible on light and dark skies.
     private static final int EXP_BAR_W = 76;
     private static final int EXP_BAR_H = 8;
-    private static final int EXP_FILL_R = 255, EXP_FILL_G = 206, EXP_FILL_B = 74; // #FFCE4A
+    private static final int EXP_FILL_R = 94, EXP_FILL_G = 221, EXP_FILL_B = 238; // #5EDDEE
     private static final int STATUS_EXP_Y = STATUS_LV_Y + 10;   // 14
     private static final int STATUS_LABEL_Y = STATUS_EXP_Y + EXP_BAR_H + 3; // 25
     private static final int STATUS_ROW_H = 13;
@@ -192,6 +193,13 @@ final class RunWorld {
      * minting extra rolls. A 10-coin drop becomes 12 at one level and 30 at the cap.
      */
     private int coinDropBonus;
+    /**
+     * Percent added to the food drop RATE by the shop's Food Drops Up row (+4% per level,
+     * 5 levels = +20%). Unlike Money Gain Up this one rolls: the base is 1-in-200 per kill and
+     * the bonus shrinks the divisor — 200 at zero bonus, 166 at the cap — so more levels mean
+     * more heal pickups on the field, not bigger heals.
+     */
+    private int foodDropBonus;
     /**
      * Purchased shop upgrade levels for this run, indexed like ContentCatalog.UPGRADES.
      *
@@ -1423,7 +1431,9 @@ final class RunWorld {
                 dropPickup(enemy.x, enemy.y, 1, 10 + (10 * coinDropBonus) / 100, now);
             }
         }
-        if (rand(200) == 0) dropPickup(enemy.x, enemy.y, 2, 1, now);
+        // Food (heal pickup): base 1-in-200 per kill, scaled by Food Drops Up as a rate bonus
+        // (+4%/level, cap +20% → divisor 166), so buying the row makes food land more often.
+        if (rand(Math.max(40, 200 * 100 / (100 + foodDropBonus))) == 0) dropPickup(enemy.x, enemy.y, 2, 1, now);
         if (rand(1301) == 0) dropPickup(enemy.x, enemy.y, 4, 1, now);
         if (rand(3000) == 0) dropPickup(enemy.x, enemy.y, 3, 0, now);
         if (now < lifestealUntil) playerHp = Math.min(playerMaxHp, playerHp + 1);
@@ -1563,7 +1573,7 @@ final class RunWorld {
     private void recomputeStats() {
         atkPercentBonus = 0; hastePercent = 0; speedPercentBonus = 0;
         pickupPercentBonus = 0; critPercentBonus = 0; expPercentBonus = 0; defensePercent = 0;
-        coinDropBonus = 0;
+        coinDropBonus = 0; foodDropBonus = 0;
         int maxHp = baseMaxHp;
         for (int i = 0; i < itemCount; i++) {
             ContentCatalog.ItemDef d = ContentCatalog.item(itemSlots[i]);
@@ -1598,6 +1608,7 @@ final class RunWorld {
             else if (p.effect == ContentCatalog.EFFECT_DEFENSE_PCT) defensePercent += v;
             else if (p.effect == ContentCatalog.EFFECT_PICKUP_PCT) pickupPercentBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_COIN_PCT) coinDropBonus += v;
+            else if (p.effect == ContentCatalog.EFFECT_FOOD_DROP) foodDropBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_REGEN) regenHeal += v;
         }
         regenHealPerTick = regenHeal;
@@ -2083,7 +2094,11 @@ final class RunWorld {
                 if (assets.coin != null) g.drawImage(assets.coin, x, y - 3, Graphics.TOP | Graphics.LEFT);
                 else { g.setColor(255, 200, 0); g.fillRect(x, y, 10, 10); }
             } else if (p.type == 2) {
-                g.setColor(255, 100, 100); g.fillRect(x + 3, y + 2, 8, 8);
+                // Ground food: Okayu's onigiri from the unpacked game (spr_OkayuOnigiri_0,
+                // 16x14) centred over the 12px pickup box; the red square is the fallback when
+                // the art failed to load.
+                if (assets.food != null) g.drawImage(assets.food, x - 2, y - 1, Graphics.TOP | Graphics.LEFT);
+                else { g.setColor(255, 100, 100); g.fillRect(x + 3, y + 2, 8, 8); }
             } else if (p.type == 3) {
                 g.setColor(255, 255, 255); g.fillRect(x + 3, y + 3, 6, 6);
             } else {
@@ -2235,7 +2250,7 @@ final class RunWorld {
     private void drawHud(Graphics g, int offX, int offY, long now) {
         Font small = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         g.setFont(small);
-        g.setColor(0, 0, 0);
+        g.setColor(255, 255, 255); // gameplay HUD text is white, as requested
 
         // HP line: "HP X/Y"
         if (cachedHpString == null || playerHp != lastPlayerHp || playerMaxHp != lastPlayerMaxHp) {
@@ -2292,10 +2307,10 @@ final class RunWorld {
         for (int i = 0; i < SLOT_COLS; i++) {
             drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + ITEM_SLOT_Y, i < itemCount);
         }
-        g.setColor(0, 0, 0);
+        g.setColor(255, 255, 255);
 
-        // Run timer, top-centre like the original game. Black like the rest of the top HUD,
-        // which is tuned for the light stage skies (timeString cached per second).
+        // Run timer, top-centre like the original game, in white like the rest of the gameplay
+        // HUD (timeString cached per second).
         if (cachedTimeString == null || now - lastTimeStringUpdate >= 1000) {
             cachedTimeString = timeString();
             lastTimeStringUpdate = now;
@@ -2316,15 +2331,17 @@ final class RunWorld {
         }
         g.drawString(cachedLvString, statusX, offY + STATUS_LV_Y, Graphics.TOP | Graphics.RIGHT);
 
-        // EXP bar: gold fill on a dark track with a black border, legible on any sky.
+        // EXP bar: light-blue fill (#5EDDEE) on the original's deep-blue track (#183684),
+        // black border, legible on any sky.
         double expRatio = expNeed > 0 ? MathUtil.clamp((double) experience / (double) expNeed, 0.0, 1.0) : 0.0;
         int expX = statusX - EXP_BAR_W;
-        g.setColor(25, 25, 25); g.fillRect(expX, offY + STATUS_EXP_Y, EXP_BAR_W, EXP_BAR_H);
+        g.setColor(24, 54, 132); g.fillRect(expX, offY + STATUS_EXP_Y, EXP_BAR_W, EXP_BAR_H);
         g.setColor(EXP_FILL_R, EXP_FILL_G, EXP_FILL_B);
         g.fillRect(expX + 1, offY + STATUS_EXP_Y + 1, (int) ((EXP_BAR_W - 2) * expRatio), EXP_BAR_H - 2);
         g.setColor(0, 0, 0);
         g.drawRect(expX, offY + STATUS_EXP_Y, EXP_BAR_W - 1, EXP_BAR_H - 1);
 
+        g.setColor(255, 255, 255);
         g.drawString("Status run", statusX, offY + STATUS_LABEL_Y, Graphics.TOP | Graphics.RIGHT);
 
         // Coins & Kill on one line (both counters cached together)

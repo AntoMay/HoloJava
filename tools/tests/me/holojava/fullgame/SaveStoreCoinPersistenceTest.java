@@ -21,7 +21,7 @@ public final class SaveStoreCoinPersistenceTest {
 
     private static final int RECORD_ID = 1;
     private static final int OLD_DATA_LEN = 48;
-    private static final int NEW_DATA_LEN = 56;
+    private static final int NEW_DATA_LEN = 57;
     private static final int SETTINGS_INDEX = 47;
     private static final int COIN_INDEX = 48;
 
@@ -169,12 +169,12 @@ public final class SaveStoreCoinPersistenceTest {
         // index 55 reads as zero, meaning a truncated record can only carry values whose lowest
         // byte is already zero. A 0x7F fill keeps the sign bit clear so the value stays a
         // positive long; a 0xFF fill would decode negative and be treated as corrupt instead.
-        byte[] cut = new byte[NEW_DATA_LEN - 1];
+        byte[] cut = new byte[55];
         for (int i = 0; i < 7; i++) cut[COIN_INDEX + i] = (byte) 0x7F;
         expectEq(new SaveStore(new FakeStorage(cut)).coinBalance(), 0x7F7F7F7F7F7F7F00L,
             "55-byte record reads exactly the seven bytes it has");
 
-        byte[] cutHighBit = new byte[NEW_DATA_LEN - 1];
+        byte[] cutHighBit = new byte[55];
         for (int i = 0; i < 7; i++) cutHighBit[COIN_INDEX + i] = (byte) 0xFF;
         expectEq(new SaveStore(new FakeStorage(cutHighBit)).coinBalance(), 0L,
             "55-byte record whose sign bit is set is treated as corrupt, not as a huge balance");
@@ -200,7 +200,7 @@ public final class SaveStoreCoinPersistenceTest {
         byte[] over = new byte[NEW_DATA_LEN + 64];
         SaveStore.writeCoin(over, COIN_INDEX, Long.MAX_VALUE);
         expectEq(new SaveStore(new FakeStorage(over)).coinBalance(), Long.MAX_VALUE,
-            "over-long record still loads the balance from the first 56 bytes");
+            "over-long record still loads the balance from the first 57 bytes");
 
         // Empty record.
         expectEq(new SaveStore(new FakeStorage(new byte[0])).coinBalance(), 0L,
@@ -331,18 +331,18 @@ public final class SaveStoreCoinPersistenceTest {
             expect(store.coinBalance() >= 0, "length " + len + " yields a usable balance");
         }
         // Exactly 56 is the first length that can carry a full balance.
-        byte[] exact = new byte[NEW_DATA_LEN];
+        byte[] exact = new byte[56];
         SaveStore.writeCoin(exact, COIN_INDEX, 1L);
         expectEq(new SaveStore(new FakeStorage(exact)).coinBalance(), 1L,
             "56 bytes is the first length that carries a balance");
         // One byte short: only the seven bytes at indices 48..54 survive, so a value is representable
         // exactly when its low byte is zero. The codec drops the out-of-range byte silently, which
         // is what makes this a truncation case rather than a corruption case.
-        byte[] short56 = new byte[NEW_DATA_LEN - 1];
+        byte[] short56 = new byte[55];
         for (int i = 0; i < 7; i++) short56[COIN_INDEX + i] = (byte) 0x01;
         expectEq(new SaveStore(new FakeStorage(short56)).coinBalance(), 0x0101010101010100L,
             "a 55-byte record carries a value whose lowest byte is zero");
-        byte[] short56Lost = new byte[NEW_DATA_LEN - 1];
+        byte[] short56Lost = new byte[55];
         SaveStore.writeCoin(short56Lost, COIN_INDEX, 1L);
         expectEq(new SaveStore(new FakeStorage(short56Lost)).coinBalance(), 0L,
             "a 55-byte record cannot carry a value needing its 8th byte");

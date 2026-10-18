@@ -314,8 +314,8 @@ public final class CharacterShopTest {
                     "row '" + d.id + "' is locked, so it has no purchasable price");
             }
         }
-        expectEq(lockedCount, 15,
-            "the 15 rows without gameplay yet are marked locked");
+        expectEq(lockedCount, 14,
+            "the 14 rows without gameplay yet are marked locked");
         // The effects the shop must actually move the run's stats with:
         expect(seenEffect[ContentCatalog.EFFECT_MAX_HP], "a row raises max HP");
         expect(seenEffect[ContentCatalog.EFFECT_DAMAGE_PCT], "a row raises damage");
@@ -403,8 +403,9 @@ public final class CharacterShopTest {
             expectEq(reloaded.upgradeLevel(i), i % (d.maxLevel + 1),
                 "row " + d.id + " survived a reload");
         }
-        expectEq(storage.record.length, 56,
-            "the record kept its historical length, so no save has to migrate");
+        expectEq(storage.record.length, 57,
+            "the record is the full layout (57 bytes: coins plus the audio byte); growing DATA_LEN"
+                    + " is the migration, so old 56-byte saves still load without a rewrite");
         expectEq(storage.record[46] & 0xff, 3, "the persisted record carries layout version 3");
     }
 
@@ -637,7 +638,7 @@ public final class CharacterShopTest {
             expectEq(save.upgradeLevel(i), 0, "locked row '" + def.id + "' stayed at level 0");
             expectEq(save.coinBalance(), before, "locked row '" + def.id + "' charged nothing");
         }
-        expectEq(checked, 15, "every one of the 15 locked rows was exercised");
+        expectEq(checked, 14, "every one of the 14 locked rows was exercised");
     }
 
     /** Hardcore toggles the shared settings flag; Refund All needs two deliberate presses. */

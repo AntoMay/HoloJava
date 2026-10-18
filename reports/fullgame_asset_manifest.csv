@@ -147,6 +147,7 @@ assets/fullgame/pickups/spr_EXP_6.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,
 assets/fullgame/pickups/spr_EXP_7.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
 assets/fullgame/pickups/spr_EXP_8.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
 assets/fullgame/pickups/spr_EXP_9.png,sprites/spr_EXP/ or sprites/spr_holoCoin/,PNG,12,13,RGBA,yes,EXP/coin/food drop,high,EXP/coin sprite family and local frame structure
+assets/fullgame/pickups/spr_OkayuOnigiri_0.png,sprites/spr_OkayuOnigiri/,PNG,16,14,RGBA,yes,food drop,high,exact name and bytes copied from the unpacked spr_OkayuOnigiri source
 assets/fullgame/projectiles/ame_bullet.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,10,8,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
 assets/fullgame/projectiles/ame_weapon.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,18,20,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation
 assets/fullgame/projectiles/axe.png,sprites/spr_BulletTemp/ or character weapon family; see asset mapping notes,PNG,22,24,RGBA,yes,weapon or projectile,medium,weapon/projectile family; engine pattern is an approximation

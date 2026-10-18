@@ -30,6 +30,7 @@ final class AssetLibrary {
     final MeleeAnimation[] meleeAnims = new MeleeAnimation[ContentCatalog.CHARACTERS.length];
     Image[] expFrames;
     Image coin;
+    Image food;
     Image bullet;
     Image ameBullet;
     Image axe;
@@ -109,6 +110,7 @@ final class AssetLibrary {
 
         expFrames = frames("/assets/fullgame/pickups/", 12, "spr_EXP_");
         coin = image("/assets/fullgame/pickups/coin.png");
+        food = image("/assets/fullgame/pickups/spr_OkayuOnigiri_0.png");
         bullet = image("/assets/fullgame/projectiles/bullet.png");
         ameBullet = image("/assets/fullgame/projectiles/ame_bullet.png");
         axe = image("/assets/fullgame/projectiles/axe.png");

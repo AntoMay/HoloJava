@@ -194,7 +194,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     public void resumeApplication() {
         applicationPaused = false;
         if (world != null) world.resume();
-        if (screen == GAME) bgm().play(stageIndex); // re-entering mid-run: the stage track returns
+        if (screen == GAME) {
+            // re-entering mid-run: the stage track returns, unless Pengaturan turned Audio off
+            if (save != null) bgm().setEnabled(save.audioEnabled());
+            bgm().play(stageIndex);
+        }
     }
     public void stopApplication() { stopped = true; }
 
@@ -611,7 +615,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 4);
         if (left) { screen = MENU; menuIndex = MAIN_SETTINGS; return; }
         if (!fire) return;
-        if (menuIndex == 0) { /* audio is deliberately disabled on unverified runtimes */ }
+        if (menuIndex == 0) {
+            // Audio row, now live: the MMAPI path is verified, so the row flips the persisted
+            // preference and the player in one press — OFF silences at once (setEnabled stops),
+            // ON applies on the next play, since this page only opens from menus where nothing
+            // is playing. A missing save leaves the session-only toggle, defaulting to ON.
+            boolean on = !(save != null && save.audioEnabled());
+            if (save != null) save.setAudioEnabled(on);
+            bgm().setEnabled(on);
+        }
         else if (menuIndex == 1) screen = CONTROLS;
         else if (menuIndex == 2) { exitRequested = true; stopped = true; shutdownRequest.requestShutdown(); }
         else { screen = MENU; menuIndex = MAIN_SETTINGS; }
@@ -653,6 +665,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         world = new RunWorld(assets, save, characterIndex, modeIndex, stageIndex);
         world.setViewport(viewport);
         screen = GAME;
+        if (save != null) bgm().setEnabled(save.audioEnabled());
         bgm().play(stageIndex);
         pauseFrom5 = false;  // clear '5' latch so it doesn't trigger pause immediately after start
     }
@@ -1340,7 +1353,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
     private void drawSettings(Graphics g, int x, int y) {
         title(g, x, y, "PENGATURAN");
-        String[] items = { "Audio: OFF (runtime not verified)", "Controls", "Exit", "Back" };
+        String[] items = { "Audio: " + (save != null && save.audioEnabled() ? "ON" : "OFF"),
+                "Controls", "Exit", "Back" };
         list(g, x, y + 65, items, menuIndex);
         ink(g);
         drawText(g, x + 20, y + 190, "Hardcore kini ada di Toko (tab Lainnya).", Font.STYLE_PLAIN, Font.SIZE_SMALL);
@@ -1377,7 +1391,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      *  offer list scrolls inside the box once the rows no longer fit, so the popup keeps one
      *  fixed size no matter how many offers (or Reroll/Tahan rows) the roll produced. */
     private void drawLevelUp(Graphics g, int x, int y) {
-        dimBackdrop(g, x, y);
+        // No full-screen dim: as requested, only the light-blue panel itself floats over the
+        // frozen run. drawPause keeps the full-page treatment; this popup does not.
         int panelW = 248;
         int rowH = 20;
         int rows = 5; // list window: how many offers fit the box before the list scrolls
@@ -1431,17 +1446,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (levelUpScroll + rows < count) {
             int ay = listY + rows * rowH - 7;
             g.fillTriangle(ax, ay + 5, ax - 3, ay, ax + 3, ay);
-        }
-    }
-
-    /** 50% dim for popups over a frozen run: MIDP Graphics has no alpha, so a 2x2 checkerboard
-     *  of near-black blocks is what reads as a semi-transparent backdrop while the gameplay
-     *  underneath stays visible. */
-    private void dimBackdrop(Graphics g, int x, int y) {
-        g.setColor(12, 20, 28);
-        for (int py = 0; py < Viewport.MIN_H; py += 2) {
-            int start = ((py / 2) & 1) == 0 ? 0 : 2;
-            for (int px = start; px < Viewport.MIN_W; px += 4) g.fillRect(x + px, y + py, 2, 2);
         }
     }
 

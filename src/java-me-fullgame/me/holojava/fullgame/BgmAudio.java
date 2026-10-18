@@ -25,6 +25,17 @@ final class BgmAudio {
 
     private Player player;
     private String current;
+    private boolean enabled = true;
+
+    /**
+     * Pengaturan's Audio row: false turns {@link #play(int)} into a no-op and immediately stops
+     * anything playing, so flipping the row silences the game at once. The persisted copy lives
+     * in SaveStore; the canvas pushes it here on every toggle and before every play.
+     */
+    void setEnabled(boolean value) {
+        enabled = value;
+        if (!value) stop();
+    }
 
     /**
      * MIDI resource for a stage index, or null for a stage that plays no music.
@@ -49,8 +60,9 @@ final class BgmAudio {
         }
     }
 
-    /** Starts the stage's track, looping forever. No-op if that track already plays. */
+    /** Starts the stage's track, looping forever. No-op if disabled or if that track already plays. */
     void play(int stageIndex) {
+        if (!enabled) { stop(); return; }
         String path = musicFor(stageIndex);
         if (path == null) { stop(); return; }
         if (path.equals(current) && player != null && player.getState() == Player.STARTED) return;

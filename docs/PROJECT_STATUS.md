@@ -674,6 +674,46 @@ reliable signal. Two quirks worth knowing: alt-tabbing the emulator fires
 transcription — keyboard/lead timbres over the original arrangement, which is exactly the
 trade the size budget demanded.
 
+## HUD, Audio Toggle and Drop Corrections (2026-10-18)
+
+Second feedback pass over the in-game UI and the drop economy:
+
+- **HUD text is white.** Every gameplay HUD string (HP, timer, Lv, Status run, Coins/Kill,
+  wave, Fans) draws in white instead of black; bar borders keep their black outlines.
+- **EXP bar wears the original blue.** Fill `#5EDDEE` sampled from the unpacked
+  `hud_expbar_anim` art, track `#183684` from `hud_expbar_bg` — the source game's own bar
+  palette rather than the previous XP-gold recommendation.
+- **Special bar: gold, EXP-width.** Fill moved to `#FFCE4A` (the EXP bar's old gold) and
+  widened 66 → 76 px so `SPECIAL_BAR_W == EXP_BAR_W`; height and placement unchanged.
+- **LEVEL UP popup has no full-screen dim.** `dimBackdrop` was deleted; only the light-blue
+  panel floats over the frozen run. The pause screen keeps its full-page treatment.
+- **Pengaturan → Audio is live.** The row reads `Audio: ON/OFF`, flips a persisted flag and
+  drives `BgmAudio.setEnabled`: OFF stops the track immediately, ON applies on the next
+  play, and `startRun()`/`resumeApplication()` re-sync the flag from the save on every
+  entry. Storage is SaveStore byte 56 with inverted encoding (0 = ON), so every pre-audio
+  save starts with music on; `DATA_LEN` 56 → 57 is the documented growth migration and no
+  record is rewritten on load.
+- **Food Drops Up is implemented.** The row left the locked set (15 → 14 locked rows):
+  `EFFECT_FOOD_DROP` feeds `RunWorld.foodDropBonus` (+4%/level, 5 levels = +20%), which
+  shrinks the food roll divisor `200 * 100 / (100 + bonus)` — 1-in-200 at zero levels,
+  1-in-166 at the cap. The heal amount itself is unchanged.
+- **Ground food has real art.** The type-2 pickup draws `spr_OkayuOnigiri_0.png` (16×14,
+  copied verbatim from `HoloCure_Unpacked/sprites/spr_OkayuOnigiri/`), centred over the
+  12 px pickup box; the red square stays as the load-failure fallback. Manifest rows
+  188 → 189 and `verify_fullgame_build.py`'s expected count follows.
+
+Audit findings behind the rate questions: the level-up stat pool reads no shop row — the
+`Max HP +10%` offer frequency is the fixed weight (2 of 18) in `fillOffer`, so buying
+"Max HP Up" cannot raise its appearance rate; and the full drop roll table was re-checked
+in place: EXP always drops, coins per-enemy 1-in-N (Money Gain Up scales value only), food
+1-in-200 (now scaled by Food Drops Up), weapon upgrade 1-in-1301, EXP Magnet 1-in-3001,
+boss = big EXP plus five coins.
+
+Gate: 33/33 suites, 3663 checks; both builds PASS (phone JAR 1426414 B manifest-verified,
+desktop JAR 1425508 B). Emulator smoke on Grassy Plains: HUD colours pixel-sampled from a
+screenshot (EXP track `#183684`, special `#FFCE4A`, white text), the LEVEL UP panel showed
+without any dim layer, and the run levelled through several popup cycles with no errors.
+
 ## Completed in Existing Project Stage
 
 - Phase 1 reports: asset manifest, symbol classification, cross-reference, phase backlog.
