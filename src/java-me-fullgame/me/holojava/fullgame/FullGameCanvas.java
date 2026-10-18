@@ -194,10 +194,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     public void resumeApplication() {
         applicationPaused = false;
         if (world != null) world.resume();
+        if (save != null) bgm().setEnabled(save.audioEnabled());
         if (screen == GAME) {
             // re-entering mid-run: the stage track returns, unless Pengaturan turned Audio off
-            if (save != null) bgm().setEnabled(save.audioEnabled());
             bgm().play(stageIndex);
+        } else if (screen != RESULTS) {
+            bgm().playMenu(); // same rule as render(): only the results page stays silent
         }
     }
     public void stopApplication() { stopped = true; }
@@ -723,7 +725,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             if (world.state() == RunWorld.STATE_PAUSED) drawPause(g, ox, oy);
             if (world.state() == RunWorld.STATE_GAME_OVER || world.state() == RunWorld.STATE_VICTORY) { /* results handled next tick */ }
         } else {
-            bgm().stop(); // every non-GAME screen (results, menus, splash) leaves the track behind
+            // pre-game screens carry the menu theme; the results page keeps its silence
+            if (screen == RESULTS) bgm().stop();
+            else bgm().playMenu();
             if (screen == RESULTS) drawResults(g, ox, oy);
             else drawMenuScreen(g, ox, oy);
         }

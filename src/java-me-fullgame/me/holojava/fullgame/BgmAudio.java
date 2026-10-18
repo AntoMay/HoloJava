@@ -8,18 +8,20 @@ import javax.microedition.media.Manager;
 import javax.microedition.media.Player;
 
 /**
- * Stage music behind the run: a looping MIDI BGM loaded from the JAR.
+ * Music behind the game: a looping MIDI BGM loaded from the JAR — the menu theme (Shiny Smily
+ * Story) on the pre-game screens, the stage track during a run.
  *
  * <p>The tracks are transcriptions of the unpacked source OGGs (basic-pitch pipeline, documented
  * in docs/PROJECT_STATUS.md): each source file weighs 5-15 MB, which no J2ME jar can carry,
- * while the transcribed MIDI weighs 3-14 KB — about 112 KB for all ten stages. Mapping is by
- * stage index, and Arena Hutan Sawit (stage6, the project's original stage) is deliberately
- * silent: it has no source track and was requested without music.
+ * while the transcribed MIDI weighs tens of KB — sized by the owner's 2026-10-18 policy (cap
+ * 60 KB per track). Stage mapping is by stage index, and Arena Hutan Sawit (stage6, the
+ * project's original stage) is deliberately silent: it has no source track and was requested
+ * without music.
  *
  * <p>Every MMAPI touch is wrapped in catch (Throwable): a device without MMAPI, a corrupt
  * stream, or a decode failure must degrade to silence, never to a crash. The class makes no
- * media call until the first {@link #play(int)}, so headless tests can construct the canvas
- * and drive the UI without ever touching the media stack.
+ * media call until the first {@link #playMenu()} or {@link #play(int)}, so headless tests can
+ * construct the canvas and drive the UI without ever touching the media stack.
  */
 final class BgmAudio {
 
@@ -46,26 +48,41 @@ final class BgmAudio {
      */
     static String musicFor(int stageIndex) {
         switch (stageIndex) {
-            case 0:  return "/assets/fullgame/audio/bgm_stardust.mid";       // Grassy Plains
-            case 1:  return "/assets/fullgame/audio/bgm_suspect.mid";        // Holo Office
-            case 2:  return "/assets/fullgame/audio/bgm_halloweennight.mid"; // Halloween Castle
-            case 3:  return "/assets/fullgame/audio/bgm_gopeko.mid";         // Gelora Bung Yagoo
-            case 4:  return "/assets/fullgame/audio/bgm_fantasykiseki.mid";  // Fantasy Island
-            case 5:  return "/assets/fullgame/audio/bgm_identity.mid";       // Grassy Plains (Night)
-            case 6:  return "/assets/fullgame/audio/bgm_casino.mid";         // Holo Office (Evening)
-            case 7:  return "/assets/fullgame/audio/bgm_mythortreat.mid";    // Halloween Castle (Myth)
-            case 8:  return "/assets/fullgame/audio/bgm_SSS.mid";            // Gelora Bung Yagoo (Night)
-            case 9:  return "/assets/fullgame/audio/bgm_concert.mid";        // Concert Stage
+            case 0:  return "/assets/fullgame/audio/bgm_suspect.mid";          // Grassy Plains
+            case 1:  return "/assets/fullgame/audio/bgm_candygoround.mid";     // Holo Office
+            case 2:  return "/assets/fullgame/audio/bgm_halloweennight.mid";   // Halloween Castle
+            case 3:  return "/assets/fullgame/audio/bgm_identity.mid";         // Gelora Bung Yagoo
+            case 4:  return "/assets/fullgame/audio/bgm_fantasykiseki.mid";    // Fantasy Island
+            case 5:  return "/assets/fullgame/audio/bgm_adtruck.mid";          // Grassy Plains (Night)
+            case 6:  return "/assets/fullgame/audio/bgm_stardust.mid";         // Holo Office (Evening)
+            case 7:  return "/assets/fullgame/audio/bgm_mythortreat.mid";      // Halloween Castle (Myth)
+            case 8:  return "/assets/fullgame/audio/bgm_bokuragakurukara.mid"; // Gelora Bung Yagoo (Night)
+            case 9:  return "/assets/fullgame/audio/bgm_concert.mid";          // Concert Stage
             default: return null; // stage6 Arena Hutan Sawit: silent by request
         }
     }
 
+    /**
+     * The title-and-menu theme: a transcription of bgm_SSS.ogg (Shiny Smily Story), the original
+     * game's menu BGM. It loops on every pre-game screen — splash, Main Menu and every sub-menu
+     * — and hands over to the stage track the moment a run starts.
+     */
+    static final String MENU_MID = "/assets/fullgame/audio/bgm_SSS.mid";
+
     /** Starts the stage's track, looping forever. No-op if disabled or if that track already plays. */
     void play(int stageIndex) {
+        play(musicFor(stageIndex));
+    }
+
+    /** Starts the menu theme, looping forever. No-op if disabled or if it already plays. */
+    void playMenu() {
+        play(MENU_MID);
+    }
+
+    private void play(String path) {
         if (!enabled) { stop(); return; }
-        String path = musicFor(stageIndex);
         if (path == null) { stop(); return; }
-        if (path.equals(current) && player != null && player.getState() == Player.STARTED) return;
+        if (path.equals(current) && player != null) return;
         stop();
         InputStream raw = null;
         try {

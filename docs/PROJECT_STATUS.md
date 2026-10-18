@@ -630,21 +630,42 @@ JAR 1364921 B, desktop JAR 1364083 B, `verify_fullgame_build.py` passes (188 ass
 
 Every stage now plays its own looping background track during a run. The sources are the
 unpacked OGGs in `HoloCure_Unpacked/sounds/bgm` (14 files, ~171 MB total), which no J2ME jar
-could ever carry — so each track was transcribed to **MIDI** instead: the ten OGGs became
-10 files of 3–14 KB under `assets/fullgame/audio/`, **~112 KB for the whole set** (phone JAR
-1364921 → 1425645 B). The transcription used Spotify's **basic-pitch** (already present at
+could ever carry — so each track was transcribed to **MIDI** instead: ten OGGs became
+10 files under `assets/fullgame/audio/`, sized by the owner's 2026-10-18 policy — **tens of
+KB per track, hard cap 60 KB** (the first pass over-shrunk to 3–14 KB and was re-transcribed).
+The transcription used Spotify's **basic-pitch** (already present at
 `/home/antomay/Projects/_tools/basic-pitch/.venv311`, Python 3.11), whose CLI accepts the OGGs
 directly; each result was post-processed with pretty_midi/mido: notes split by register into
 three GM Level-1 programs (below G2 → Electric Bass 33, G2–B4 → Electric Piano 4, C5 up →
 Lead square 80) and flattened to MIDI type 0 for maximum phone-synth compatibility.
 
 **Stage-to-track table** (the one place it lives: `BgmAudio.musicFor(stageIndex)`; swapping a
-track is a one-line change): stage1 Grassy Plains → stardust, stage2 Holo Office → suspect,
-stage3 Halloween Castle → halloweennight, stage4 Gelora Bung Yagoo → gopeko, stage5 Fantasy
-Island → fantasykiseki, the four hard variants in order → identity / casino / mythortreat /
-SSS, time1 Concert Stage → concert. **Arena Hutan Sawit (stage6) is deliberately silent** —
-it is this project's own stage, has no source track, and was requested without music. Unused
-pool for later: adtruck, bokuragakurukara, candygoround, holoHouse, intro, gameover, gamewin.
+track is a one-line change): stage1 Grassy Plains → suspect, stage2 Holo Office → candygoround,
+stage3 Halloween Castle → halloweennight, stage4 Gelora Bung Yagoo → identity, stage5 Fantasy
+Island → fantasykiseki, the four hard variants in order → adtruck / stardust / mythortreat /
+bokuragakurukara, time1 Concert Stage → concert. **Arena Hutan Sawit (stage6) is deliberately
+silent** — it is this project's own stage, has no source track, and was requested without
+music.
+
+**The pairing is verified, not guessed** (first pass guessed 6 of 10 wrong). Three sources
+agree: the wiki's Soundtrack page (Suspect = Stage 1, Shijoshugi Adtruck = Stage 1 Hard,
+Candy-Go-Round = Stage 2, Stardust Song = Stage 2 Hard, Koyoi wa Halloween Night = Stage 3,
+Myth or Treat = Stage 3 Hard, id:entity voices = Stage 4, Asuiro ClearSky = Time Stage 1);
+the game's own credits (`Song: …` strings, 14 songs ↔ 14 OGG names 1:1 — including
+`bokuragakurukara` = "All Aboard! viv:ID CRUISE ~Bokura ga kuru kara~" and `fantasykiseki` =
+"Interact Fantasia + Kiseki Knot"); and the room names in `Rooms_Detail.txt`
+(rm_GrassPlains_Night, rm_HoloOffice_SunSet, rm_IDArena_Night …). Stage 4 Hard →
+bokuragakurukara is the one elimination pairing (every other song is pinned by name or wiki).
+Not stage music: SSS is the menu theme (Shiny Smily Story), gopeko is Ochame Kinou (Usada
+Casino race), casino is PEKORANDOMBRAIN — those MIDIs were dropped from the jar. Unused
+stage-grade pool for later: holoHouse, intro, gameover, gamewin.
+
+**Menu theme (splash → Main Menu).** The pre-game screens — splash, Main Menu and every
+sub-menu — now loop their own track, a transcription of `bgm_SSS.ogg` (**Shiny Smily Story**,
+the original game's menu BGM, 19 KB as MIDI). Wiring is one hook in `FullGameCanvas.render()`:
+every non-GAME screen calls `bgm().playMenu()` except the results page, which keeps its
+silence; `resumeApplication()` follows the same rule and re-reads the saved Audio flag first.
+The Pengaturan toggle silences it like any other track.
 
 **Implementation.** `me.holojava.fullgame.BgmAudio` loads the resource with
 `getResourceAsStream`, wraps it in a `ByteArrayInputStream`, and plays it through MMAPI
@@ -658,9 +679,10 @@ music, as in the original. Every MMAPI touch is wrapped in `catch (Throwable)`: 
 without MMAPI, a corrupt stream, or a decode failure degrades to silence, never a crash.
 There is no volume UI yet; the track plays at device default.
 
-**Gate and verification.** New suite `BgmStageMusicTest` (33 suites, 3661 checks) pins the
+**Gate and verification.** New suite `BgmStageMusicTest` (33 suites) pins the
 contract: every stage except stage6 maps under `assets/fullgame/audio`, each file exists with
-an `MThd` header, and the budget holds (≤16 KB per track, ≤200 KB for the set) so the jar
+an `MThd` header, the menu theme is a real MIDI too, and the budget holds (≤60 KB per track,
+≤600 KB for the set — the owner's 2026-10-18 policy) so the jar
 cannot quietly grow back toward audio bloat; `verify_fullgame_build.py` now also requires
 every `.mid` on disk to be present in the JAR. On the emulator the pipeline was proven with
 temporary trace prints removed again before commit: lookup found, 9091 bytes read,

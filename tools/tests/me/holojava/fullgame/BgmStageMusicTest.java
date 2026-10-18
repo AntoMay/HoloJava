@@ -10,8 +10,9 @@ import java.io.FileInputStream;
  * the whole set stays inside the size budget it was approved under.
  *
  * <p>The budget checks are the point of the suite: the source OGGs are 5-15 MB apiece and MIDI
- * was chosen (about 112 KB total) precisely so the jar cannot quietly grow back toward audio
- * bloat. A future track that exceeds a ceiling fails here, before packaging.
+ * was chosen (about 400 KB total, capped at 60 KB per track by the owner's 2026-10-18 policy)
+ * precisely so the jar cannot quietly grow back toward audio bloat. A future track that exceeds
+ * a ceiling fails here, before packaging.
  *
  * <p>All checks are file-side and table-side; the MMAPI playback path itself is device- or
  * emulator-verified only, since BgmAudio's media calls cannot run headlessly.
@@ -21,15 +22,16 @@ public final class BgmStageMusicTest {
     private static int checks = 0;
     private static int failures = 0;
 
-    /** Per-track ceiling: no transcription in the tree is larger than this. */
-    private static final int MAX_TRACK_BYTES = 16384;
-    /** Whole-set ceiling for assets/fullgame/audio: the audio wave's size budget. */
-    private static final int MAX_TOTAL_BYTES = 204800;
+    /** Per-track ceiling: the owner's size policy (2026-10-18) caps transcriptions at 60 KB. */
+    private static final int MAX_TRACK_BYTES = 61440;
+    /** Whole-set ceiling for assets/fullgame/audio: 10 stages x the 60 KB per-track cap. */
+    private static final int MAX_TOTAL_BYTES = 614400;
 
     public static void main(String[] args) throws Exception {
         testEveryStageHasMusicExceptHutanSawit();
         testMappedFilesAreRealMidis();
         testSizeBudget();
+        testMenuTrackIsReal();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -87,8 +89,30 @@ public final class BgmStageMusicTest {
             expect(length <= MAX_TRACK_BYTES,
                     path + " fits " + MAX_TRACK_BYTES + " B, got " + length);
         }
+        long menu = new File(BgmAudio.MENU_MID.substring(1)).length();
+        total += menu;
+        expect(menu <= MAX_TRACK_BYTES,
+                BgmAudio.MENU_MID + " fits " + MAX_TRACK_BYTES + " B, got " + menu);
         expect(total <= MAX_TOTAL_BYTES,
                 "all tracks fit " + MAX_TOTAL_BYTES + " B, got " + total);
+    }
+
+    /** [4] The menu theme (splash → Main Menu) is a real MIDI, not a placeholder. */
+    private static void testMenuTrackIsReal() throws Exception {
+        System.out.println("[4] the menu theme is a real midi");
+        String path = BgmAudio.MENU_MID;
+        expect(path.startsWith("/assets/fullgame/audio/"),
+                "menu track lives under assets/fullgame/audio, got " + path);
+        File file = new File(path.substring(1));
+        expect(file.isFile(), "menu midi exists: " + path);
+        if (!file.isFile()) return;
+        byte[] head = new byte[4];
+        FileInputStream in = new FileInputStream(file);
+        int n = in.read(head);
+        in.close();
+        expect(n == 4 && head[0] == 'M' && head[1] == 'T' && head[2] == 'h' && head[3] == 'd',
+                "MThd header: " + path);
+        expect(file.length() > 512, "menu track is not a stub: " + path);
     }
 
     // ---------------------------------------------------------------- helpers
