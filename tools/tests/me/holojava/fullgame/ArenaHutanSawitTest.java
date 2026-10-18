@@ -6,8 +6,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
- * Covers the original Arena Hutan Sawit stage: Biji Sawit (enemy), WoWo (boss), the palm_forest
- * tile, the unlock gate, and the save round-trip for its completion bit.
+ * Covers the original Arena Hutan Sawit stage: its enemies Biji Sawit and 19 Kucing, its bosses
+ * WoWo (10:00) and FufuFafa (20:00), the palm_forest tile, the unlock gate, and the save
+ * round-trip for its completion bit.
  *
  * <p>No game logic is re-implemented here. The unlock gate is the real
  * {@code FullGameCanvas.stageUnlocked}, the boss director is the real
@@ -16,8 +17,8 @@ import java.lang.reflect.Method;
  * several of their fields are final, so instances are allocated with {@code sun.misc.Unsafe} and
  * driven field by field, exactly as the sibling suites do.
  *
- * <p>The stage, its enemy, its boss and its art are this project's own design, not recovered from
- * the reference game. Every value here is therefore an original choice, and the tests pin the
+ * <p>The stage, its enemies, its bosses and its art are this project's own design, not recovered
+ * from the reference game. Every value here is therefore an original choice, and the tests pin the
  * shape of those choices rather than any claim about the original game.
  */
 public final class ArenaHutanSawitTest {
@@ -272,7 +273,7 @@ public final class ArenaHutanSawitTest {
 
     /** Biji Sawit: an orbit charger, nerfed to swarm-safe values, all this project's own numbers. */
     private static void testEnemyDefinition() {
-        System.out.println("[2] Biji Sawit is a defined orbit charger");
+        System.out.println("[2] Biji Sawit and 19 Kucing are the stage's enemies");
         ContentCatalog.EnemyDef e = ContentCatalog.enemy("biji_sawit");
         expect(e != null, "biji_sawit is in the enemy catalog");
         if (e == null) return;
@@ -293,10 +294,26 @@ public final class ArenaHutanSawitTest {
         expect(!e.documentedBaseStats,
             "its stats are marked as this project's own, not read off the reference game");
 
+        // 19 Kucing is the second Hutan Sawit enemy: a plain chaser, so the swarm gains a second
+        // silhouette without a second circling wind-up to read on screen. Mid-table stats keep
+        // the stage's pressure profile roughly where Biji Sawit alone left it.
+        ContentCatalog.EnemyDef kucing = ContentCatalog.enemy("19kucing");
+        expect(kucing != null, "19kucing is in the enemy catalog");
+        if (kucing != null) {
+            expectEq(kucing.name, "19 Kucing", "the second enemy's name");
+            expectEq(kucing.behavior, ContentCatalog.AI_CHASER,
+                "it walks straight at the player");
+            expectEq(kucing.sprite, "Kucing19", "the sprite directory");
+            expect(kucing.hp > 0 && kucing.atk > 0 && kucing.speed > 0, "it has real stats");
+            expect(kucing.atk <= e.atk + 2, "it stays inside the swarm's per-enemy pressure");
+            expect(!kucing.documentedBaseStats,
+                "its stats are marked as this project's own too");
+        }
+
         ContentCatalog.StageDef s = ContentCatalog.STAGES[stageIndex()];
-        expect("biji_sawit".equals(s.enemyA) && "biji_sawit".equals(s.enemyB)
+        expect("biji_sawit".equals(s.enemyA) && "19kucing".equals(s.enemyB)
             && "biji_sawit".equals(s.enemyC),
-            "the stage fills all three spawn slots with it");
+            "the stage mixes Biji Sawit over two slots with 19 Kucing in the middle one");
     }
 
     /** WoWo: tankier than every non-Hard boss in the catalog, and never softer than the weakest. */
@@ -321,21 +338,40 @@ public final class ArenaHutanSawitTest {
 
         ContentCatalog.StageDef s = ContentCatalog.STAGES[stageIndex()];
         expectEq(s.bossA, "wowo", "the 10:00 encounter");
-        expectEq(s.bossB, "wowo", "the 20:00 final encounter");
+        expectEq(s.bossB, "fufufafa", "the 20:00 final encounter");
+
+        // FufuFafa closes the stage on a fresh fight instead of a repeat WoWo, and it out-ranks
+        // the fight before it on both pressure axes.
+        ContentCatalog.BossDef fff = ContentCatalog.boss("fufufafa");
+        expect(fff != null, "fufufafa is in the boss catalog");
+        if (fff != null) {
+            expectEq(fff.name, "FufuFafa", "the final boss's name");
+            expectEq(fff.behavior, ContentCatalog.AI_SHOOTER, "the radial-burst behavior");
+            expectEq(fff.sprite, "FufuFafa", "the sprite directory");
+            expect(!fff.assetApproximation,
+                "it is marked as original art rather than a borrowed fallback frame");
+            expect(fff.hp > b.hp, "it outlasts WoWo on HP");
+            expect(fff.atk > b.atk, "and it hits harder too");
+        }
     }
 
     /** Both scheduled encounters actually fire through the real director, at the catalog's times. */
     private static void testBossSchedule() throws Exception {
-        System.out.println("[4] the boss director schedules WoWo");
+        System.out.println("[4] the boss director schedules WoWo, then FufuFafa");
         ContentCatalog.StageDef s = ContentCatalog.STAGES[stageIndex()];
         expectEq(s.bossATimeSec, 600, "the first WoWo is scheduled for 10:00");
-        expectEq(s.bossBTimeSec, 1200, "the final WoWo is scheduled for 20:00");
+        expectEq(s.bossBTimeSec, 1200, "the final FufuFafa is scheduled for 20:00");
 
         int wowoIndex = -1;
         for (int i = 0; i < ContentCatalog.BOSSES.length; i++) {
             if ("wowo".equals(ContentCatalog.BOSSES[i].id)) wowoIndex = i;
         }
         expect(wowoIndex >= 0, "wowo has a boss index");
+        int fufufafaIndex = -1;
+        for (int i = 0; i < ContentCatalog.BOSSES.length; i++) {
+            if ("fufufafa".equals(ContentCatalog.BOSSES[i].id)) fufufafaIndex = i;
+        }
+        expect(fufufafaIndex >= 0, "fufufafa has a boss index");
 
         Object early = world();
         director(early, 599_000L);
@@ -356,8 +392,8 @@ public final class ArenaHutanSawitTest {
         set(final_, "encounterStarted", started);
         set(final_, "encounterDefeated", new boolean[] { true, false, false, false });
         director(final_, 1200_000L);
-        expect(getBool(boss(final_), "active"), "WoWo appears again on the 20:00 gate");
-        expectEq(getInt(boss(final_), "defIndex"), wowoIndex, "and it is WoWo again");
+        expect(getBool(boss(final_), "active"), "FufuFafa appears on the 20:00 gate");
+        expectEq(getInt(boss(final_), "defIndex"), fufufafaIndex, "and it is FufuFafa");
         expectEq(getInt(final_, "bossEncounterIndex"), 1, "recorded as encounter 1, the final one");
     }
 
@@ -445,10 +481,20 @@ public final class ArenaHutanSawitTest {
             expect(png.isFile(), "Biji Sawit frame " + f + " exists");
             if (png.isFile()) expect(isPng(png), "Biji Sawit frame " + f + " has PNG magic");
         }
+        for (int f = 0; f < 3; f++) {
+            File png = new File("assets/fullgame/enemies/Kucing19/spr_Kucing19_" + f + ".png");
+            expect(png.isFile(), "19 Kucing frame " + f + " exists");
+            if (png.isFile()) expect(isPng(png), "19 Kucing frame " + f + " has PNG magic");
+        }
         for (int f = 0; f < 4; f++) {
             File png = new File("assets/fullgame/bosses/WoWo/spr_WoWo_" + f + ".png");
             expect(png.isFile(), "WoWo frame " + f + " exists");
             if (png.isFile()) expect(isPng(png), "WoWo frame " + f + " has PNG magic");
+        }
+        for (int f = 0; f < 4; f++) {
+            File png = new File("assets/fullgame/bosses/FufuFafa/spr_FufuFafa_" + f + ".png");
+            expect(png.isFile(), "FufuFafa frame " + f + " exists");
+            if (png.isFile()) expect(isPng(png), "FufuFafa frame " + f + " has PNG magic");
         }
     }
 }

@@ -1,7 +1,7 @@
 # Asset Manifest Summary
 
 - Source root: `/home/antomay/Projects/HoloCure_Unpacked`
-- Generated (UTC): `2026-10-13T10:37:12.754244+00:00`
+- Generated (UTC): `2026-10-17T22:56:54.092540+00:00`
 - Physical files: `34422`
 - Physical size (bytes): `463584164`
 - Approximate size (GB): `0.432`

@@ -82,12 +82,13 @@ if [ -f "$EMULATOR" ]; then
 
 Play it with:
   java -Dfile.encoding=ISO_8859_1 -jar "$EMULATOR" \\
-    "file://$JAR" 0 240 320 3
+    "file://$JAR" 0 320 240 3
 
   -Dfile.encoding must come BEFORE -jar. FreeJ2ME-Plus's own restartApp() puts
   it after, where the JVM ignores it, so the emulator restarts forever on an
   encoding mismatch and never renders anything.
-  Arguments after the jar path: 0 = windowed, 240 320 = LCD size, 3 = scale.
+  Arguments after the jar path: 0 = windowed, 320 240 = LCD size (width then
+  height, matching the canvas's 320x240 landscape viewport), 3 = scale.
 RUN
 else
     echo "emulator not found at $EMULATOR; build finished anyway"

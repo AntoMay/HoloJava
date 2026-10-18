@@ -41,7 +41,10 @@ final class AssetLibrary {
     Image pickupIcon;
     private Image logo;
     private Image menuLogo;
-    private Image achan;
+    private Image titleBg;
+    private Image menuCast;
+    private Image menuLabel;
+    private Image[] icons;
 
     Image tileGrass;
     Image tileGrassField;
@@ -63,21 +66,21 @@ final class AssetLibrary {
 
     private final String[] enemyDirs = { "Shrimp", "Shrimp2", "Sukonbu", "Sukonbu2", "Matsurisu",
             "Matsurisu3", "Moonafic", "Moonafic2", "NousagiA", "NousagiB",
-            "NousagiC", "NousagiD", "Otaku", "BijiSawit" };
+            "NousagiC", "NousagiD", "Otaku", "BijiSawit", "Kucing19" };
     private final String[] enemyPrefixes = { "spr_Shrimp_", "spr_Shrimp2_", "spr_Sukonbu_", "spr_Sukonbu2_",
             "spr_Matsurisu_", "spr_Matsurisu3_", "spr_Moonafic_", "spr_Moonafic2_",
             "spr_NousagiEnemyA_", "spr_NousagiEnemyB_", "spr_NousagiEnemyC_",
-            "spr_NousagiEnemyD_", "spr_DebuffOtakuA_", "spr_BijiSawit_" };
-    private final int[] enemyCounts = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3 };
+            "spr_NousagiEnemyD_", "spr_DebuffOtakuA_", "spr_BijiSawit_", "spr_Kucing19_" };
+    private final int[] enemyCounts = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3 };
     private final String[] bossDirs = { "fubuzilla", "SmolAme", "Mikodanye", "AchanBoss",
             "Shubangelion_walk", "EldrichHaachama", "Udin_walk", "Moontato", "Nanora",
-            "Pekodam", "BaeBoss", "NodokaBoss", "NurseCalli", "Goriela", "WoWo" };
+            "Pekodam", "BaeBoss", "NodokaBoss", "NurseCalli", "Goriela", "WoWo", "FufuFafa" };
     private final String[] bossPrefixes = { "spr_fubuzilla_", "spr_SmollAme_walk_", "spr_Mikodanye_",
             "spr_AchanBoss_", "spr_Shubangelion_walk_", "spr_EldrichHaachama_walk_",
             "spr_Udin_walk_", "spr_Moontato_", "spr_Moonafic2_", "spr_Pekodam_",
             "spr_Bae3D_walk_", "spr_NodokaBoss_", "spr_NurseCalli_", "spr_Goriela_idle_",
-            "spr_WoWo_" };
-    private final int[] bossCounts = { 12, 8, 8, 4, 8, 8, 6, 4, 3, 4, 8, 4, 6, 4, 4 };
+            "spr_WoWo_", "spr_FufuFafa_" };
+    private final int[] bossCounts = { 12, 8, 8, 4, 8, 8, 6, 4, 3, 4, 8, 4, 6, 4, 4, 4 };
 
     private int failures;
     private String firstFailure = "";
@@ -410,19 +413,48 @@ final class AssetLibrary {
     }
 
     /**
-     * Smaller copy of the same wordmark for the Main Menu column. A 300px-wide logo and the
-     * 100px-wide A-chan decoration cannot share a 320px screen, so the menu uses its own size.
+     * Smaller copy of the same wordmark for the Main Menu. The icon bar and the roster collage
+     * own the lower two thirds of the title screen now, so the logo floats over the crowd at
+     * this size instead of the splash's full 300px scale.
      */
     Image menuLogo() {
         if (menuLogo == null) menuLogo = image("/assets/fullgame/ui/holocure_logo_menu.png");
         return menuLogo;
     }
 
-    /** Static A-chan frame used as menu decoration. Only the single frame is loaded, so the
-     *  decoration costs one image instead of the whole blink strip. */
-    Image achanFrame() {
-        if (achan == null) achan = image("/assets/fullgame/ui/achan_blink_00.png");
-        return achan;
+    /**
+     * Title-screen backdrop (the star stage), the roster collage drawn over it, and the gold
+     * label box behind the selected entry's name. All three are pre-scaled at asset-preparation
+     * time by tools/prepare_title_menu_assets.py, which also bakes the seven bar icons below.
+     */
+    Image titleBg() {
+        if (titleBg == null) titleBg = image("/assets/fullgame/ui/title_bg.png");
+        return titleBg;
+    }
+
+    Image menuCast() {
+        if (menuCast == null) menuCast = image("/assets/fullgame/ui/menu_cast.png");
+        return menuCast;
+    }
+
+    Image menuLabel() {
+        if (menuLabel == null) menuLabel = image("/assets/fullgame/ui/menu_label.png");
+        return menuLabel;
+    }
+
+    /**
+     * One frame of the title bar, indexed like FullGameCanvas's MAIN_* rows. Loaded as a group
+     * on first use because every paint walks the whole bar; seven small icons cost one seek
+     * burst instead of one per frame.
+     */
+    Image menuIcon(int index) {
+        if (icons == null) {
+            icons = new Image[7];   // seven bar entries; MAIN_ITEM_COUNT in FullGameCanvas
+            for (int i = 0; i < icons.length; i++) {
+                icons[i] = image("/assets/fullgame/ui/menu_icon_" + i + ".png");
+            }
+        }
+        return icons[index];
     }
 
     private Image[] frames(String dir, int count) { return frames(dir, count, ""); }

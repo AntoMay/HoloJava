@@ -74,25 +74,35 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int MENU_PANEL_R = 168, MENU_PANEL_G = 231, MENU_PANEL_B = 252;    // #A8E7FC
     private static final int MENU_INK_R = 36, MENU_INK_G = 108, MENU_INK_B = 145;           // #246C91
     private static final int MENU_ACCENT_R = 66, MENU_ACCENT_G = 191, MENU_ACCENT_B = 239;  // #42BFEF
-    // Splash sky, drawn from the same palette so the splash no longer sits on neutral greys. The
-    // three nested bands keep their original lightness order and stay soft-edged (1.23:1 and
-    // 1.27:1 between neighbours, softer than the 1.42:1 and 1.59:1 of the old greys). Both splash
-    // labels sit on the outer band only, where MENU_INK measures 4.27:1.
-    private static final int SPLASH_SKY_DD_R = 168, SPLASH_SKY_DD_G = 231, SPLASH_SKY_DD_B = 252; // #A8E7FC
-    private static final int SPLASH_SKY_D_R = 117, SPLASH_SKY_D_G = 213, SPLASH_SKY_D_B = 247;   // #75D5F7
-    private static final int SPLASH_SKY_R = 66, SPLASH_SKY_G = 191, SPLASH_SKY_B = 239;         // #42BFEF
     private static final int MENU_BODY_Y = 40;     // header band height; all content starts below
 
-    // Splash/Main Menu layout, in logical 320x240 pixels.
+    // Splash/Main Menu layout, in logical 320x240 pixels. Both screens now sit on the reference
+    // game's star-stage backdrop (ui/title_bg.png), so their text is palette white — the one
+    // screen family where white clears the contrast bar, because the backdrop's dark blue puts
+    // it above 14:1 while the light page palette below keeps its ink-on-light rule. TITLE_DEEP
+    // is the fallback fill from the same colour family for partial builds without the art.
+    private static final int TITLE_TEXT_R = 255, TITLE_TEXT_G = 255, TITLE_TEXT_B = 255;
+    private static final int TITLE_DEEP_R = 10, TITLE_DEEP_G = 22, TITLE_DEEP_B = 49;
     private static final int SPLASH_LOGO_X = 10, SPLASH_LOGO_Y = 42;
     private static final int SPLASH_PROMPT_Y = 196;
-    private static final int MENU_LOGO_X = 10, MENU_LOGO_Y = 8;
-    private static final int MENU_LIST_X = 14, MENU_LIST_Y = 112, MENU_ROW_PITCH = 18;
+    // The logo floats over the top of the roster collage, centred: 320 - 176 = 144, so x = 72.
+    private static final int MENU_LOGO_X = 72, MENU_LOGO_Y = 2;
+    // Bottom icon bar, rebuilt after the reference's horizontal entry bar. The icons keep their
+    // native halved sizes and align on one baseline; the gap is what recentres the bar after any
+    // art change, so both stay named constants instead of spreading through the draw code.
+    private static final int TITLE_CAST_Y = 64;
+    private static final int TITLE_BAR_BASE = 202;
+    private static final int TITLE_BAR_X = 40, TITLE_ICON_GAP = 23;
+    private static final int TITLE_LABEL_X = 200, TITLE_LABEL_Y = 206, TITLE_LABEL_W = 116;
+    private static final int TITLE_HINT_Y = 228;
+    // The seven bar entries, in bar order, mirroring MAIN_* above. The bar reads left to right
+    // like the reference, so this order is also the sweep order of Up/Down/Left/Right.
+    private static final String[] MAIN_ITEMS = { "Papan Peringkat", "Pencapaian", "Toko",
+            "Main", "Holo House", "Pengaturan", "Credits" };
     // Pause menu. Two entries at the shared 22px list pitch span 44px, so 98 centres them on the
     // 240px page. Index 0 is Resume so the menu always opens on the safe choice.
     private static final String[] PAUSE_ITEMS = { "Resume", "Return to Menu" };
     private static final int PAUSE_LIST_Y = 98;
-    private static final int MENU_ACHAN_X = 205, MENU_ACHAN_Y = 40;
 
     private final AssetLibrary assets;
     private final SaveStore save;
@@ -116,6 +126,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private boolean refundConfirm;
     /** Heading of the currently open placeholder page (Papan Peringkat / Pencapaian / Holo House). */
     private String lockedTitle = "TERKUNCI";
+    /**
+     * Animation clock for the title screens. update(long) records the render loop's tick here
+     * once per frame, so the draw code only ever reads it and never calls the clock itself; the
+     * value stays 0 in headless tests, which freeze every bob and blink at its start pose.
+     */
+    private long clockMs;
+    /** Which entry the gold label box is currently showing, and when its slide-in started. */
+    private int labelIndex = -1;
+    private long labelShownAt;
     private boolean fireWasDown;
     private boolean upWasDown;
     private boolean downWasDown;
@@ -203,6 +222,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void update(long now) {
+        clockMs = now;
         // FIRE is now Pause (reverted from interactive basic attack)
         // Attack comes from keys 5 and 1 only; FIRE triggers pause
         int keys = getKeyStates();
@@ -270,9 +290,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
         // L/R map onto the two menu roles the d-pad directions do not already own. A direction is
         // Back on the screens that already treat it that way and Select on the rest, so a single
-        // press can never both confirm a choice and leave the screen.
+        // press can never both confirm a choice and leave the screen. The Main Menu is the one
+        // exception: its entry bar is horizontal like the reference's, so L/R sweep it exactly
+        // like Up/Down and only FIRE confirms.
         if (screen == SPLASH) updateSplash(fireEdge || leftEdge || rightEdge, keys);
-        else if (screen == MENU) updateMain(upEdge, downEdge, fireEdge || leftEdge || rightEdge);
+        else if (screen == MENU) updateMain(upEdge || leftEdge, downEdge || rightEdge, fireEdge);
         else if (screen == MODES) updateModes(upEdge, downEdge, fireEdge || leftEdge, rightEdge);
         else if (screen == CHARACTERS) updateCharacters(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == SHOP) updateShop(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
@@ -655,23 +677,36 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     /**
      * Splash screen. Drawn entirely inside the canvas as a screen state rather than as a separate
      * Displayable, so the MIDlet lifecycle and the single render thread stay untouched.
+     *
+     * <p>Shares the star-stage backdrop with the Main Menu so the boot flow reads as one piece
+     * with it: the logo drifts gently on the clock, the game name sits below it, and the start
+     * prompt blinks on the half-second the way the reference's does. TITLE_DEEP fills in when
+     * the backdrop asset is missing, which keeps the white title text above the contrast bar
+     * even in a partial build.
      */
     private void drawSplash(Graphics g, int x, int y) {
-        g.setColor(SPLASH_SKY_DD_R, SPLASH_SKY_DD_G, SPLASH_SKY_DD_B);
-        g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
-        g.setColor(SPLASH_SKY_D_R, SPLASH_SKY_D_G, SPLASH_SKY_D_B);
-        g.fillRect(x, y + 34, Viewport.MIN_W, 150);
-        g.setColor(SPLASH_SKY_R, SPLASH_SKY_G, SPLASH_SKY_B);
-        g.fillRect(x, y + 60, Viewport.MIN_W, 98);
+        Image bg = assets.titleBg();
+        if (bg != null) {
+            g.drawImage(bg, x, y, Graphics.TOP | Graphics.LEFT);
+        } else {
+            g.setColor(TITLE_DEEP_R, TITLE_DEEP_G, TITLE_DEEP_B);
+            g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        }
 
         Image logo = assets.logo();
-        if (logo != null) g.drawImage(logo, x + SPLASH_LOGO_X, y + SPLASH_LOGO_Y, Graphics.TOP | Graphics.LEFT);
+        if (logo != null) {
+            g.drawImage(logo, x + SPLASH_LOGO_X, y + SPLASH_LOGO_Y + bob(700, 2),
+                    Graphics.TOP | Graphics.LEFT);
+        }
 
-        // Prompt centered horizontally, near bottom with margin. Smaller text per design.
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        g.setFont(Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL));
-        g.drawString("PRESS 5 TO START", x + Viewport.MIN_W / 2, y + Viewport.MIN_H - 25,
-                Graphics.TOP | Graphics.HCENTER);
+        g.setColor(TITLE_TEXT_R, TITLE_TEXT_G, TITLE_TEXT_B);
+        drawCentered(g, x, y + 172, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        // Prompt centered horizontally, near bottom with margin. It blinks so a player waiting on
+        // the screen can tell the loop is alive; frozen headless (clockMs 0) it stays visible.
+        if ((clockMs / 500L) % 2L == 0L) {
+            drawCentered(g, x, y + SPLASH_PROMPT_Y, "PRESS 5 TO START",
+                    Font.STYLE_BOLD, Font.SIZE_SMALL);
+        }
     }
 
     /**
@@ -715,44 +750,97 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Main Menu, and the visual reference for every other menu screen: the logo sits above the
-     * list on the left, A-chan decorates the right side, and the seven entries keep their original
-     * wrap behaviour. The row pitch is 18 (not the 21 the shorter menu used) so all seven rows
-     * plus their text height fit above the 240px fold — at 21 the seventh row would draw at y=238
-     * and be clipped to a sliver. A-chan is one static frame and is never added to the selectable
-     * list, so it cannot be picked and cannot move the cursor.
+     * Main Menu, rebuilt after the reference game's title screen: the star-stage backdrop fills
+     * the screen, the roster collage stands behind a gently floating logo, and the seven entries
+     * live in an icon bar along the bottom instead of a vertical list. The selected icon lifts
+     * off the bar and bobs on the clock, a white underline marks it for anyone who cannot track
+     * the motion, and the gold label box slides the entry's name in at the bottom right above
+     * the confirm hint. All motion reads clockMs, recorded once per tick by update(long), so
+     * this method stays pure and a headless clock of 0 simply freezes every effect at rest.
      */
     private void drawMainMenu(Graphics g, int x, int y) {
-        g.setColor(MENU_BG_R, MENU_BG_G, MENU_BG_B); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
-        g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
-        g.fillRect(x, y + 84, Viewport.MIN_W, 108);
+        Image bg = assets.titleBg();
+        if (bg != null) {
+            g.drawImage(bg, x, y, Graphics.TOP | Graphics.LEFT);
+        } else {
+            g.setColor(TITLE_DEEP_R, TITLE_DEEP_G, TITLE_DEEP_B);
+            g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+        }
+        Image cast = assets.menuCast();
+        if (cast != null) g.drawImage(cast, x, y + TITLE_CAST_Y, Graphics.TOP | Graphics.LEFT);
 
         Image logo = assets.menuLogo();
-        if (logo != null) g.drawImage(logo, x + MENU_LOGO_X, y + MENU_LOGO_Y, Graphics.TOP | Graphics.LEFT);
-        drawMenuAchan(g, x + MENU_ACHAN_X, y + MENU_ACHAN_Y);
+        if (logo != null) {
+            g.drawImage(logo, x + MENU_LOGO_X, y + MENU_LOGO_Y + bob(600, 3),
+                    Graphics.TOP | Graphics.LEFT);
+        }
+        g.setColor(TITLE_TEXT_R, TITLE_TEXT_G, TITLE_TEXT_B);
+        drawCentered(g, x, y + MENU_LOGO_Y + 76, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_SMALL);
+        drawRight(g, x, y + 4, "version 0.1");
 
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        drawText(g, x + MENU_LIST_X, y + 88, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
-        String[] items = { "Papan Peringkat", "Pencapaian", "Toko", "Main", "Holo House",
-                "Pengaturan", "Credits" };
-        for (int i = 0; i < items.length; i++) {
-            boolean selected = i == menuIndex;
-            int rowY = y + MENU_LIST_Y + i * MENU_ROW_PITCH;
-            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-            drawText(g, x + MENU_LIST_X + 4, rowY, (selected ? "> " : "  ") + items[i],
-                    selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
-            if (selected) {
-                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-                g.fillRect(x + MENU_LIST_X, rowY + 2, 2, 12);
+        drawBar(g, x, y);
+
+        // Gold label box with the highlighted entry's name, bottom right above the hint. Changing
+        // the selection restarts the short slide-in so the label visibly answers the input.
+        if (menuIndex != labelIndex) { labelIndex = menuIndex; labelShownAt = clockMs; }
+        int slide = (int) ((clockMs - labelShownAt) / 25L);
+        if (slide > 6) slide = 6;
+        int labelY = y + TITLE_LABEL_Y + (6 - slide);
+        String name = MAIN_ITEMS[menuIndex];
+        Image label = assets.menuLabel();
+        if (label != null) g.drawImage(label, x + TITLE_LABEL_X, labelY, Graphics.TOP | Graphics.LEFT);
+        g.setColor(TITLE_TEXT_R, TITLE_TEXT_G, TITLE_TEXT_B);
+        Font labelFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
+        g.setFont(labelFont);
+        g.drawString(name, x + TITLE_LABEL_X + (TITLE_LABEL_W - labelFont.stringWidth(name)) / 2,
+                labelY + 6, Graphics.TOP | Graphics.LEFT);
+
+        drawRight(g, x, y + TITLE_HINT_Y, "SETUJU: 5/FIRE");
+    }
+
+    /**
+     * The seven-entry icon bar. Icons keep their native (asset-prepared, halved) sizes and align
+     * on one baseline, so each entry's slot is its own width plus the shared gap. A missing icon
+     * still reserves its slot, which keeps the bar's centre stable if an asset fails to load.
+     */
+    private void drawBar(Graphics g, int x, int y) {
+        int barX = TITLE_BAR_X;
+        for (int i = 0; i < MAIN_ITEM_COUNT; i++) {
+            Image icon = assets.menuIcon(i);
+            int slot = (icon != null ? icon.getWidth() : 12) + TITLE_ICON_GAP;
+            if (icon != null) {
+                boolean selected = i == menuIndex;
+                int lift = selected ? 3 + bob(180, 2) : 0;
+                g.drawImage(icon, x + barX, y + TITLE_BAR_BASE - icon.getHeight() - lift,
+                        Graphics.TOP | Graphics.LEFT);
+                if (selected) {
+                    g.setColor(TITLE_TEXT_R, TITLE_TEXT_G, TITLE_TEXT_B);
+                    g.fillRect(x + barX - 1, y + TITLE_BAR_BASE + 1, icon.getWidth() + 2, 2);
+                }
             }
+            barX += slot;
         }
     }
 
-    /** Draws the A-chan decoration. One fixed frame, no timer and no frame index: the sprite is
-     *  static menu artwork. Purely visual, no input or state is affected. */
-    private void drawMenuAchan(Graphics g, int x, int y) {
-        Image frame = assets.achanFrame();
-        if (frame != null) g.drawImage(frame, x, y, Graphics.TOP | Graphics.LEFT);
+    /** Sinusoidal offset in [-range, range] for the given period, in whole pixels. */
+    private int bob(int periodMs, int range) {
+        return (int) (Math.sin((double) clockMs / periodMs) * range);
+    }
+
+    /** Centred title text; the caller sets the colour first, as drawText does. */
+    private void drawCentered(Graphics g, int x, int y, String text, int style, int size) {
+        Font f = Font.getFont(Font.FACE_SYSTEM, style, size);
+        g.setFont(f);
+        g.drawString(text, x + (Viewport.MIN_W - f.stringWidth(text)) / 2, y,
+                Graphics.TOP | Graphics.LEFT);
+    }
+
+    /** Small right-aligned label against the 320px edge; the caller sets the colour first. */
+    private void drawRight(Graphics g, int x, int y, String text) {
+        Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        g.setFont(f);
+        g.drawString(text, x + Viewport.MIN_W - f.stringWidth(text) - 4, y,
+                Graphics.TOP | Graphics.LEFT);
     }
 
     private void drawModes(Graphics g, int x, int y) {

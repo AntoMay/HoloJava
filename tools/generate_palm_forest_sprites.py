@@ -7,11 +7,11 @@ redistribute inside this repository.
 
 Outputs
     assets/fullgame/enemies/BijiSawit/spr_BijiSawit_<n>.png   n = 0..2
-    assets/fullgame/bosses/WoWo/spr_WoWo_<n>.png               n = 0..3
 
 Sizes are pinned to what the catalog declares: the enemy collision box is
-18x16 (Biji Sawit) and the boss box is 42x42 (WoWo), and the loader counts
-3 enemy frames and 4 boss frames.
+18x16 (Biji Sawit), and the loader counts 3 enemy frames. The stage's other
+cast is not generated here: WoWo, FufuFafa and 19 Kucing are prepared from
+the project's reference images by tools/prepare_hutan_sawit_cast.py.
 """
 
 import math
@@ -37,12 +37,8 @@ SKIN_LIT = (246, 212, 172, 255)
 HUSK_DARK = (72, 48, 30, 255)
 HUSK_MID = (110, 76, 44, 255)
 HUSK_LIT = (150, 108, 66, 255)
-BARK_DARK = (58, 38, 24, 255)
-BARK_MID = (92, 62, 38, 255)
-BARK_LIT = (128, 90, 56, 255)
 SHADOW = (26, 18, 12, 110)
 EYE = (28, 22, 18, 255)
-EYE_GLOW = (255, 214, 96, 255)
 CLEAR = (0, 0, 0, 0)
 
 
@@ -139,31 +135,14 @@ def fruit_cluster(img, cx, cy, r, count):
         ellipse(img, x - rr * 0.28, y - rr * 0.30, rr * 0.34, rr * 0.30, FRUIT_GLOW)
 
 
-def leaf_plate(img, cx, cy, w, h, color, dark):
-    """Overlapping downward-pointing husk plate: the WoWo torso texture."""
-    for y in range(int(cy - h), int(cy + h) + 1):
-        t = (y - (cy - h)) / float(2 * h)
-        half = w * (1.0 - t) * 0.9
-        for x in range(int(cx - half), int(cx + half) + 1):
-            edge = 1.0 - abs(x - cx) / float(max(half, 1))
-            c = dark if (edge < 0.22 or y > cy + h * 0.72) else color
-            put(img, x, y, c)
-    # Ridge highlight down the middle of the plate.
-    for y in range(int(cy - h * 0.8), int(cy + h * 0.5)):
-        put(img, int(cx), y, color)
-
-
 def ground_shadow(img, cx, cy, rx, ry):
     ellipse(img, cx, cy, rx, ry, SHADOW)
 
 
-def eyes(img, cx, cy, gap, size=1, glow=False):
-    """Two eyes; glow draws the iris highlight used on the boss."""
+def eyes(img, cx, cy, gap, size=1):
+    """Two simple dot eyes."""
     for sign in (-1, 1):
-        ex = cx + sign * gap
-        ellipse(img, ex, cy, size * 0.9, size, EYE)
-        if glow:
-            put(img, int(round(ex)), int(round(cy - size * 0.4)), EYE_GLOW)
+        ellipse(img, cx + sign * gap, cy, size * 0.9, size, EYE)
 
 
 # ---------------------------------------------------------------------------
@@ -224,90 +203,6 @@ def biji_sawit(frame):
     return img
 
 
-# ---------------------------------------------------------------------------
-# WoWo: the palm guardian boss. Broad frond mantle, heavy fruit pauldrons, bark
-# legs. Four frames: a slow sway of the mantle and shoulders.
-# ---------------------------------------------------------------------------
-
-def wowo(frame):
-    W, H = 64, 64
-    img = canvas(W, H)
-
-    # Sway: the mantle and arms drift, the legs stay planted.
-    sway = [0, 1, 0, -1][frame]
-    arm_lift = [0, -1, -2, -1][frame]
-
-    ground_shadow(img, 32, 61, 17, 4)
-
-    # Root legs, wide and planted.
-    ellipse_ring(img, 21, 51, 9, 10, BARK_MID)
-    ellipse_ring(img, 43, 51, 9, 10, BARK_MID)
-    for bx in (14, 19, 24, 40, 45, 50):
-        ellipse(img, bx, 60, 2, 2, BARK_DARK)
-
-    # Torso: overlapping husk plates, widest at the shoulders, narrowing at the waist.
-    ellipse_ring(img, 32, 42, 18, 14, BARK_MID)
-    for row, (cy, w, h) in enumerate([(34, 16, 4), (39, 17, 4), (44, 16, 4), (49, 14, 4)]):
-        for col, dx in enumerate((-8, 0, 8)):
-            leaf_plate(img, 32 + dx + (4 if row % 2 else 0) + sway * 0, cy, w / 2.0, h,
-                       BARK_LIT if (row + col) % 2 == 0 else BARK_MID, BARK_DARK)
-    # Chest core: a bright plate at the sternum so the torso has a focal point.
-    leaf_plate(img, 32, 36, 5, 4, (150, 108, 66, 255), BARK_DARK)
-
-    # Head set into the shoulders.
-    ellipse_ring(img, 32, 26 + arm_lift, 11, 10, SKIN_MID)
-    # Jaw shading so the head reads separate from the neck.
-    for x in range(24, 41):
-        put(img, x, 34 + arm_lift, SKIN_DARK)
-
-    # Frond mantle: a wide, dense fan behind and above the head.
-    crown = (32, 21 + arm_lift)
-    for a, ln, bright, th in [
-            (math.pi * 1.00, 28, False, 3), (math.pi * 1.11, 30, True, 3),
-            (math.pi * 1.22, 29, False, 3), (math.pi * 1.33, 31, True, 3),
-            (math.pi * 1.44, 30, False, 3), (math.pi * 1.56, 32, True, 3),
-            (math.pi * 1.67, 30, False, 3), (math.pi * 1.78, 31, True, 3),
-            (math.pi * 1.89, 29, False, 3), (math.pi * 2.00, 28, True, 3)]:
-        frond(img, crown[0], crown[1], ln, a, bright=bright, thick=th)
-    # Side fronds, angled down past the shoulders.
-    for sign in (-1, 1):
-        angle = 0.32 if sign > 0 else math.pi - 0.32
-        frond(img, 32 + sign * 11, 25 + arm_lift, 20, angle, bright=True, thick=3)
-
-    # Fruit pauldrons, one large bunch per shoulder.
-    fruit_cluster(img, 15 + sway, 31 + arm_lift, 5, 12)
-    fruit_cluster(img, 49 + sway, 31 + arm_lift, 5, 12)
-
-    # Arms: thick bark forearms ending in open claw hands.
-    for sign in (-1, 1):
-        ax = 32 + sign * (19 + sway)
-        ay = 45 + arm_lift
-        ellipse_ring(img, ax, ay, 6, 9, HUSK_MID)
-        for k in range(3):
-            fx = ax + sign * (1 + k * 2)
-            fy = ay + 8 + (1 if k == 1 else 0)
-            ellipse(img, fx, fy, 2, 3, HUSK_DARK)
-            put(img, fx + sign, fy + 1, HUSK_LIT)
-
-    # Face: heavy brows, glowing eyes, a wide confident grin.
-    brow_y = 22 + arm_lift
-    for sign in (-1, 1):
-        for x in range(32 + sign * 4, 32 + sign * 11):
-            put(img, x, brow_y - abs(x - (32 + sign * 7)) // 3, HUSK_DARK)
-    eyes(img, 32, 27 + arm_lift, 5, 2, glow=True)
-    # Grin across the lower face.
-    for x in range(25, 40):
-        arc = int(3 - abs(x - 32) // 4)
-        for y in range(31 + arc, 34 + arc):
-            put(img, x, y, SKIN_DARK)
-        put(img, x, 34 + arc, SKIN_DARK)
-    for x in range(27, 38):
-        if x % 2 == 0:
-            put(img, x, 33 + int(3 - abs(x - 32) // 4), SKIN_LIT)
-
-    return img
-
-
 def write(img, path):
     full = os.path.join(ROOT, path)
     os.makedirs(os.path.dirname(full), exist_ok=True)
@@ -320,9 +215,6 @@ def main():
     for f in range(3):
         written.append(write(biji_sawit(f),
                              "assets/fullgame/enemies/BijiSawit/spr_BijiSawit_%d.png" % f))
-    for f in range(4):
-        written.append(write(wowo(f),
-                             "assets/fullgame/bosses/WoWo/spr_WoWo_%d.png" % f))
 
     for path in written:
         img = Image.open(path)

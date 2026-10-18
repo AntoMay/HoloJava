@@ -39,6 +39,7 @@ public final class RunWorldBossArtTest {
         {"halloween_myth", "NurseCalli", "spr_NurseCalli_", "6"},
         {"goriela", "Goriela", "spr_Goriela_idle_", "4"},
         {"wowo", "WoWo", "spr_WoWo_", "4"},
+        {"fufufafa", "FufuFafa", "spr_FufuFafa_", "4"},
     };
 
     public static void main(String[] args) throws Exception {

@@ -10,3 +10,6 @@ rebuild-*/
 # generated when the desktop emulator is run and not project sources.
 freej2me_system/
 config/HoloJava/
+# MIDP RecordStore files written by the emulator when the game is run from the
+# project directory; runtime state, regenerated on every play session.
+rms/

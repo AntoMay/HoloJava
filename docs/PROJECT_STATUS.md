@@ -430,6 +430,59 @@ contact damage, EXP and level-up all work in FreeJ2ME-Plus on the desktop
 emulator build. Audio is unavailable in this environment (`Tone Player: Can not
 open line`) and remains untested.
 
+## HoloCure Title Menu, FufuFafa and 19 Kucing (2026-10-18)
+
+A presentation wave plus one roster wave: the main menu and splash were rebuilt after HoloCure's
+title screen, the Hutan Sawit got a redrawn boss art, a second boss and a cat enemy, and A-chan
+(the old splash leftover) was dropped. Entry order, palette and every wave-6 menu behaviour were
+kept.
+
+**1. HoloCure-style main menu.** The seven entries moved from a vertical list into a horizontal
+icon bar — podium, trophy, bag, play, house, gear, list — on a 202 px baseline from x = 40, each
+slot its icon width plus a 23 px gap (`MAIN_ITEMS` order unchanged: Papan Peringkat, Pencapaian,
+Toko, Main, Holo House, Pengaturan, Credits). The selected icon lifts 3 px off the bar and bobs on
+a 180 ms clock with a white underline beneath it; a gold label box (116x20 at x = 200, y = 206)
+slides the entry name in at 25 ms per step, bottom right above the `SETUJU: 5/FIRE` hint
+(y = 228). Behind it: the full `title_bg` collage, the `menu_cast` roster strip at y = 64, the
+176x74 logo centred at x = 72 bobbing on a 600 ms clock with `HOLOJAVA` under it, and
+`version 0.1` top right. Up/Down and L/R sweep the bar through one shared dispatch
+(`updateMain(upEdge || leftEdge, downEdge || rightEdge, fireEdge)`), FIRE opens the entry exactly
+as in wave 6, and Exit stays inside Pengaturan. All motion reads `clockMs`, recorded once per
+frame from `update(long now)`, so headless tests freeze every effect at rest. The label box is
+116 px wide because a screenshot review caught "Papan Peringkat" (~107 px) overflowing an earlier
+70 px box.
+
+**2. Splash.** The splash shares the title look: `title_bg`, the 300x126 logo at (10, 42) with a
+small bob, `HOLOJAVA` centred at y = 172, and `PRESS 5 TO START` blinking on the half second.
+TITLE_DEEP (10, 22, 49) fills in when the backdrop asset is missing. A-chan is gone:
+`achanFrame()` and the twenty `achan_blink_*.png` frames were deleted, and the title fallback
+became TITLE_DEEP.
+
+**3. All title art pre-scaled.** MIDP cannot scale images at runtime, so
+`tools/prepare_title_menu_assets.py` bakes every title asset at its final size: `title_bg`,
+`menu_cast`, `menu_label` (116x20) and the seven `menu_icon_*` sprites.
+
+**4. Arena Hutan Sawit roster.** Boss art WoWo was redrawn (64x64, 4 frames), a second boss
+FufuFafa joined the stage (46x56, 4 frames, collision box 46x56, AI_SHOOTER, HP 12000, ATK 48,
+spawning 1200 s into the run, 600 s after WoWo), and the new enemy 19 Kucing patrols the palm
+forest (14x32, 3 frames, hitbox 12x28, AI_CHASER, HP 40). `tools/prepare_hutan_sawit_cast.py` now
+tight-crops every sprite through `getbbox()`; FufuFafa needed its own threshold (98, 30) because
+its checkerboard backdrop sits at 113/173 rather than the lighter default, and its bob table is
+3 frames. `tools/generate_palm_forest_sprites.py` no longer emits WoWo — the WoWo/leaf-plate/bark/
+eye-glow code was removed and only BijiSawit regenerates from it (identical bytes).
+
+**5. Tests and manifest.** `RunWorldBossArtTest` pins FufuFafa alongside WoWo; `ArenaHutanSawitTest`
+pins the new enemy slot, both boss slots, the spawn schedule and the new art on disk. Full suite:
+32 suites, 3576 checks, all passing. The derived-asset manifest now holds 179 rows (−20 A-chan,
++10 title UI) and `tools/verify_fullgame_build.py` checks 179.
+
+**6. Emulator verification.** The desktop emulator must be launched with width-then-height LCD
+arguments (`0 320 240 3`); the help text in `tools/build_fullgame_desktop.sh` was corrected.
+Screenshots confirmed the splash, bar navigation, the Game Mode and Character Select pages, the
+back steps between them, and a live Hutan Sawit run. Injecting single keystrokes through XTEST
+proved flaky (occasional missed or duplicated edges against FreeJ2ME's held-key polling) — a
+test-harness artifact, not a menu defect; the state machine itself is covered by the suites above.
+
 ## Completed in Existing Project Stage
 
 - Phase 1 reports: asset manifest, symbol classification, cross-reference, phase backlog.

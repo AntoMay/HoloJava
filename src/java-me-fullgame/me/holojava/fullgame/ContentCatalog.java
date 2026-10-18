@@ -477,7 +477,13 @@ final class ContentCatalog {
         // closes, which reads as a wind-up. atk 3 and speed 0.48 are a deliberate nerf from the
         // first pass (4 / 0.55): the swarm fills the arena, so per-enemy pressure has to stay low
         // enough that the stage is playable from the moment it is unlocked.
-        enemy("biji_sawit", "Biji Sawit", AI_ORBIT_CHARGER, 35, 3, 0.48, 800, 10, 80, 18, 16, "BijiSawit", false)
+        enemy("biji_sawit", "Biji Sawit", AI_ORBIT_CHARGER, 35, 3, 0.48, 800, 10, 80, 18, 16, "BijiSawit", false),
+        // Original design: 19 Kucing, the frantic fan searching for his missing cat. Walks
+        // straight at the player (AI_CHASER) with mid-table stats, so the Hutan Sawit swarm
+        // gains a second silhouette without changing the stage's difficulty profile. The art
+        // frame is 14x32; the hitbox is 12x28 so the thin legs at the bottom do not count
+        // as body.
+        enemy("19kucing", "19 Kucing", AI_CHASER, 40, 4, 0.50, 800, 12, 75, 12, 28, "Kucing19", false)
     };
 
     static final BossDef[] BOSSES = {
@@ -508,7 +514,12 @@ final class ContentCatalog {
         // rings rather than chasing a single bullet. Tuned above Pekodam, the final
         // boss of the stage this one unlocks behind, on both axes: it closes the
         // normal stage list and must not feel like a step back.
-        boss("wowo", "WoWo", 9000, 44, AI_SHOOTER, 1000, 300, "WoWo", false, 64, 64)
+        boss("wowo", "WoWo", 9000, 44, AI_SHOOTER, 1000, 300, "WoWo", false, 64, 64),
+        // Original design: FufuFafa, the second Arena Hutan Sawit boss, scheduled for the
+        // 20:00 encounter so the stage closes on a new fight instead of a repeat WoWo. Same
+        // radial-burst family as WoWo but on a tighter cooldown and a step up on both HP and
+        // ATK. collW/collH track the 46x56 frame size of bosses/FufuFafa.
+        boss("fufufafa", "FufuFafa", 12000, 48, AI_SHOOTER, 900, 400, "FufuFafa", false, 46, 56)
     };
 
     static final ModeDef[] MODES = {
@@ -542,7 +553,7 @@ final class ContentCatalog {
         // Fantasy Island (order 4) so the stage would sit at the end of the normal progression; that
         // gate is commented out below and only needs the literal restored to come back.
         // stage("stage6", ... 4, ...)   <- the intended gate
-        stage("stage6", "Arena Hutan Sawit", false, false, 10, "palm_forest", 10, "biji_sawit", "biji_sawit", "biji_sawit", 1400, 18, 12000, 99, "wowo", 600, "wowo", 1200, "", "Original custom stage; art from tools/generate_palm_forest_sprites.py and tools/generate_palm_forest_map.py; combat values are original and unvalidated", 4, 4)
+        stage("stage6", "Arena Hutan Sawit", false, false, 10, "palm_forest", 10, "biji_sawit", "19kucing", "biji_sawit", 1400, 18, 12000, 99, "wowo", 600, "fufufafa", 1200, "", "Original custom stage; art from tools/generate_palm_forest_sprites.py, tools/generate_palm_forest_map.py and tools/prepare_hutan_sawit_cast.py; combat values are original and unvalidated", 4, 4)
     };
 
     static {
