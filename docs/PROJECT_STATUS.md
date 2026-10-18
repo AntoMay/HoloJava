@@ -626,6 +626,54 @@ moment it was taken), the popup stayed open across a long idle, d-pad moved the 
 place, and FIRE applied the offer and closed it. Full suite: 32 suites, 3609 checks; phone
 JAR 1364921 B, desktop JAR 1364083 B, `verify_fullgame_build.py` passes (188 assets).
 
+## Per-Stage BGM as MIDI (2026-10-18)
+
+Every stage now plays its own looping background track during a run. The sources are the
+unpacked OGGs in `HoloCure_Unpacked/sounds/bgm` (14 files, ~171 MB total), which no J2ME jar
+could ever carry — so each track was transcribed to **MIDI** instead: the ten OGGs became
+10 files of 3–14 KB under `assets/fullgame/audio/`, **~112 KB for the whole set** (phone JAR
+1364921 → 1425645 B). The transcription used Spotify's **basic-pitch** (already present at
+`/home/antomay/Projects/_tools/basic-pitch/.venv311`, Python 3.11), whose CLI accepts the OGGs
+directly; each result was post-processed with pretty_midi/mido: notes split by register into
+three GM Level-1 programs (below G2 → Electric Bass 33, G2–B4 → Electric Piano 4, C5 up →
+Lead square 80) and flattened to MIDI type 0 for maximum phone-synth compatibility.
+
+**Stage-to-track table** (the one place it lives: `BgmAudio.musicFor(stageIndex)`; swapping a
+track is a one-line change): stage1 Grassy Plains → stardust, stage2 Holo Office → suspect,
+stage3 Halloween Castle → halloweennight, stage4 Gelora Bung Yagoo → gopeko, stage5 Fantasy
+Island → fantasykiseki, the four hard variants in order → identity / casino / mythortreat /
+SSS, time1 Concert Stage → concert. **Arena Hutan Sawit (stage6) is deliberately silent** —
+it is this project's own stage, has no source track, and was requested without music. Unused
+pool for later: adtruck, bokuragakurukara, candygoround, holoHouse, intro, gameover, gamewin.
+
+**Implementation.** `me.holojava.fullgame.BgmAudio` loads the resource with
+`getResourceAsStream`, wraps it in a `ByteArrayInputStream`, and plays it through MMAPI
+(`Manager.createPlayer(in, "audio/midi")`, `setLoopCount(-1)` — the spec `LOOP_CONTINUOUSLY`
+value, since the pinned microemu API stub declares `setLoopCount` but omits the constant).
+FreeJ2ME-Plus routes `audio/midi` to its MIDIPlayer (sequencer + soft synth); real phones
+carry their own GM synth. Hooks: `startRun()` plays the stage track, `pauseApplication()`
+stops it, `resumeApplication()` restarts it when a run is still on screen, and `render()`
+stops it on every non-GAME screen (results, menus, splash). The in-game pause menu keeps the
+music, as in the original. Every MMAPI touch is wrapped in `catch (Throwable)`: a device
+without MMAPI, a corrupt stream, or a decode failure degrades to silence, never a crash.
+There is no volume UI yet; the track plays at device default.
+
+**Gate and verification.** New suite `BgmStageMusicTest` (33 suites, 3661 checks) pins the
+contract: every stage except stage6 maps under `assets/fullgame/audio`, each file exists with
+an `MThd` header, and the budget holds (≤16 KB per track, ≤200 KB for the set) so the jar
+cannot quietly grow back toward audio bloat; `verify_fullgame_build.py` now also requires
+every `.mid` on disk to be present in the JAR. On the emulator the pipeline was proven with
+temporary trace prints removed again before commit: lookup found, 9091 bytes read,
+`JavaxPlatformPlayer` created, `start()` reached **state 400 (Player.STARTED)**; a standalone
+probe parsed the same file through the JDK sound stack (147.27 s, matching source) and the
+machine's default soundbank carries all 129 GM instruments, so the output is audible. Note
+for future debugging: FreeJ2ME-Plus holds an HDMI ALSA line warm from boot (its synth pool),
+so `/proc/asound` state cannot isolate the game's player — the MMAPI state trace is the
+reliable signal. Two quirks worth knowing: alt-tabbing the emulator fires
+`pauseApp`/`resumeApplication`, which restarts the track from the top; and the "music" is a
+transcription — keyboard/lead timbres over the original arrangement, which is exactly the
+trade the size budget demanded.
+
 ## Completed in Existing Project Stage
 
 - Phase 1 reports: asset manifest, symbol classification, cross-reference, phase backlog.

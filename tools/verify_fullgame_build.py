@@ -40,6 +40,10 @@ def main():
             entry = path.relative_to(ROOT).as_posix()
             if entry not in names:
                 fail("resource path mismatch: " + entry)
+        for path in (ROOT / "assets/fullgame").rglob("*.mid"):
+            entry = path.relative_to(ROOT).as_posix()
+            if entry not in names:
+                fail("audio resource path mismatch: " + entry)
         if "me/holojava/fullgame/FullGameMIDlet.class" not in names:
             fail("MIDlet class missing from JAR")
         collab_entry = "data/wiki/collabs.csv"

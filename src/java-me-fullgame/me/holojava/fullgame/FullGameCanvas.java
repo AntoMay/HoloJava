@@ -118,6 +118,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private volatile boolean applicationPaused;
     private volatile boolean exitRequested;
     private int screen = SPLASH;
+    /** Looping stage music; silent until a run starts (see BgmAudio for the stage table).
+     *  Created on first use: some suites allocate the canvas without its constructor, so no
+     *  field initializer may be load-bearing. */
+    private BgmAudio bgm;
+
+    private BgmAudio bgm() {
+        if (bgm == null) bgm = new BgmAudio();
+        return bgm;
+    }
     private int menuIndex;
     private int modeIndex;
     private int characterIndex;
@@ -179,11 +188,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     public boolean exitRequested() { return exitRequested; }
     public void pauseApplication() {
         applicationPaused = true;
+        bgm().stop(); // music must not keep playing behind a backgrounded MIDlet
         if (world != null) world.pause();
     }
     public void resumeApplication() {
         applicationPaused = false;
         if (world != null) world.resume();
+        if (screen == GAME) bgm().play(stageIndex); // re-entering mid-run: the stage track returns
     }
     public void stopApplication() { stopped = true; }
 
@@ -642,6 +653,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         world = new RunWorld(assets, save, characterIndex, modeIndex, stageIndex);
         world.setViewport(viewport);
         screen = GAME;
+        bgm().play(stageIndex);
         pauseFrom5 = false;  // clear '5' latch so it doesn't trigger pause immediately after start
     }
 
@@ -697,8 +709,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             else levelUpScroll = 0; // popup closed: the next level-up starts at the top row
             if (world.state() == RunWorld.STATE_PAUSED) drawPause(g, ox, oy);
             if (world.state() == RunWorld.STATE_GAME_OVER || world.state() == RunWorld.STATE_VICTORY) { /* results handled next tick */ }
-        } else if (screen == RESULTS) drawResults(g, ox, oy);
-        else drawMenuScreen(g, ox, oy);
+        } else {
+            bgm().stop(); // every non-GAME screen (results, menus, splash) leaves the track behind
+            if (screen == RESULTS) drawResults(g, ox, oy);
+            else drawMenuScreen(g, ox, oy);
+        }
     }
 
     /** Shared page background: a lighter header band behind the title row and the slightly darker
