@@ -177,6 +177,20 @@ public final class CharacterShopTest {
         m.invoke(canvas, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE, Boolean.TRUE, Boolean.FALSE);
     }
 
+    /**
+     * One idle game-loop tick: update() calls updateUpgrades every40ms with every edge false.
+     * The popup must survive these — a pending question only closes on a real key press.
+     */
+    private static void upgradesIdleTicks(Object canvas, int ticks) throws Exception {
+        Method m = canvasClass().getDeclaredMethod("updateUpgrades", boolean.class,
+                boolean.class, boolean.class, boolean.class, boolean.class);
+        m.setAccessible(true);
+        for (int i = 0; i < ticks; i++) {
+            m.invoke(canvas, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                    Boolean.FALSE);
+        }
+    }
+
     /** A world with its pools and stat inputs present, plus the given upgrade levels applied. */
     private static Object world(SaveStore save, int characterIndex, int[] levels) throws Exception {
         Class<?> wc = worldClass();
@@ -653,12 +667,15 @@ public final class CharacterShopTest {
 
         upgradeFire(c, refundAll);
         expect(getBool(c, "refundConfirm"), "the first press only arms the confirmation");
+        upgradesIdleTicks(c, 3);
+        expect(getBool(c, "refundConfirm"), "idle ticks leave the refund question open too");
         expectEq(save.upgradeLevel(reroll), 1, "nothing was refunded yet");
         upgradesMove(c, true, false);                     // a d-pad press closes the popup...
         expect(!getBool(c, "refundConfirm"), "a d-pad press closes the pending confirmation");
         expectEq(getInt(c, "screen"), UPGRADES, "without leaving the purchase page");
 
         upgradeFire(c, refundAll);                        // arm again...
+        upgradesIdleTicks(c, 2);
         upgradeFire(c, refundAll);                        // ...and confirm
         expect(!getBool(c, "refundConfirm"), "the confirmation cleared");
         expectEq(save.upgradeLevel(reroll), 0, "the reroll level was refunded");
@@ -800,6 +817,8 @@ public final class CharacterShopTest {
 
         upgradeFire(c, reroll);
         expect(getBool(c, "buyConfirm"), "the first press only arms the question");
+        upgradesIdleTicks(c, 3);                          // the real loop ticks every40ms...
+        expect(getBool(c, "buyConfirm"), "idle ticks between presses never close the popup");
         expectEq(save.upgradeLevel(reroll), 0, "nothing was bought yet");
         expectEq(save.coinBalance(), before, "and nothing was charged yet");
 
@@ -818,7 +837,8 @@ public final class CharacterShopTest {
         expectEq(save.upgradeLevel(reroll), 0, "still nothing bought after the cancels");
 
         upgradeFire(c, reroll);                             // arm once more...
-        upgradeFire(c, reroll);                             // ...and confirm
+        upgradesIdleTicks(c, 5);                            // ...the player hesitates...
+        upgradeFire(c, reroll);                             // ...and confirms
         expect(!getBool(c, "buyConfirm"), "the question cleared");
         expectEq(save.upgradeLevel(reroll), 1, "the confirmed press bought the level");
         expectEq(save.coinBalance(), before - cost, "and charged exactly the price");

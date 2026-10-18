@@ -559,6 +559,33 @@ the Xwayland window (keys silently go nowhere). Both were root-caused by reading
 source and a live jstack (game loop and AWT event thread healthy, focus object inspected
 directly); the game's own input state machine is unaffected and fully test-covered.
 
+## Popup Idle-Tick Fix and Right-Key Repeat Fix (2026-10-18)
+
+Two bugs reported right after the popup wave, both confirmed by reading the input path:
+
+**1. The popup closed itself ~40 ms after opening.** `update()` calls `updateUpgrades(...)` on
+every 40 ms tick, but the modal branch treated "no FIRE edge" as "d-pad pressed" and cleared
+`buyConfirm`/`refundConfirm` — so an idle tick (no key at all) dismissed the popup before the
+player could answer, and every later FIRE just re-armed it: purchases with a price could never
+be completed, and the abandoned geser press leaked into normal back-navigation. The branch now
+reacts to real edges only: FIRE executes the question, an actual d-pad press
+(`up || down || left || right`) closes it in place, and an idle tick keeps it open.
+CharacterShopTest [11] and [15] gained an `upgradesIdleTicks` helper that replays the real
+loop (N all-false calls between arm and confirm) — the coverage gap that let this ship.
+
+**2. Right scrolled every tick instead of every press.** `update()` never assigned
+`rightWasDown = right` with the other edge latches (only `clearInputLatches` did), so
+`rightEdge = right && !rightWasDown` fired on *every* tick a key press was held (~25/s) —
+that is the "gulir ke kanan terlalu cepat" report, and it also made a single held geser
+produce a second edge that navigated away after closing the popup. One line fixes it; with
+the fix a 600 ms hold advances exactly one entry.
+
+Verified end-to-end on the desktop emulator: the popup stayed open across a 3-second idle,
+geser closed it in place on BELI UPGRADE (cursor unmoved, no tab-submenu jump), the two-press
+purchase completed (Reroll Lv0→Lv1, 9999999→9997499), and a 600 ms Right hold moved the main
+menu exactly one icon. Full suite: 32 suites, 3609 checks; phone JAR 1364288 B, desktop JAR
+1363232 B, `verify_fullgame_build.py` passes.
+
 ## Completed in Existing Project Stage
 
 - Phase 1 reports: asset manifest, symbol classification, cross-reference, phase backlog.

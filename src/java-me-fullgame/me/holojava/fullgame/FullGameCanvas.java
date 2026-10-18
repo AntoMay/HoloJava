@@ -247,6 +247,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         boolean rightEdge = right && !rightWasDown;
         boolean attackEdge = attackHeld && !attackWasDown;
         fireWasDown = fire; upWasDown = up; downWasDown = down; leftWasDown = left;
+        rightWasDown = right;
         attackWasDown = attackHeld;
 
         if (validationError != null && validationError.length() > 0) return;
@@ -461,14 +462,19 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * trailing Kembali row both step back up to the tab submenu with the cursor on the tab just
      * used, and up/down move the highlight inside the tab. FIRE buys — through a modal popup:
      * while a confirmation popup is open it owns the input, FIRE executes it and any d-pad press
-     * only closes it, so cancelling never moves the cursor or navigates away.
+     * only closes it, so cancelling never moves the cursor or navigates away. update() calls
+     * this every40ms tick, so the popup branch must react to real edges only: an idle tick with
+     * no key at all leaves the popup open — only an actual d-pad press dismisses it.
      */
     private void updateUpgrades(boolean up, boolean down, boolean fire, boolean left, boolean right) {
         int rows = ContentCatalog.upgradeGroupCount(shopTab) + 1;
         if (buyConfirm || refundConfirm) {
             if (fire) buyUpgrade(ContentCatalog.upgradeGroupStart(shopTab) + menuIndex);
-            else { buyConfirm = false; refundConfirm = false; }   // any d-pad press closes it
-            return;
+            else if (up || down || left || right) {       // a d-pad press closes it in place
+                buyConfirm = false;
+                refundConfirm = false;
+            }
+            return;                                        // an idle tick keeps the popup open
         }
         if (left || right) {
             screen = SHOPTABS;
