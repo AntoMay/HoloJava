@@ -516,6 +516,49 @@ passing; the derived-asset manifest holds 188 rows (+1 icon, +8 baked labels) an
 desktop-emulator instance — the XTEST edge flakiness seen before reappeared only on a stale
 window and vanished after a restart.
 
+## Shop Popup Confirmations and Five-Row List (2026-10-18)
+
+Follow-up polish requested right after the Menu Polish wave:
+
+**1. Tab strip removed.** The Beli Upgrade purchase page no longer draws the read-only
+`[Ability] Stat Lainnya` breadcrumb at the top — tabs are chosen on the PILIH TAB submenu, so
+the strip only repeated information the flow had already established. Rows now start at `y+56`
+with a 26 px pitch (was `y+66` / 20 px), giving the list more air under the title band.
+
+**2. Five rows per page, scrolling.** `SHOP_PAGE_SIZE` went 6 → 5, so the purchase list shows
+five rows at a time and `keepShopRowVisible` scrolls the rest into view; the Armory catalogue
+shares the same constant and stays in step. The detail panel (separator at `y+184`, row text
+`y+190`/`y+206`, key hint `y+222`) is unchanged, and the hint is now always
+`FIRE: beli  L/R / akhir: kembali ke tab` — it no longer swaps itself for the question.
+
+**3. Confirmations are modal popups.** `buyConfirm` and `refundConfirm` no longer replace the
+key-hint line; they draw a centred 248×96 `drawShopPopup` box that covers the list: the
+question as heading ("Beli \<nama\>?" / "Refund All?"), the effect lines (level-up with
+`-N Koin` or `gratis`, and the balance after: `Koin tersisa: …`, or `+N Koin (sisa …)` for a
+refund), and a bold `FIRE: ya    Geser: batal` footer. While a popup is open it owns the input
+(`updateUpgrades`): FIRE executes the armed action on the highlighted row, and any d-pad press
+only closes the popup — no cursor move, no navigation — so cancelling with geser never steps
+back to the tab submenu by accident. Locked and maxed rows still never arm a popup.
+
+**4. Tests.** CharacterShopTest [11] and [15] re-pin the modal semantics: a d-pad press closes
+the pending popup without leaving the purchase page or moving the cursor (new `upgradesBack`
+helper drives L/R), and only the consecutive second FIRE spends. Full suite: 32 suites, 3607
+checks, all passing; builds unchanged in shape (phone 1364256 B, desktop 1363210 B) and
+`tools/verify_fullgame_build.py` passes with 188 assets.
+
+**5. Runtime verification and one emulator finding.** Screenshot-verified on the desktop
+emulator: the five-row list, the scrolled view, the popup rendering (name, level-up, cost,
+balance-after, footer) and the geser-cancels-in-place behaviour. The purchase's second-press
+execution is covered by the reflection-driven tests above; the emulator session itself hit an
+input-injection failure that is on the emulator side, not in the game: freej2me-plus
+`MobilePlatform.updateKeyState` releases the key bit with XOR instead of AND-NOT
+(`keyState ^= mask`), so a release event that arrives without a matching tracked press flips a
+zero bit to one and wedges that game-action bit permanently (seen as "FIRE is dead while the
+d-pad still works"), and under Wayland the compositor intermittently steals X input focus from
+the Xwayland window (keys silently go nowhere). Both were root-caused by reading the emulator
+source and a live jstack (game loop and AWT event thread healthy, focus object inspected
+directly); the game's own input state machine is unaffected and fully test-covered.
+
 ## Completed in Existing Project Stage
 
 - Phase 1 reports: asset manifest, symbol classification, cross-reference, phase backlog.

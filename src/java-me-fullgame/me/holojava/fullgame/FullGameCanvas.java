@@ -53,7 +53,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      */
     static final long SHOP_STARTING_CAPITAL = 9999999L;
     /** Rows the shop draws per screen; the rest are reached by scrolling. */
-    private static final int SHOP_PAGE_SIZE = 6;
+    private static final int SHOP_PAGE_SIZE = 5;
 
     /**
      * Gameplay key bindings.
@@ -459,29 +459,28 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     /**
      * Beli Upgrade input: the tab is fixed by the submenu that opened this page, so L/R and the
      * trailing Kembali row both step back up to the tab submenu with the cursor on the tab just
-     * used; up/down move the highlight inside the tab and FIRE buys (after its confirmation).
-     * Any movement cancels both pending confirmations, so a destructive or spending action can
-     * only ever land on a second deliberate FIRE on its own row.
+     * used, and up/down move the highlight inside the tab. FIRE buys — through a modal popup:
+     * while a confirmation popup is open it owns the input, FIRE executes it and any d-pad press
+     * only closes it, so cancelling never moves the cursor or navigates away.
      */
     private void updateUpgrades(boolean up, boolean down, boolean fire, boolean left, boolean right) {
         int rows = ContentCatalog.upgradeGroupCount(shopTab) + 1;
+        if (buyConfirm || refundConfirm) {
+            if (fire) buyUpgrade(ContentCatalog.upgradeGroupStart(shopTab) + menuIndex);
+            else { buyConfirm = false; refundConfirm = false; }   // any d-pad press closes it
+            return;
+        }
         if (left || right) {
-            buyConfirm = false;
-            refundConfirm = false;
             screen = SHOPTABS;
             menuIndex = shopTab;
             return;
         }
         if (up || down) {
-            buyConfirm = false;
-            refundConfirm = false;
             menuIndex = wrap(menuIndex + (up ? -1 : 1), rows);
             keepShopRowVisible(rows);
         }
         if (!fire) return;
         if (menuIndex == rows - 1) {          // the trailing Kembali row
-            buyConfirm = false;
-            refundConfirm = false;
             screen = SHOPTABS;
             menuIndex = shopTab;
             return;
@@ -527,11 +526,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * <p>Locked rows are data for the page only: their wiki prices are shown, but no purchase can
      * land. Refund All asks once and then zeroes every row while crediting the full price back in
      * one write. Hardcore toggles the settings bit itself, so the shop and the Pengaturan page can
-     * never disagree. A levelled row asks first (buyConfirm) and only the second FIRE on the same
-     * row spends: it writes the level only after the coin write committed, exactly as before — a
-     * storage failure costs the coins, never the level, and a short balance, a maxed row or a
-     * free (0-coin) row each leave the record untouched. Movement cancels the pending question,
-     * so the confirmation can never be spent from another row.
+     * never disagree. A levelled row asks first (buyConfirm) and only the second FIRE spends: it
+     * writes the level only after the coin write committed, exactly as before — a storage failure
+     * costs the coins, never the level, and a short balance, a maxed row or a free (0-coin) row
+     * each leave the record untouched. The asking popup owns the input while it is open (see
+     * updateUpgrades), so the confirmation can never be spent from another row.
      */
     private void buyUpgrade(int upgradeIndex) {
         ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(upgradeIndex);
@@ -1082,27 +1081,18 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Beli Upgrade page: three tabs over the full 34-row catalog in wiki order, six rows at a
-     * time, with a detail panel pinned to the bottom. Every row is drawn — locked ones too, with
-     * their wiki price — so the shop reads like the real thing instead of hiding its content
-     * until it exists. Colour follows the rest of the menus: ink when the row can be bought,
-     * the recessive cyan accent when it cannot, and words ("MAX", "gratis", "[Terkunci]") so
-     * colour is never the only signal.
+     * Beli Upgrade page: the purchase list for the tab the submenu opened, five rows at a time
+     * with the rest reached by scrolling, and a detail panel pinned to the bottom. Every row is
+     * drawn — locked ones too, with their wiki price — so the shop reads like the real thing
+     * instead of hiding its content until it exists. Colour follows the rest of the menus: ink
+     * when the row can be bought, the recessive cyan accent when it cannot, and words ("MAX",
+     * "gratis", "[Terkunci]") so colour is never the only signal. A pending confirmation is a
+     * modal popup drawn last, so it covers the list instead of fighting the key hint for a line.
      */
     private void drawUpgrades(Graphics g, int x, int y) {
         title(g, x, y, "BELI UPGRADE");
         long balance = save.coinBalance();
         drawCoin(g, x, y, balance);
-
-        // Tab strip: a breadcrumb of the tab the submenu opened (brackets mark the active one),
-        // not a control — tabs are chosen on the PILIH TAB list and L/R steps back to it.
-        String[] tabs = { "Ability", "Stat", "Lainnya" };
-        String strip = "";
-        for (int t = 0; t < tabs.length; t++) {
-            strip += (t == shopTab ? "[" + tabs[t] + "]" : " " + tabs[t] + " ") + "  ";
-        }
-        ink(g);
-        drawText(g, x + 12, y + 46, strip, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
         int start = ContentCatalog.upgradeGroupStart(shopTab);
         int count = ContentCatalog.upgradeGroupCount(shopTab);
@@ -1110,7 +1100,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         for (int slot = 0; slot < SHOP_PAGE_SIZE; slot++) {
             int i = shopScroll + slot;
             if (i >= rows) break;
-            int rowY = y + 66 + slot * 20;
+            int rowY = y + 56 + slot * 26;
             boolean selected = i == menuIndex;
             if (i < count) drawUpgradeRow(g, x, rowY, start + i, selected, balance);
             else {
@@ -1120,13 +1110,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
             if (selected) {
                 g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-                g.drawRect(x + 8, rowY - 2, 288, 14);
+                g.drawRect(x + 8, rowY - 2, 288, 16);
             }
         }
 
-        // Detail panel: separator, the highlighted row's full text, and the key hint — replaced
-        // by the refund confirmation while one is pending, so the destructive second press is
-        // announced on the exact screen where it will land.
+        // Detail panel: separator, the highlighted row's full text, and the key hint. The pending
+        // question itself lives in the popup below rather than replacing this line.
         g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.drawLine(x + 8, y + 184, x + 312, y + 184);
         ink(g);
@@ -1140,25 +1129,49 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             drawText(g, x + 12, y + 190, "Kembali ke menu Toko.", Font.STYLE_BOLD, Font.SIZE_SMALL);
             drawText(g, x + 12, y + 206, "Upgrade bersifat permanen.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
+        ink(g);
+        drawText(g, x + 12, y + 222, "FIRE: beli  L/R / akhir: kembali ke tab",
+                Font.STYLE_PLAIN, Font.SIZE_SMALL);
+
+        // Confirmation popup, drawn last so it covers the list. updateUpgrades clears the flags
+        // on any d-pad press, so the popup and its pending action always describe the row that
+        // was highlighted when it opened.
         if (refundConfirm) {
-            g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
-            drawText(g, x + 12, y + 222, "Refund All? FIRE: ya. Geser: batal.",
-                    Font.STYLE_BOLD, Font.SIZE_SMALL);
+            long worth = save.refundValue();
+            drawShopPopup(g, x, y, "Refund All?", new String[] {
+                    "Semua level upgrade kembali 0.",
+                    "+" + worth + " Koin (sisa " + (balance + worth) + ")",
+            });
         } else if (buyConfirm && menuIndex < count) {
-            // The pending purchase question replaces the key hint on the exact screen where the
-            // second press will land; the detail panel above already names the row.
-            g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
             ContentCatalog.UpgradeDef ask = ContentCatalog.upgrade(start + menuIndex);
-            long askCost = ContentCatalog.upgradeCost(ask, shopRowLevel(ask, start + menuIndex));
-            drawText(g, x + 12, y + 222,
-                    (askCost > 0 ? "Beli " + askCost + " Koin?" : "Beli gratis?")
-                            + " FIRE: ya. Geser: batal.",
-                    Font.STYLE_BOLD, Font.SIZE_SMALL);
-        } else {
-            ink(g);
-            drawText(g, x + 12, y + 222, "FIRE: beli  L/R / akhir: kembali ke tab",
-                    Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            int askLevel = shopRowLevel(ask, start + menuIndex);
+            long askCost = ContentCatalog.upgradeCost(ask, askLevel);
+            drawShopPopup(g, x, y, "Beli " + ask.name + "?", new String[] {
+                    "Lv " + askLevel + " -> Lv " + (askLevel + 1)
+                            + (askCost > 0 ? "   -" + askCost + " Koin" : "   gratis"),
+                    askCost > 0 ? "Koin tersisa: " + (balance - askCost) : "Koin: " + balance,
+            });
         }
+    }
+
+    /**
+     * Modal shop confirmation, drawn last on the page so it covers the list. It names the action
+     * and its effect on the coin balance, and states both outcomes in words — FIRE executes, any
+     * d-pad press closes it — because the popup is the only place the pending action is announced.
+     */
+    private void drawShopPopup(Graphics g, int x, int y, String heading, String[] lines) {
+        int w = 248, h = 96;
+        int px = x + (Viewport.MIN_W - w) / 2, py = y + 64;
+        g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
+        g.fillRect(px, py, w, h);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        g.drawRect(px + 1, py + 1, w - 3, h - 3);
+        ink(g);
+        drawText(g, px + 12, py + 10, heading, Font.STYLE_BOLD, Font.SIZE_SMALL);
+        for (int i = 0; i < lines.length; i++) {
+            drawText(g, px + 12, py + 30 + i * 16, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
+        drawText(g, px + 12, py + h - 22, "FIRE: ya    Geser: batal", Font.STYLE_BOLD, Font.SIZE_SMALL);
     }
 
     /** Level a row displays: Hardcore reads the settings bit, actions have no level. */

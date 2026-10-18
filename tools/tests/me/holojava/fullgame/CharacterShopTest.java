@@ -25,6 +25,9 @@ public final class CharacterShopTest {
     private static int checks = 0;
     private static int failures = 0;
 
+    /** FullGameCanvas's Beli Upgrade screen; the modal popups must never leave it. */
+    private static final int UPGRADES = 11;
+
     private static Object unsafe;
 
     static {
@@ -134,8 +137,8 @@ public final class CharacterShopTest {
 
     /**
      * Fires on one catalog row through the real updateUpgrades input path. Deliberately does not
-     * touch refundConfirm: a fire press never cancels a pending confirmation in production, only
-     * a cursor or tab move does — so the two-press Refund All flow must survive between calls.
+     * touch the confirmation flags: a fire press never closes a pending popup in production,
+     * only a d-pad press does — so the two-press flows must survive between calls.
      */
     private static void upgradeFire(Object canvas, int upgradeIndex) throws Exception {
         ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(upgradeIndex);
@@ -150,8 +153,8 @@ public final class CharacterShopTest {
 
     /**
      * Completes one purchase through the real two-press path: the first FIRE only arms the
-     * on-screen question (buyConfirm), the second buys. The pair must be consecutive — any
-     * cursor or tab move in between cancels the question.
+     * modal popup (buyConfirm), the second buys. The pair must be consecutive — any d-pad press
+     * in between closes the popup without buying.
      */
     private static void upgradeBuy(Object canvas, int upgradeIndex) throws Exception {
         upgradeFire(canvas, upgradeIndex);
@@ -164,6 +167,14 @@ public final class CharacterShopTest {
         m.setAccessible(true);
         m.invoke(canvas, Boolean.valueOf(up), Boolean.valueOf(down), Boolean.FALSE,
                 Boolean.FALSE, Boolean.FALSE);
+    }
+
+    /** A back press (L/R) on the purchase page. */
+    private static void upgradesBack(Object canvas) throws Exception {
+        Method m = canvasClass().getDeclaredMethod("updateUpgrades", boolean.class,
+                boolean.class, boolean.class, boolean.class, boolean.class);
+        m.setAccessible(true);
+        m.invoke(canvas, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE, Boolean.TRUE, Boolean.FALSE);
     }
 
     /** A world with its pools and stat inputs present, plus the given upgrade levels applied. */
@@ -643,8 +654,9 @@ public final class CharacterShopTest {
         upgradeFire(c, refundAll);
         expect(getBool(c, "refundConfirm"), "the first press only arms the confirmation");
         expectEq(save.upgradeLevel(reroll), 1, "nothing was refunded yet");
-        upgradesMove(c, true, false);                     // any cursor move cancels
-        expect(!getBool(c, "refundConfirm"), "a cursor move cancels the pending confirmation");
+        upgradesMove(c, true, false);                     // a d-pad press closes the popup...
+        expect(!getBool(c, "refundConfirm"), "a d-pad press closes the pending confirmation");
+        expectEq(getInt(c, "screen"), UPGRADES, "without leaving the purchase page");
 
         upgradeFire(c, refundAll);                        // arm again...
         upgradeFire(c, refundAll);                        // ...and confirm
@@ -771,7 +783,10 @@ public final class CharacterShopTest {
             "the capital covers buying every row's first level (" + capital + " vs " + total + ")");
     }
 
-    /** A levelled row asks before it buys: first FIRE arms, movement cancels, second FIRE buys. */
+    /**
+     * A levelled row asks before it buys: first FIRE arms a modal popup, any d-pad press closes
+     * it in place (no cursor move, no navigation), and only a second FIRE spends.
+     */
     private static void testPurchaseAsksForConfirmation() throws Exception {
         System.out.println("[15] a purchase asks first and only buys on the second press");
         Recording storage = new Recording(new byte[56]);
@@ -788,11 +803,21 @@ public final class CharacterShopTest {
         expectEq(save.upgradeLevel(reroll), 0, "nothing was bought yet");
         expectEq(save.coinBalance(), before, "and nothing was charged yet");
 
-        upgradesMove(c, true, false);                       // any cursor move cancels
-        expect(!getBool(c, "buyConfirm"), "a cursor move cancels the pending question");
-        expectEq(save.upgradeLevel(reroll), 0, "still nothing bought after the cancel");
+        // The popup owns the input while open: a back press (geser) closes it in place instead
+        // of stepping back to the tab submenu — the popup exists so geser is never hijacked.
+        int row = getInt(c, "menuIndex");
+        upgradesBack(c);
+        expect(!getBool(c, "buyConfirm"), "a back press closes the pending popup");
+        expectEq(getInt(c, "screen"), UPGRADES, "without leaving the purchase page");
+        expectEq(getInt(c, "menuIndex"), row, "and without moving the cursor");
 
         upgradeFire(c, reroll);                             // arm again...
+        upgradesMove(c, false, true);                       // a scroll press while open
+        expect(!getBool(c, "buyConfirm"), "a scroll press closes the popup too");
+        expectEq(getInt(c, "menuIndex"), row, "without scrolling the cursor");
+        expectEq(save.upgradeLevel(reroll), 0, "still nothing bought after the cancels");
+
+        upgradeFire(c, reroll);                             // arm once more...
         upgradeFire(c, reroll);                             // ...and confirm
         expect(!getBool(c, "buyConfirm"), "the question cleared");
         expectEq(save.upgradeLevel(reroll), 1, "the confirmed press bought the level");
