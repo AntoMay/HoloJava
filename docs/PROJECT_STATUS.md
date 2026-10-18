@@ -483,6 +483,39 @@ back steps between them, and a live Hutan Sawit run. Injecting single keystrokes
 proved flaky (occasional missed or duplicated edges against FreeJ2ME's held-key polling) — a
 test-harness artifact, not a menu defect; the state machine itself is covered by the suites above.
 
+## Menu Polish: Keluar Entry, Shop Confirmation and Layout Fixes (2026-10-18)
+
+Small-fix wave requested right after the HoloCure menu landed:
+
+**1. Main menu cleanup.** The `HOLOJAVA` wordmark under the logo and the `SETUJU: 5/FIRE` hint
+are gone (the splash keeps its own `HOLOJAVA` / `PRESS 5 TO START`). The gold label box now draws
+pre-rendered `menu_text_0..7` images — DejaVu Sans Bold at 10 px, baked by
+`tools/prepare_title_menu_assets.py` — one notch below MIDP's smallest font, with the drawn
+SIZE_SMALL string kept as the partial-build fallback. The bar gained its eighth entry, Keluar
+(red-X frame `menu_icon_7`), which sets the same shutdown flags as the Pengaturan Exit row, and
+`TITLE_BAR_X` moved 40 → 27 so the eight icons keep the old centred span (265 px).
+
+**2. Pengaturan.** The Hardcore row is gone; the page is Audio / Controls / Exit / Back with a
+note pointing at the shop row that still toggles the same flag. Hardcore remains togglable as
+the BUY_TOGGLE row in Toko → Beli Upgrade → Lainnya.
+
+**3. Toko layout and flow.** The TOKO heading is centred and the coin balance moved to the
+top-right of the title band on every Toko-family page (`drawCoin`). Beli Upgrade's three tabs
+are now a list submenu: Toko → Beli Upgrade opens the new `SHOPTABS` screen (PILIH TAB:
+Ability / Stat / Lainnya / Kembali); inside the purchase page L/R and the trailing Kembali row
+both step back to it with the cursor restored on the tab just used, and the tab strip became a
+read-only breadcrumb. Purchases ask first: the first FIRE on a levelled row arms `buyConfirm`
+("Beli N Koin? FIRE: ya. Geser: batal."), the second buys; any movement cancels, maxed and
+locked rows never arm, and Refund All keeps its own two-press flow.
+
+**4. Tests and assets.** UiStateMachineTest [3]/[4]/[11]/[18]/[21] re-pin the eight-entry menu,
+the four-row settings and the tab submenu; CharacterShopTest gained `upgradeBuy` (the two-press
+path) and test [15] for the confirmation semantics. Full suite: 32 suites, 3602 checks, all
+passing; the derived-asset manifest holds 188 rows (+1 icon, +8 baked labels) and
+`tools/verify_fullgame_build.py` checks 188. Every change was screenshot-verified on a fresh
+desktop-emulator instance — the XTEST edge flakiness seen before reappeared only on a stale
+window and vanished after a restart.
+
 ## Completed in Existing Project Stage
 
 - Phase 1 reports: asset manifest, symbol classification, cross-reference, phase backlog.

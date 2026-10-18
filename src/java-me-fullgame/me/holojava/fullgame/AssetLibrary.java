@@ -45,6 +45,7 @@ final class AssetLibrary {
     private Image menuCast;
     private Image menuLabel;
     private Image[] icons;
+    private Image[] texts;
 
     Image tileGrass;
     Image tileGrassField;
@@ -425,7 +426,8 @@ final class AssetLibrary {
     /**
      * Title-screen backdrop (the star stage), the roster collage drawn over it, and the gold
      * label box behind the selected entry's name. All three are pre-scaled at asset-preparation
-     * time by tools/prepare_title_menu_assets.py, which also bakes the seven bar icons below.
+     * time by tools/prepare_title_menu_assets.py, which also bakes the eight bar icons and the
+     * eight label texts below.
      */
     Image titleBg() {
         if (titleBg == null) titleBg = image("/assets/fullgame/ui/title_bg.png");
@@ -444,17 +446,32 @@ final class AssetLibrary {
 
     /**
      * One frame of the title bar, indexed like FullGameCanvas's MAIN_* rows. Loaded as a group
-     * on first use because every paint walks the whole bar; seven small icons cost one seek
+     * on first use because every paint walks the whole bar; eight small icons cost one seek
      * burst instead of one per frame.
      */
     Image menuIcon(int index) {
         if (icons == null) {
-            icons = new Image[7];   // seven bar entries; MAIN_ITEM_COUNT in FullGameCanvas
+            icons = new Image[8];   // eight bar entries; MAIN_ITEM_COUNT in FullGameCanvas
             for (int i = 0; i < icons.length; i++) {
                 icons[i] = image("/assets/fullgame/ui/menu_icon_" + i + ".png");
             }
         }
         return icons[index];
+    }
+
+    /**
+     * The entry name baked into the gold label box, one image per MAIN_* row, pre-rendered one
+     * notch below MIDP's smallest font by tools/prepare_title_menu_assets.py. Group-loaded like
+     * the icons; drawMainMenu falls back to a drawn string when an image is missing.
+     */
+    Image menuText(int index) {
+        if (texts == null) {
+            texts = new Image[8];   // eight entry names; MAIN_ITEMS in FullGameCanvas
+            for (int i = 0; i < texts.length; i++) {
+                texts[i] = image("/assets/fullgame/ui/menu_text_" + i + ".png");
+            }
+        }
+        return texts[index];
     }
 
     private Image[] frames(String dir, int count) { return frames(dir, count, ""); }

@@ -176,5 +176,14 @@ assets/fullgame/ui/menu_icon_3.png,sprites/hud_title_icons/,PNG,19,19,RGBA,yes,t
 assets/fullgame/ui/menu_icon_4.png,sprites/hud_title_icons/,PNG,14,14,RGBA,yes,title bar icon,high,Holo House icon; pre-scaled 28x28 offline
 assets/fullgame/ui/menu_icon_5.png,sprites/hud_title_icons/,PNG,11,12,RGBA,yes,title bar icon,high,Pengaturan gear icon; pre-scaled 23x25 offline
 assets/fullgame/ui/menu_icon_6.png,sprites/hud_title_icons/,PNG,12,9,RGBA,yes,title bar icon,high,Credits list icon; pre-scaled 25x18 offline
+assets/fullgame/ui/menu_icon_7.png,sprites/hud_title_icons/,PNG,10,10,RGBA,yes,title bar icon,high,Keluar red-X exit icon; pre-scaled 20x20 offline
 assets/fullgame/ui/menu_label.png,sprites/menu_first/,PNG,116,20,RGBA,yes,entry label box,high,Gold-bordered entry label box (menu_first frame 0); pre-scaled 174x51 to 116x20 offline
+assets/fullgame/ui/menu_text_0.png,fonts/DejaVuSans-Bold.ttf (offline bake),PNG,116,20,RGBA,yes,entry label text,high,Entry name Papan Peringkat baked at 10px white and centred in the label box
+assets/fullgame/ui/menu_text_1.png,fonts/DejaVuSans-Bold.ttf (offline bake),PNG,116,20,RGBA,yes,entry label text,high,Entry name Pencapaian baked at 10px white and centred in the label box
+assets/fullgame/ui/menu_text_2.png,fonts/DejaVuSans-Bold.ttf (offline bake),PNG,116,20,RGBA,yes,entry label text,high,Entry name Toko baked at 10px white and centred in the label box
+assets/fullgame/ui/menu_text_3.png,fonts/DejaVuSans-Bold.ttf (offline bake),PNG,116,20,RGBA,yes,entry label text,high,Entry name Main baked at 10px white and centred in the label box
+assets/fullgame/ui/menu_text_4.png,fonts/DejaVuSans-Bold.ttf (offline bake),PNG,116,20,RGBA,yes,entry label text,high,Entry name Holo House baked at 10px white and centred in the label box
+assets/fullgame/ui/menu_text_5.png,fonts/DejaVuSans-Bold.ttf (offline bake),PNG,116,20,RGBA,yes,entry label text,high,Entry name Pengaturan baked at 10px white and centred in the label box
+assets/fullgame/ui/menu_text_6.png,fonts/DejaVuSans-Bold.ttf (offline bake),PNG,116,20,RGBA,yes,entry label text,high,Entry name Credits baked at 10px white and centred in the label box
+assets/fullgame/ui/menu_text_7.png,fonts/DejaVuSans-Bold.ttf (offline bake),PNG,116,20,RGBA,yes,entry label text,high,Entry name Keluar baked at 10px white and centred in the label box
 assets/fullgame/ui/title_bg.png,sprites/hud_new_title_BG/,PNG,320,240,RGB,no,title backdrop,high,Star-stage title backdrop; pre-scaled 660x360 to 320x240 offline (centre-cropped to 4:3); Splash and Main Menu fill

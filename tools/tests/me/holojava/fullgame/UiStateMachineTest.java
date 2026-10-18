@@ -30,6 +30,7 @@ public final class UiStateMachineTest {
     private static final int ARMORY = 12;
     private static final int LOCKED = 13;
     private static final int CREDITS = 14;
+    private static final int SHOPTABS = 15;
     private static final int MODES = 1;
     private static final int CHARACTERS = 2;
     private static final int STAGES = 3;
@@ -286,9 +287,10 @@ public final class UiStateMachineTest {
     }
 
     /**
-     * Each of the seven menu entries routes: Papan Peringkat, Pencapaian and Holo House open the
+     * Each navigable menu entry routes: Papan Peringkat, Pencapaian and Holo House open the
      * placeholder page (with their own titles), Toko opens the shop submenu, Main starts the
      * Main to Mode to Karakter to Stage flow, Pengaturan opens settings and Credits the credits.
+     * The eighth entry, Keluar, ends the game instead of routing — covered by test [4].
      */
     private static void testMainMenuRoutesToEveryScreen() throws Exception {
         System.out.println("[2] the main menu routes to every screen");
@@ -313,16 +315,16 @@ public final class UiStateMachineTest {
         }
     }
 
-    /** Selection wraps in both directions and can never leave the seven-entry range. */
+    /** Selection wraps in both directions and can never leave the eight-entry range. */
     private static void testMainMenuIndexWrapsAtBothEnds() throws Exception {
         System.out.println("[3] the menu index wraps at both ends");
         Object c = canvas(MENU, 0);
         mainMenu(c, false, false, false);
         expectEq(getInt(c, "menuIndex"), 0, "the index is unchanged without input");
 
-        mainMenu(c, true, false, false);                 // up from 0 wraps to 6
-        expectEq(getInt(c, "menuIndex"), 6, "up from the top wraps to the bottom");
-        mainMenu(c, false, true, false);                 // down from 6 wraps to 0
+        mainMenu(c, true, false, false);                 // up from 0 wraps to 7
+        expectEq(getInt(c, "menuIndex"), 7, "up from the top wraps to the bottom");
+        mainMenu(c, false, true, false);                 // down from 7 wraps to 0
         expectEq(getInt(c, "menuIndex"), 0, "down from the bottom wraps to the top");
 
         // Walk far past both ends and confirm the index is always in range.
@@ -330,22 +332,31 @@ public final class UiStateMachineTest {
         for (int i = 0; i < 40; i++) {
             mainMenu(walker, false, true, false);
             int idx = getInt(walker, "menuIndex");
-            expect(idx >= 0 && idx < 7, "index " + idx + " stayed within [0,7)");
+            expect(idx >= 0 && idx < 8, "index " + idx + " stayed within [0,8)");
         }
     }
 
     /**
-     * Exit lives on the Pengaturan page now: it sets the shutdown flags there, while the menu's
-     * last entry is Credits and never terminates the game from under navigation.
+     * Exit lives in two places now: row 7 of the menu bar (Keluar) and row 2 of Pengaturan both
+     * set the shutdown flags, while plain navigation never terminates the game from under it.
      */
     private static void testExitItemRequestsShutdown() throws Exception {
-        System.out.println("[4] Exit on the settings page requests shutdown");
+        System.out.println("[4] Exit requests shutdown from settings and from the menu");
         Object menuEntry = canvas(MENU, 6);
         mainMenu(menuEntry, false, false, true);
-        expectEq(getInt(menuEntry, "screen"), CREDITS, "the last menu entry is Credits, not Exit");
+        expectEq(getInt(menuEntry, "screen"), CREDITS, "row 6 is still Credits");
         expect(!getBool(menuEntry, "stopped"), "the menu itself never stops the run loop");
 
-        Object c = canvas(SETTINGS, 3);
+        // Row 7 is Keluar: same shutdown path as the settings Exit row.
+        Object menuExit = canvas(MENU, 7);
+        ShutdownStub menuStub = new ShutdownStub();
+        set(menuExit, "shutdownRequest", menuStub);
+        mainMenu(menuExit, false, false, true);
+        expect(getBool(menuExit, "stopped"), "Keluar told the run loop to stop");
+        expect(getBool(menuExit, "exitRequested"), "and an exit was recorded");
+        expect(menuStub.requested, "and the MIDlet was asked to shut down");
+
+        Object c = canvas(SETTINGS, 2);
         // A null request would throw, so give the canvas a working stub instead.
         ShutdownStub stub = new ShutdownStub();
         set(c, "shutdownRequest", stub);
@@ -495,37 +506,32 @@ public final class UiStateMachineTest {
     }
 
     private static void testSettingsTogglesAndRoutes() throws Exception {
-        System.out.println("[11] settings toggles hardcore and routes");
-        Object toggle = canvas(SETTINGS, 0);
-        Field save = canvasClass().getDeclaredField("save");
-        save.setAccessible(true);
-        SaveStore s = (SaveStore) save.get(toggle);
-        expect(!s.hardcore(), "hardcore starts off");
-        settings(toggle, false, false, true, false);
-        expect(s.hardcore(), "the first entry toggles it on");
-        settings(toggle, false, false, true, false);
-        expect(!s.hardcore(), "and pressing again toggles it back off");
+        System.out.println("[11] settings routes controls, exit and back");
+        // Audio is row 0 and deliberately does nothing.
+        Object audio = canvas(SETTINGS, 0);
+        settings(audio, false, false, true, false);
+        expectEq(getInt(audio, "screen"), SETTINGS, "the audio row has no destination yet");
 
-        Object controls = canvas(SETTINGS, 2);
+        Object controls = canvas(SETTINGS, 1);
         settings(controls, false, false, true, false);
         expectEq(getInt(controls, "screen"), CONTROLS, "the controls entry opens the controls page");
 
-        // Row 3 is Exit (no navigation), row 4 is Back.
-        Object back = canvas(SETTINGS, 4);
+        // Hardcore left this page (its shop row toggles the same flag); row 2 is Exit, row 3 Back.
+        Object back = canvas(SETTINGS, 3);
         settings(back, false, false, false, true);
         expectEq(getInt(back, "screen"), MENU, "back returns to the menu");
         expectEq(getInt(back, "menuIndex"), 5, "with the cursor on Pengaturan");
 
-        Object backRow = canvas(SETTINGS, 4);
+        Object backRow = canvas(SETTINGS, 3);
         settings(backRow, false, false, true, false);
         expectEq(getInt(backRow, "screen"), MENU, "the trailing Back row returns to the menu");
         expectEq(getInt(backRow, "menuIndex"), 5, "with the cursor on Pengaturan");
 
-        // The cursor stays inside the five rows no matter how far it walks.
+        // The cursor stays inside the four rows no matter how far it walks.
         Object walk = canvas(SETTINGS, 0);
         for (int i = 0; i < 20; i++) settings(walk, false, true, false, false);
         int idx = getInt(walk, "menuIndex");
-        expect(idx >= 0 && idx < 5, "the settings index stayed within [0,5), saw " + idx);
+        expect(idx >= 0 && idx < 4, "the settings index stayed within [0,4), saw " + idx);
     }
 
     private static void testControlsScreenReturnsToSettings() throws Exception {
@@ -644,14 +650,21 @@ public final class UiStateMachineTest {
 
     // ---------------------------------------------------------------- new screens
 
-    /** The Toko submenu: Beli Upgrade, Armory, Keluar, plus L/R back to the menu. */
+    /** The Toko submenu: Beli Upgrade, Armory, Keluar, plus L/R back to the menu — and the
+     *  tab submenu Beli Upgrade opens, which is now the only way onto the purchase page. */
     private static void testShopSubmenuRoutes() throws Exception {
-        System.out.println("[18] the Toko submenu routes its three rows");
+        System.out.println("[18] the Toko submenu routes its three rows and the tab submenu");
         Object buy = canvas(SHOP, 0);
         shop(buy, false, false, true, false, false);
-        expectEq(getInt(buy, "screen"), UPGRADES, "Beli Upgrade opens the purchase page");
-        expectEq(getInt(buy, "shopTab"), 0, "on the Ability tab");
-        expectEq(getInt(buy, "menuIndex"), 0, "with the cursor at the top of the tab");
+        expectEq(getInt(buy, "screen"), SHOPTABS, "Beli Upgrade opens the tab submenu");
+        expectEq(getInt(buy, "menuIndex"), 0, "with the cursor on the tab last used");
+
+        // The remembered tab comes back as the cursor, so L/R out and in restores position.
+        Object buyUsed = canvas(SHOP, 0);
+        set(buyUsed, "shopTab", Integer.valueOf(2));
+        shop(buyUsed, false, false, true, false, false);
+        expectEq(getInt(buyUsed, "screen"), SHOPTABS, "Beli Upgrade still opens the tab submenu");
+        expectEq(getInt(buyUsed, "menuIndex"), 2, "with the cursor on the last used tab (Lainnya)");
 
         Object armoryRow = canvas(SHOP, 1);
         shop(armoryRow, false, false, true, false, false);
@@ -671,6 +684,32 @@ public final class UiStateMachineTest {
         for (int i = 0; i < 10; i++) shop(walked, false, true, false, false, false);
         int idx = getInt(walked, "menuIndex");
         expect(idx >= 0 && idx < 3, "the shop index stayed within [0,3), saw " + idx);
+
+        // The tab submenu: a tab pick opens the purchase page on it, L/R and Kembali leave.
+        Object tab0 = canvas(SHOPTABS, 0);
+        drive(tab0, "updateShopTabs", false, false, true, false, false);
+        expectEq(getInt(tab0, "screen"), UPGRADES, "picking Ability opens the purchase page");
+        expectEq(getInt(tab0, "shopTab"), 0, "on the Ability tab");
+        expectEq(getInt(tab0, "menuIndex"), 0, "with the cursor at the top of the tab");
+
+        Object tab1 = canvas(SHOPTABS, 1);
+        drive(tab1, "updateShopTabs", false, false, true, false, false);
+        expectEq(getInt(tab1, "shopTab"), 1, "picking Stat opens the Stat tab");
+
+        Object tabLeft = canvas(SHOPTABS, 1);
+        drive(tabLeft, "updateShopTabs", false, false, false, true, false);
+        expectEq(getInt(tabLeft, "screen"), SHOP, "Left steps back out to the Toko submenu");
+        expectEq(getInt(tabLeft, "menuIndex"), 0, "on the Beli Upgrade row");
+
+        Object tabBack = canvas(SHOPTABS, 3);
+        drive(tabBack, "updateShopTabs", false, false, true, false, false);
+        expectEq(getInt(tabBack, "screen"), SHOP, "the trailing Kembali row returns to Toko");
+        expectEq(getInt(tabBack, "menuIndex"), 0, "on the Beli Upgrade row");
+
+        Object tabWalk = canvas(SHOPTABS, 0);
+        for (int i = 0; i < 10; i++) drive(tabWalk, "updateShopTabs", false, true, false, false, false);
+        int tabIdx = getInt(tabWalk, "menuIndex");
+        expect(tabIdx >= 0 && tabIdx < 4, "the tab index stayed within [0,4), saw " + tabIdx);
     }
 
     /** The three shut entries and Credits render as screens but back out on any confirm. */
@@ -717,28 +756,33 @@ public final class UiStateMachineTest {
         expectEq(getInt(c, "menuIndex"), 3, "with the cursor still on Main");
     }
 
-    /** The purchase page cycles its three tabs; its trailing row and L/R leave back to Toko. */
+    /** The purchase page's tab is fixed by the submenu: L/R and the trailing row both step back
+     *  to it (cursor on the tab just used), and the tab strip is a breadcrumb, never a control. */
     private static void testUpgradeTabsCycleAndBackLeaves() throws Exception {
-        System.out.println("[21] the purchase page cycles tabs and its last row leaves");
+        System.out.println("[21] the purchase page backs to the tab submenu instead of cycling");
         Object c = canvas(UPGRADES, 0);
-        set(c, "shopTab", Integer.valueOf(0));
+        set(c, "shopTab", Integer.valueOf(1));
         upgrades(c, false, false, false, false, true);      // right
-        expectEq(getInt(c, "shopTab"), 1, "right moves to the Stat tab");
-        expectEq(getInt(c, "menuIndex"), 0, "and resets the cursor");
-        upgrades(c, false, false, false, true, false);      // left
-        expectEq(getInt(c, "shopTab"), 0, "left comes back to Ability");
-        upgrades(c, false, false, false, true, false);      // left from the first tab
-        expectEq(getInt(c, "shopTab"), 2, "left from the first tab wraps to Lainnya");
+        expectEq(getInt(c, "screen"), SHOPTABS, "right steps back to the tab submenu");
+        expectEq(getInt(c, "menuIndex"), 1, "with the cursor on the tab just used");
+        expectEq(getInt(c, "shopTab"), 1, "and the tab itself unchanged");
 
-        // The trailing Kembali row of the current tab returns to the Toko submenu.
-        int rows = ContentCatalog.upgradeGroupCount(0) + 1;
-        Object back = canvas(UPGRADES, rows - 1);
-        set(back, "shopTab", Integer.valueOf(0));
+        Object l = canvas(UPGRADES, 0);
+        set(l, "shopTab", Integer.valueOf(0));
+        upgrades(l, false, false, false, true, false);      // left
+        expectEq(getInt(l, "screen"), SHOPTABS, "left steps back the same way");
+        expectEq(getInt(l, "menuIndex"), 0, "with the cursor on Ability");
+
+        // The trailing Kembali row of the current tab returns to the tab submenu as well.
+        int lainnyaRows = ContentCatalog.upgradeGroupCount(2) + 1;
+        Object back = canvas(UPGRADES, lainnyaRows - 1);
+        set(back, "shopTab", Integer.valueOf(2));
         upgrades(back, false, false, true, false, false);
-        expectEq(getInt(back, "screen"), SHOP, "Kembali returns to the Toko submenu");
-        expectEq(getInt(back, "menuIndex"), 0, "on the Beli Upgrade row");
+        expectEq(getInt(back, "screen"), SHOPTABS, "Kembali returns to the tab submenu");
+        expectEq(getInt(back, "menuIndex"), 2, "with the cursor on Lainnya");
 
         // The cursor stays inside the tab's rows plus the trailing row.
+        int rows = ContentCatalog.upgradeGroupCount(0) + 1;
         Object walk = canvas(UPGRADES, 0);
         for (int i = 0; i < 30; i++) upgrades(walk, false, true, false, false, false);
         int idx = getInt(walk, "menuIndex");

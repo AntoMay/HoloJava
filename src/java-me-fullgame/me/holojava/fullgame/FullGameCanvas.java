@@ -23,13 +23,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int ARMORY = 12;   // weapon and item catalogue, view-only while locked
     private static final int LOCKED = 13;   // placeholder page shared by the three shut entries
     private static final int CREDITS = 14;
+    // Toko internal step: Beli Upgrade opens this tab submenu (Ability / Stat / Lainnya /
+    // Kembali) before the purchase page, so tab choice is a list pick instead of an L/R swipe.
+    private static final int SHOPTABS = 15;
     /**
      * Main menu rows, in draw order: Papan Peringkat, Pencapaian, Toko, Main, Holo House,
-     * Pengaturan, Credits. The start-up flow lives behind Main — Main to Mode to Karakter to
-     * Stage — so characters and stages are no longer entries of their own, and Exit lives on the
-     * Pengaturan page instead of terminating the game from the menu.
+     * Pengaturan, Credits, Keluar. The start-up flow lives behind Main — Main to Mode to
+     * Karakter to Stage — so characters and stages are no longer entries of their own. Keluar
+     * ends the game straight from the bar, and Pengaturan keeps its own Exit row as well.
      */
-    private static final int MAIN_ITEM_COUNT = 7;
+    private static final int MAIN_ITEM_COUNT = 8;
     private static final int MAIN_LEADERBOARD = 0;
     private static final int MAIN_ACHIEVEMENTS = 1;
     private static final int MAIN_TOKO = 2;
@@ -37,6 +40,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int MAIN_HOLOHOUSE = 4;
     private static final int MAIN_SETTINGS = 5;
     private static final int MAIN_CREDITS = 6;
+    private static final int MAIN_EXIT = 7;
     private static final int CHARACTER_PAGE_SIZE = 8;
 
     /**
@@ -92,13 +96,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // art change, so both stay named constants instead of spreading through the draw code.
     private static final int TITLE_CAST_Y = 64;
     private static final int TITLE_BAR_BASE = 202;
-    private static final int TITLE_BAR_X = 40, TITLE_ICON_GAP = 23;
+    // Recentred for the eight icons: their visual span (sum of widths + seven 23px gaps)
+    // is 265px, so (320 - 265) / 2 = 27 keeps the same left/right margin the seven-icon
+    // bar used to have at x = 40.
+    private static final int TITLE_BAR_X = 27, TITLE_ICON_GAP = 23;
     private static final int TITLE_LABEL_X = 200, TITLE_LABEL_Y = 206, TITLE_LABEL_W = 116;
-    private static final int TITLE_HINT_Y = 228;
-    // The seven bar entries, in bar order, mirroring MAIN_* above. The bar reads left to right
+    // The eight bar entries, in bar order, mirroring MAIN_* above. The bar reads left to right
     // like the reference, so this order is also the sweep order of Up/Down/Left/Right.
     private static final String[] MAIN_ITEMS = { "Papan Peringkat", "Pencapaian", "Toko",
-            "Main", "Holo House", "Pengaturan", "Credits" };
+            "Main", "Holo House", "Pengaturan", "Credits", "Keluar" };
     // Pause menu. Two entries at the shared 22px list pitch span 44px, so 98 centres them on the
     // 240px page. Index 0 is Resume so the menu always opens on the safe choice.
     private static final String[] PAUSE_ITEMS = { "Resume", "Return to Menu" };
@@ -124,6 +130,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private int shopTab;
     /** A pending Refund All confirmation, cancelled by any input that moves off the row. */
     private boolean refundConfirm;
+    /** A pending purchase question on the highlighted row: the first FIRE asks, the second buys. */
+    private boolean buyConfirm;
     /** Heading of the currently open placeholder page (Papan Peringkat / Pencapaian / Holo House). */
     private String lockedTitle = "TERKUNCI";
     /**
@@ -298,6 +306,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else if (screen == MODES) updateModes(upEdge, downEdge, fireEdge || leftEdge, rightEdge);
         else if (screen == CHARACTERS) updateCharacters(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == SHOP) updateShop(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
+        else if (screen == SHOPTABS) updateShopTabs(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == UPGRADES) updateUpgrades(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == ARMORY) updateArmory(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == LOCKED) updateLocked(fireEdge || leftEdge || rightEdge);
@@ -335,6 +344,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             case MAIN_HOLOHOUSE: openLocked("HOLO HOUSE"); break;
             case MAIN_SETTINGS: screen = SETTINGS; menuIndex = 0; break;
             case MAIN_CREDITS: screen = CREDITS; break;
+            case MAIN_EXIT:
+                exitRequested = true;
+                stopped = true;
+                shutdownRequest.requestShutdown();
+                break;
             default: break;
         }
     }
@@ -406,43 +420,70 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Toko input: three entries — Beli Upgrade, Armory, Keluar. Keluar returns to the main menu,
-     * and so does L/R from anywhere on the page, matching every other submenu.
+     * Toko input: three entries — Beli Upgrade, Armory, Keluar. Beli Upgrade opens the tab
+     * submenu (the three tabs are a list pick now, not an L/R swipe on the purchase page).
+     * Keluar returns to the main menu, and so does L/R from anywhere on the page, matching
+     * every other submenu.
      */
     private void updateShop(boolean up, boolean down, boolean fire, boolean left, boolean right) {
         if (left || right) { screen = MENU; menuIndex = MAIN_TOKO; return; }
         if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 3);
         if (!fire) return;
-        if (menuIndex == 0) { screen = UPGRADES; shopTab = 0; menuIndex = 0; shopScroll = 0; refundConfirm = false; }
+        if (menuIndex == 0) {
+            screen = SHOPTABS;
+            menuIndex = shopTab;             // reopen on the tab that was last used
+            buyConfirm = false;
+            refundConfirm = false;
+        }
         else if (menuIndex == 1) { screen = ARMORY; menuIndex = 0; shopScroll = 0; }
         else { screen = MENU; menuIndex = MAIN_TOKO; }
     }
 
     /**
-     * Beli Upgrade input: L/R cycle the three tabs (Ability, Stat, Lainnya), up/down move the
-     * highlight inside the tab — the tab's own rows plus a trailing Kembali row — and FIRE buys.
-     * A pending refund confirmation is cancelled by any input that moves the cursor, so the
-     * destructive action can only ever land on a second deliberate FIRE on its own row.
+     * Beli Upgrade's tab submenu: Ability, Stat, Lainnya and a trailing Kembali row. Picking a
+     * tab opens the purchase page on it; L/R and Kembali step back out to the Toko submenu.
+     */
+    private void updateShopTabs(boolean up, boolean down, boolean fire, boolean left, boolean right) {
+        if (left || right) { screen = SHOP; menuIndex = 0; return; }
+        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 4);
+        if (!fire) return;
+        if (menuIndex == 3) { screen = SHOP; menuIndex = 0; return; }
+        shopTab = menuIndex;
+        screen = UPGRADES;
+        menuIndex = 0;
+        shopScroll = 0;
+        buyConfirm = false;
+        refundConfirm = false;
+    }
+
+    /**
+     * Beli Upgrade input: the tab is fixed by the submenu that opened this page, so L/R and the
+     * trailing Kembali row both step back up to the tab submenu with the cursor on the tab just
+     * used; up/down move the highlight inside the tab and FIRE buys (after its confirmation).
+     * Any movement cancels both pending confirmations, so a destructive or spending action can
+     * only ever land on a second deliberate FIRE on its own row.
      */
     private void updateUpgrades(boolean up, boolean down, boolean fire, boolean left, boolean right) {
         int rows = ContentCatalog.upgradeGroupCount(shopTab) + 1;
         if (left || right) {
-            shopTab = (shopTab + (left ? -1 : 1) + 3) % 3;
+            buyConfirm = false;
             refundConfirm = false;
-            menuIndex = 0;
-            shopScroll = 0;
+            screen = SHOPTABS;
+            menuIndex = shopTab;
             return;
         }
         if (up || down) {
+            buyConfirm = false;
             refundConfirm = false;
             menuIndex = wrap(menuIndex + (up ? -1 : 1), rows);
             keepShopRowVisible(rows);
         }
         if (!fire) return;
         if (menuIndex == rows - 1) {          // the trailing Kembali row
+            buyConfirm = false;
             refundConfirm = false;
-            screen = SHOP;
-            menuIndex = 0;
+            screen = SHOPTABS;
+            menuIndex = shopTab;
             return;
         }
         buyUpgrade(ContentCatalog.upgradeGroupStart(shopTab) + menuIndex);
@@ -481,14 +522,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Resolves one FIRE press on an upgrade row.
+     * Resolves the FIRE presses on an upgrade row; a purchase now needs two of them.
      *
      * <p>Locked rows are data for the page only: their wiki prices are shown, but no purchase can
      * land. Refund All asks once and then zeroes every row while crediting the full price back in
      * one write. Hardcore toggles the settings bit itself, so the shop and the Pengaturan page can
-     * never disagree. A levelled row spends its coins first and writes the level only after that
-     * write committed, exactly as before: a storage failure costs the coins, never the level, and
-     * a short balance, a maxed row or a free (0-coin) row each leave the record untouched.
+     * never disagree. A levelled row asks first (buyConfirm) and only the second FIRE on the same
+     * row spends: it writes the level only after the coin write committed, exactly as before — a
+     * storage failure costs the coins, never the level, and a short balance, a maxed row or a
+     * free (0-coin) row each leave the record untouched. Movement cancels the pending question,
+     * so the confirmation can never be spent from another row.
      */
     private void buyUpgrade(int upgradeIndex) {
         ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(upgradeIndex);
@@ -496,16 +539,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (def.buyKind == ContentCatalog.BUY_ACTION) {
             if (refundConfirm) { refundConfirm = false; save.refundAll(); }
             else refundConfirm = true;
+            buyConfirm = false;
             return;
         }
         refundConfirm = false;
         if (def.buyKind == ContentCatalog.BUY_TOGGLE) {
+            buyConfirm = false;
             save.setHardcore(!save.hardcore());
             return;
         }
         int level = save.upgradeLevel(upgradeIndex);
         long cost = ContentCatalog.upgradeCost(def, level);
-        if (cost < 0) return;                            // already maxed
+        if (cost < 0) return;                            // already maxed: nothing to ask
+        if (!buyConfirm) { buyConfirm = true; return; }  // first press only asks
+        buyConfirm = false;
         if (cost > 0 && !save.spendCoins(cost)) return;  // free rows never touch the balance
         save.setUpgradeLevel(upgradeIndex, level + 1);
     }
@@ -543,15 +590,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void updateSettings(boolean up, boolean down, boolean fire, boolean left) {
-        // Hardcore, Audio, Controls, Exit, Back. Exit moved here from the main menu so the menu
-        // itself is pure navigation and the shutdown path lives with the other risky choices.
-        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 5);
+        // Audio, Controls, Exit, Back. Hardcore left this page (its shop row in the Lainnya tab
+        // still toggles the same flag), and Exit keeps the shutdown path with the risky choices.
+        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 4);
         if (left) { screen = MENU; menuIndex = MAIN_SETTINGS; return; }
         if (!fire) return;
-        if (menuIndex == 0) save.setHardcore(!save.hardcore());
-        else if (menuIndex == 1) { /* audio is deliberately disabled on unverified runtimes */ }
-        else if (menuIndex == 2) screen = CONTROLS;
-        else if (menuIndex == 3) { exitRequested = true; stopped = true; shutdownRequest.requestShutdown(); }
+        if (menuIndex == 0) { /* audio is deliberately disabled on unverified runtimes */ }
+        else if (menuIndex == 1) screen = CONTROLS;
+        else if (menuIndex == 2) { exitRequested = true; stopped = true; shutdownRequest.requestShutdown(); }
         else { screen = MENU; menuIndex = MAIN_SETTINGS; }
     }
 
@@ -664,6 +710,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else if (screen == MODES) drawModes(g, x, y);
         else if (screen == CHARACTERS) drawCharacters(g, x, y);
         else if (screen == SHOP) drawShop(g, x, y);
+        else if (screen == SHOPTABS) drawShopTabs(g, x, y);
         else if (screen == UPGRADES) drawUpgrades(g, x, y);
         else if (screen == ARMORY) drawArmory(g, x, y);
         else if (screen == LOCKED) drawLocked(g, x, y);
@@ -751,12 +798,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
     /**
      * Main Menu, rebuilt after the reference game's title screen: the star-stage backdrop fills
-     * the screen, the roster collage stands behind a gently floating logo, and the seven entries
+     * the screen, the roster collage stands behind a gently floating logo, and the eight entries
      * live in an icon bar along the bottom instead of a vertical list. The selected icon lifts
      * off the bar and bobs on the clock, a white underline marks it for anyone who cannot track
-     * the motion, and the gold label box slides the entry's name in at the bottom right above
-     * the confirm hint. All motion reads clockMs, recorded once per tick by update(long), so
-     * this method stays pure and a headless clock of 0 simply freezes every effect at rest.
+     * the motion, and the gold label box slides the entry's name in at the bottom right. The name
+     * comes pre-rendered (menu_text_*) at one notch below MIDP's smallest font, with the drawn
+     * SIZE_SMALL string kept as the partial-build fallback. All motion reads clockMs, recorded
+     * once per tick by update(long), so this method stays pure and a headless clock of 0 simply
+     * freezes every effect at rest.
      */
     private void drawMainMenu(Graphics g, int x, int y) {
         Image bg = assets.titleBg();
@@ -775,27 +824,30 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                     Graphics.TOP | Graphics.LEFT);
         }
         g.setColor(TITLE_TEXT_R, TITLE_TEXT_G, TITLE_TEXT_B);
-        drawCentered(g, x, y + MENU_LOGO_Y + 76, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_SMALL);
         drawRight(g, x, y + 4, "version 0.1");
 
         drawBar(g, x, y);
 
-        // Gold label box with the highlighted entry's name, bottom right above the hint. Changing
-        // the selection restarts the short slide-in so the label visibly answers the input.
+        // Gold label box with the highlighted entry's name, bottom right. Changing the selection
+        // restarts the short slide-in so the label visibly answers the input; the box and its
+        // baked text share one coordinate, so they move together.
         if (menuIndex != labelIndex) { labelIndex = menuIndex; labelShownAt = clockMs; }
         int slide = (int) ((clockMs - labelShownAt) / 25L);
         if (slide > 6) slide = 6;
         int labelY = y + TITLE_LABEL_Y + (6 - slide);
-        String name = MAIN_ITEMS[menuIndex];
         Image label = assets.menuLabel();
         if (label != null) g.drawImage(label, x + TITLE_LABEL_X, labelY, Graphics.TOP | Graphics.LEFT);
-        g.setColor(TITLE_TEXT_R, TITLE_TEXT_G, TITLE_TEXT_B);
-        Font labelFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
-        g.setFont(labelFont);
-        g.drawString(name, x + TITLE_LABEL_X + (TITLE_LABEL_W - labelFont.stringWidth(name)) / 2,
-                labelY + 6, Graphics.TOP | Graphics.LEFT);
-
-        drawRight(g, x, y + TITLE_HINT_Y, "SETUJU: 5/FIRE");
+        Image labelText = assets.menuText(menuIndex);
+        if (labelText != null) {
+            g.drawImage(labelText, x + TITLE_LABEL_X, labelY, Graphics.TOP | Graphics.LEFT);
+        } else {
+            g.setColor(TITLE_TEXT_R, TITLE_TEXT_G, TITLE_TEXT_B);
+            Font labelFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
+            g.setFont(labelFont);
+            g.drawString(MAIN_ITEMS[menuIndex],
+                    x + TITLE_LABEL_X + (TITLE_LABEL_W - labelFont.stringWidth(MAIN_ITEMS[menuIndex])) / 2,
+                    labelY + 6, Graphics.TOP | Graphics.LEFT);
+        }
     }
 
     /**
@@ -1003,15 +1055,30 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * "Shop" page is gone, and its Skill Pasif row with it, because the skill is free forever now.
      */
     private void drawShop(Graphics g, int x, int y) {
-        title(g, x, y, "TOKO");
-        ink(g);
-        drawText(g, x + 12, y + 30, "Koin: " + save.coinBalance(), Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        titleCentered(g, x, y, "TOKO");
+        drawCoin(g, x, y, save.coinBalance());
         String[] items = { "Beli Upgrade", "Armory", "Keluar" };
         list(g, x, y + 70, items, menuIndex);
         ink(g);
-        drawText(g, x + 12, y + 176, "Beli Upgrade: tab Ability / Stat / Lainnya.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 12, y + 176, "Beli Upgrade: submenu tab Ability / Stat / Lainnya.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 12, y + 194, "Armory: katalog senjata & item.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 12, y + 214, "FIRE: pilih    L/R: kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    /**
+     * Beli Upgrade's tab submenu: the three shop tabs as a plain list, entered from the Toko
+     * submenu. The purchase page can only be reached through this pick, and steps back to it
+     * with the cursor restored onto the tab just used.
+     */
+    private void drawShopTabs(Graphics g, int x, int y) {
+        title(g, x, y, "PILIH TAB");
+        drawCoin(g, x, y, save.coinBalance());
+        String[] items = { "Ability", "Stat", "Lainnya", "Kembali" };
+        list(g, x, y + 70, items, menuIndex);
+        ink(g);
+        drawText(g, x + 12, y + 176, "Tab belanja per kategori upgrade.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 12, y + 194, "FIRE: buka tab.  Kembali: ke menu Toko.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 12, y + 214, "L/R: kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     /**
@@ -1025,10 +1092,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private void drawUpgrades(Graphics g, int x, int y) {
         title(g, x, y, "BELI UPGRADE");
         long balance = save.coinBalance();
-        ink(g);
-        drawText(g, x + 12, y + 30, "Koin: " + balance, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawCoin(g, x, y, balance);
 
-        // Tab strip: the active tab wears brackets, so the position is readable without colour.
+        // Tab strip: a breadcrumb of the tab the submenu opened (brackets mark the active one),
+        // not a control — tabs are chosen on the PILIH TAB list and L/R steps back to it.
         String[] tabs = { "Ability", "Stat", "Lainnya" };
         String strip = "";
         for (int t = 0; t < tabs.length; t++) {
@@ -1077,9 +1144,19 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
             drawText(g, x + 12, y + 222, "Refund All? FIRE: ya. Geser: batal.",
                     Font.STYLE_BOLD, Font.SIZE_SMALL);
+        } else if (buyConfirm && menuIndex < count) {
+            // The pending purchase question replaces the key hint on the exact screen where the
+            // second press will land; the detail panel above already names the row.
+            g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
+            ContentCatalog.UpgradeDef ask = ContentCatalog.upgrade(start + menuIndex);
+            long askCost = ContentCatalog.upgradeCost(ask, shopRowLevel(ask, start + menuIndex));
+            drawText(g, x + 12, y + 222,
+                    (askCost > 0 ? "Beli " + askCost + " Koin?" : "Beli gratis?")
+                            + " FIRE: ya. Geser: batal.",
+                    Font.STYLE_BOLD, Font.SIZE_SMALL);
         } else {
             ink(g);
-            drawText(g, x + 12, y + 222, "FIRE: beli  L/R: ganti tab  akhir: kembali",
+            drawText(g, x + 12, y + 222, "FIRE: beli  L/R / akhir: kembali ke tab",
                     Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
     }
@@ -1137,6 +1214,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      */
     private void drawArmory(Graphics g, int x, int y) {
         title(g, x, y, "ARMORY");
+        drawCoin(g, x, y, save.coinBalance());
         int weapons = ContentCatalog.WEAPONS.length;
         int rows = weapons + ContentCatalog.ITEMS.length;
         for (int slot = 0; slot < SHOP_PAGE_SIZE; slot++) {
@@ -1227,11 +1305,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
     private void drawSettings(Graphics g, int x, int y) {
         title(g, x, y, "PENGATURAN");
-        String[] items = { "Hardcore: " + (save.hardcore() ? "ON" : "OFF"),
-                "Audio: OFF (runtime not verified)", "Controls", "Exit", "Back" };
+        String[] items = { "Audio: OFF (runtime not verified)", "Controls", "Exit", "Back" };
         list(g, x, y + 65, items, menuIndex);
         ink(g);
-        drawText(g, x + 20, y + 190, "Hardcore sets Endless player HP to 1.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 20, y + 190, "Hardcore kini ada di Toko (tab Lainnya).", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 20, y + 210, "Exit keluar dari game. Pilihan lain: kembali.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
@@ -1296,6 +1373,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private void title(Graphics g, int x, int y, String text) {
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         drawText(g, x + 90, y + 18, text, Font.STYLE_BOLD, Font.SIZE_LARGE);
+    }
+
+    /** Centred variant of title(), for the short TOKO heading that sat visibly left at x+90. */
+    private void titleCentered(Graphics g, int x, int y, String text) {
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_LARGE);
+        drawText(g, x + (Viewport.MIN_W - f.stringWidth(text)) / 2, y + 18, text,
+                Font.STYLE_BOLD, Font.SIZE_LARGE);
+    }
+
+    /** Coin balance pinned to the top-right corner of every Toko-family page, in the title band. */
+    private void drawCoin(Graphics g, int x, int y, long balance) {
+        ink(g);
+        drawRight(g, x, y + 20, "Koin: " + balance);
     }
 
     /** Shared selectable list. The selected row is marked the same way everywhere: the "> " arrow,

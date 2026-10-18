@@ -128,6 +128,7 @@ public final class CharacterShopTest {
         set(c, "shopScroll", Integer.valueOf(0));
         set(c, "shopTab", Integer.valueOf(0));
         set(c, "refundConfirm", Boolean.FALSE);
+        set(c, "buyConfirm", Boolean.FALSE);
         return c;
     }
 
@@ -145,6 +146,16 @@ public final class CharacterShopTest {
                 boolean.class, boolean.class, boolean.class, boolean.class);
         m.setAccessible(true);
         m.invoke(canvas, Boolean.FALSE, Boolean.FALSE, Boolean.TRUE, Boolean.FALSE, Boolean.FALSE);
+    }
+
+    /**
+     * Completes one purchase through the real two-press path: the first FIRE only arms the
+     * on-screen question (buyConfirm), the second buys. The pair must be consecutive — any
+     * cursor or tab move in between cancels the question.
+     */
+    private static void upgradeBuy(Object canvas, int upgradeIndex) throws Exception {
+        upgradeFire(canvas, upgradeIndex);
+        upgradeFire(canvas, upgradeIndex);
     }
 
     private static void upgradesMove(Object canvas, boolean up, boolean down) throws Exception {
@@ -210,6 +221,7 @@ public final class CharacterShopTest {
         testRefundAllCreditsEveryOwnedLevel();
         testUpgradeRowsReachRunStats();
         testStartingCapitalConstant();
+        testPurchaseAsksForConfirmation();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -524,7 +536,7 @@ public final class CharacterShopTest {
         long cost = ContentCatalog.upgradeCost(def, 0);
 
         Object c = upgradeCanvas(save);
-        upgradeFire(c, reroll);
+        upgradeBuy(c, reroll);
 
         expectEq(save.upgradeLevel(reroll), 1, "the level went up");
         expectEq(save.coinBalance(), before - cost, "exactly the price was spent");
@@ -532,7 +544,7 @@ public final class CharacterShopTest {
 
         // A second purchase of the same row costs more, because the wiki table grows.
         long secondCost = ContentCatalog.upgradeCost(def, 1);
-        upgradeFire(c, reroll);
+        upgradeBuy(c, reroll);
         expectEq(save.upgradeLevel(reroll), 2, "a second purchase stacks");
         expectEq(save.coinBalance(), before - cost - secondCost, "and charged the grown price");
         expect(secondCost > cost, "the second price is higher than the first");
@@ -540,7 +552,7 @@ public final class CharacterShopTest {
         // A free row (0 coins) still levelled, and never touched the balance.
         int collabBan = ContentCatalog.upgradeIndex("collab_ban");
         long free = save.coinBalance();
-        upgradeFire(c, collabBan);
+        upgradeBuy(c, collabBan);
         expectEq(save.upgradeLevel(collabBan), 1, "the free Collab Ban row levelled anyway");
         expectEq(save.coinBalance(), free, "and charged nothing for it");
     }
@@ -555,7 +567,7 @@ public final class CharacterShopTest {
         ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(reroll);
 
         // Nothing bought and no coins at all.
-        upgradeFire(c, reroll);
+        upgradeBuy(c, reroll);
         expectEq(save.upgradeLevel(reroll), 0, "nothing was bought with an empty balance");
         expectEq(save.coinBalance(), 0L, "the balance stayed at zero");
 
@@ -563,21 +575,21 @@ public final class CharacterShopTest {
         long cost = ContentCatalog.upgradeCost(def, 0);
         save.creditCoins(cost - 1);
         long before = save.coinBalance();
-        upgradeFire(c, reroll);
+        upgradeBuy(c, reroll);
         expectEq(save.upgradeLevel(reroll), 0, "a short balance bought nothing");
         expectEq(save.coinBalance(), before, "and left the balance untouched");
 
         // Exactly the price is enough.
         save.creditCoins(1);
-        upgradeFire(c, reroll);
+        upgradeBuy(c, reroll);
         expectEq(save.upgradeLevel(reroll), 1, "the exact price is sufficient");
 
         // Max the row out, then try once more.
         save.creditCoins(100000000L);
-        for (int level = 1; level < def.maxLevel; level++) upgradeFire(c, reroll);
+        for (int level = 1; level < def.maxLevel; level++) upgradeBuy(c, reroll);
         expectEq(save.upgradeLevel(reroll), def.maxLevel, "the row reached its cap");
         long afterMax = save.coinBalance();
-        upgradeFire(c, reroll);
+        upgradeBuy(c, reroll);
         expectEq(save.upgradeLevel(reroll), def.maxLevel, "a maxed row refuses another level");
         expectEq(save.coinBalance(), afterMax, "and charges nothing for the refusal");
     }
@@ -622,8 +634,8 @@ public final class CharacterShopTest {
         // Buy two rows, then arm a refund and let a cursor move cancel it.
         int reroll = ContentCatalog.upgradeIndex("reroll");
         int hp = ContentCatalog.upgradeIndex("max_hp");
-        upgradeFire(c, reroll);
-        upgradeFire(c, hp);
+        upgradeBuy(c, reroll);
+        upgradeBuy(c, hp);
         long worth = save.refundValue();
         long balance = save.coinBalance();
         expect(worth > 0, "the two purchases are worth something");
@@ -757,5 +769,55 @@ public final class CharacterShopTest {
         expect(priced == 34, "every row has a first-level price (" + priced + ")");
         expect(capital >= total,
             "the capital covers buying every row's first level (" + capital + " vs " + total + ")");
+    }
+
+    /** A levelled row asks before it buys: first FIRE arms, movement cancels, second FIRE buys. */
+    private static void testPurchaseAsksForConfirmation() throws Exception {
+        System.out.println("[15] a purchase asks first and only buys on the second press");
+        Recording storage = new Recording(new byte[56]);
+        SaveStore save = new SaveStore(storage);
+        save.creditCoins(1000000L);
+        Object c = upgradeCanvas(save);
+        int reroll = ContentCatalog.upgradeIndex("reroll");
+        ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(reroll);
+        long cost = ContentCatalog.upgradeCost(def, 0);
+        long before = save.coinBalance();
+
+        upgradeFire(c, reroll);
+        expect(getBool(c, "buyConfirm"), "the first press only arms the question");
+        expectEq(save.upgradeLevel(reroll), 0, "nothing was bought yet");
+        expectEq(save.coinBalance(), before, "and nothing was charged yet");
+
+        upgradesMove(c, true, false);                       // any cursor move cancels
+        expect(!getBool(c, "buyConfirm"), "a cursor move cancels the pending question");
+        expectEq(save.upgradeLevel(reroll), 0, "still nothing bought after the cancel");
+
+        upgradeFire(c, reroll);                             // arm again...
+        upgradeFire(c, reroll);                             // ...and confirm
+        expect(!getBool(c, "buyConfirm"), "the question cleared");
+        expectEq(save.upgradeLevel(reroll), 1, "the confirmed press bought the level");
+        expectEq(save.coinBalance(), before - cost, "and charged exactly the price");
+
+        // Max the row out through the same two-press path, then check it never arms again.
+        save.creditCoins(100000000L);
+        for (int level = 1; level < def.maxLevel; level++) upgradeBuy(c, reroll);
+        expectEq(save.upgradeLevel(reroll), def.maxLevel, "the row reached its cap");
+        upgradeFire(c, reroll);
+        expect(!getBool(c, "buyConfirm"), "a maxed row never arms the question");
+
+        // A locked row never asks either: its price is display data only.
+        int lockedIndex = -1;
+        for (int i = 0; i < ContentCatalog.UPGRADES.length; i++) {
+            if (ContentCatalog.upgrade(i).locked) { lockedIndex = i; break; }
+        }
+        expect(lockedIndex >= 0, "a locked row exists to test with");
+        upgradeFire(c, lockedIndex);
+        expect(!getBool(c, "buyConfirm"), "a locked row never arms the question");
+
+        // The Hardcore toggle buys nothing, so it still acts on the first press.
+        int hardcore = ContentCatalog.upgradeIndex("hardcore");
+        upgradeFire(c, hardcore);
+        expect(save.hardcore(), "the toggle row needs no confirmation");
+        expect(!getBool(c, "buyConfirm"), "and never arms one");
     }
 }

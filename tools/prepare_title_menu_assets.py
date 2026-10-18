@@ -9,12 +9,13 @@ already at its display size:
   ui/menu_cast.png     320x116  transparent collage of character idle sprites,
                                 laid out in four staggered rows like the game's
                                 roster crowd behind the logo
-  ui/menu_icon_0..6    halved hud_title_icons (the seven bar entries we use)
+  ui/menu_icon_0..7    halved hud_title_icons (the eight bar entries we use,
+                                frame 7 the red X for the Keluar entry)
   ui/menu_label.png    116x20   the gold-bordered label box (menu_first frame 0),
                                 wide enough for the longest entry name
-
-The eighth hud_title_icons frame (the red X) is the reference game's Exit row and
-is deliberately not shipped: Exit moved to the Pengaturan page.
+  ui/menu_text_0..7    116x20   each entry name, pre-rendered white and centred,
+                                one notch smaller than MIDP's smallest font (see
+                                label_texts)
 
 Run: tools/prepare_title_menu_assets.py [--source /path/to/HoloCure_Unpacked]
 """
@@ -25,7 +26,7 @@ import re
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE = Path.home() / "Projects" / "HoloCure_Unpacked"
@@ -34,8 +35,25 @@ UI = ROOT / "assets" / "fullgame" / "ui"
 # Display geometry on the 320x240 canvas, mirrored by FullGameCanvas.drawMainMenu.
 SCREEN_W, SCREEN_H = 320, 240
 CAST_W, CAST_H = 320, 116
-ICON_COUNT = 7
+ICON_COUNT = 8
 LABEL_W, LABEL_H = 116, 20
+# MAIN_ITEMS in FullGameCanvas, in bar order. The names are baked as images (label_texts)
+# because MIDP exposes only small/medium/large and the label already sat at small: a fixed
+# vocabulary is what makes pre-rendering the whole set practical.
+ENTRY_NAMES = [
+    "Papan Peringkat",
+    "Pencapaian",
+    "Toko",
+    "Main",
+    "Holo House",
+    "Pengaturan",
+    "Credits",
+    "Keluar",
+]
+# DejaVu Sans Bold at 10px renders "Papan Peringkat" ~93px wide against the ~107px the
+# 12px logical SansSerif bold used before, i.e. the "slightly smaller" label request.
+LABEL_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+LABEL_TEXT_PX = 10
 
 
 def title_background(source: Path) -> Image.Image:
@@ -109,6 +127,23 @@ def label_box(source: Path) -> None:
     box.resize((LABEL_W, LABEL_H), Image.BOX).save(UI / "menu_label.png")
 
 
+def label_texts() -> None:
+    """Bakes every ENTRY_NAMES string, white on transparency, centred in the label box.
+
+    The canvas draws these on top of menu_label.png at the same coordinates, so the box
+    and its text slide in together. FullGameCanvas falls back to a drawn SIZE_SMALL
+    string when an asset is missing, which keeps a partial build readable.
+    """
+    font = ImageFont.truetype(LABEL_FONT, LABEL_TEXT_PX)
+    for index, name in enumerate(ENTRY_NAMES):
+        canvas = Image.new("RGBA", (LABEL_W, LABEL_H), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(canvas)
+        # +1px drops the optical centre onto the box's interior mid-line.
+        draw.text((LABEL_W / 2, LABEL_H / 2 + 1), name, font=font,
+                  fill=(255, 255, 255, 255), anchor="mm")
+        canvas.save(UI / ("menu_text_%d.png" % index))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
@@ -122,6 +157,7 @@ def main() -> int:
     character_collage(args.source).save(UI / "menu_cast.png")
     bar_icons(args.source)
     label_box(args.source)
+    label_texts()
 
     for path in sorted(UI.glob("menu_*.png")) + [UI / "title_bg.png"]:
         print("%s %s" % (path.relative_to(ROOT), Image.open(path).size))
