@@ -996,7 +996,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * Idle sprite di pojok kiri bawah panel detail.
      */
     private void drawChooseIdol(Graphics g, int x, int y) {
-        title(g, x, y, "CHOOSE YOUR IDOL");
+        titleCentered(g, x, y, "CHOOSE YOUR IDOL");
         int charCount = ContentCatalog.CHARACTERS.length; // 5
         int boxW = IDOL_BOX_W;
         int boxH = IDOL_BOX_H;
@@ -1046,11 +1046,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         g.drawRect(px, py, pw - 1, ph - 1);
         g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
 
-        // Character name at top of panel (centered)
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        drawText(g, px + pw / 2, py + 10, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
-
-        // Draw idle sprite at bottom LEFT corner of panel (8px margin)
+        // Draw idle sprite at left side, centered vertically in text area
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
         int spriteW = 0;
         int spriteH = 0;
@@ -1058,32 +1054,36 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             spriteW = idleSprite.getWidth();
             spriteH = idleSprite.getHeight();
             int sx = x + px + 8;
-            // Center sprite vertically in the text area (py+8 to py+ph-8)
-            int textAreaTop = py + 8;
+            // Center sprite vertically in the text area (py+18 to py+ph-8)
+            int textAreaTop = py + 18;
             int textAreaBottom = py + ph - 8;
             int textAreaCenterY = textAreaTop + (textAreaBottom - textAreaTop) / 2;
             int sy = y + textAreaCenterY - spriteH / 2;
             g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
         }
 
+        // Character name at top-right of sprite area (same line as sprite top)
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        drawText(g, px + 8 + spriteW + 8, py + 10, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
+
         // Text area starts after sprite (with gap)
         int textX = px + 8 + spriteW + 8;
         int textW = pw - 16 - spriteW - 8;
 
         // Clip to panel interior for scrolling text (text area only)
-        g.clipRect(x + textX, y + py + 4, textW, ph - 8);
+        g.clipRect(x + textX, y + py + 18, textW, ph - 18);
 
         // Build detail lines
         String[] lines = buildIdolDetailLines(sel);
         int lineH = 14;
-        int detailStartY = py + 8 - idolDetailScroll * lineH;
-        int maxVisible = (ph - 8) / lineH;
+        int detailStartY = py + 18 - idolDetailScroll * lineH;
+        int maxVisible = (ph - 18) / lineH;
 
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         int visible = 0;
         for (int i = 0; i < lines.length && visible < maxVisible; i++) {
             int lineY = detailStartY + i * lineH;
-            if (lineY + lineH >= py + 8 && lineY <= py + ph - 8) {
+            if (lineY + lineH >= py + 18 && lineY <= py + ph - 8) {
                 drawText(g, textX, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
                 visible++;
             }
