@@ -52,8 +52,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * semantics and its tests pin a fresh install to zero, so the starting capital is a game-layer
      * policy instead of a persistence change. Deleting this constant and the single call to
      * {@code ensureStartingCapital()} restores a zero balance with no other edit.
+     *
+     * <p>The number itself lives in {@link ShopStartingCapital} so a public build can swap it
+     * without touching this file; see that class for why it has to be compiled in.
      */
-    static final long SHOP_STARTING_CAPITAL = 0L;
+    static final long SHOP_STARTING_CAPITAL = ShopStartingCapital.VALUE;
     /** Rows the shop draws per screen; the rest are reached by scrolling. */
     private static final int SHOP_PAGE_SIZE = 5;
 
