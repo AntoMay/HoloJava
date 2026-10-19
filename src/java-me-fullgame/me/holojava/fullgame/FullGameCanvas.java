@@ -996,14 +996,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * Idle sprite di pojok kiri bawah panel detail.
      */
     private void drawChooseIdol(Graphics g, int x, int y) {
-        // ===== HEADER: CHOOSE YOUR IDOL (Y=0-40, centered vertically) =====
-        // Draw manually to center vertically in blue band (Y=0-40)
+        // ===== HEADER: CHOOSE YOUR IDOL (Y=0-40, centred in the blue band) =====
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_LARGE);
         String titleText = "CHOOSE YOUR IDOL";
         int titleX = x + (Viewport.MIN_W - f.stringWidth(titleText)) / 2;
         g.setFont(f);
-        g.drawString(titleText, titleX, y + 12, Graphics.TOP | Graphics.LEFT);
+        g.drawString(titleText, titleX, y + 8, Graphics.TOP | Graphics.LEFT);
 
         // ===== GRID: 5 karakter (Y=30-108, boxes at Y=41-97) =====
         int charCount = ContentCatalog.CHARACTERS.length; // 5
@@ -1050,10 +1049,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int pw = IDOL_PANEL_W;          // 296
         int ph = IDOL_PANEL_H;          // 126
 
-        // Panel border only (light blue)
+        // One 1px border, the same weight the character selection boxes use, so the two
+        // read as the same kind of frame instead of the panel looking heavier.
         g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.drawRect(px, py, pw - 1, ph - 1);
-        g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
 
         // The name gets its own full-width row across the top of the panel, so the status column
         // below it starts clear of it instead of overprinting it.
@@ -1073,10 +1072,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             g.drawImage(idleSprite, x + px + 8, sy, Graphics.TOP | Graphics.LEFT);
         }
 
-        // Status text fills the right of the same box. Its column is fixed, so only the sprite
-        // animates and the text never shifts with the frame.
-        int textX = px + 8 + 40 + 8;
-        g.clipRect(x + textX, y + bodyTop, pw - 16 - 40 - 8, bodyH);
+        // Status column sits further right, with its right padding matching the left one, so
+        // the text block reads as centred in the space left of the panel edge. The column x is
+        // fixed, so only the sprite animates and the text never shifts with the frame.
+        int pad = 8;
+        int textX = px + pad + 40 + 20;
+        g.clipRect(x + textX, y + bodyTop, pw - pad - 40 - 20 - pad, bodyH);
 
         // Build detail lines
         String[] lines = buildIdolDetailLines(sel);
