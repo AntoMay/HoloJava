@@ -1,10 +1,14 @@
 #!/bin/sh
-# Offline full-game build using the pinned local CLDC/MIDP stubs and ProGuard.
+# Development build of the phone (MIDP) artifact, using the pinned local CLDC/MIDP
+# stubs and ProGuard. Ships the development starting coin capital, so the shop can
+# be driven without grinding. The zero-coin counterpart is tools/build_public.sh.
+#
+# Output: dist/DevBuild/mobile/
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 BUILD="$ROOT/build/java-me-fullgame"
-DIST="$ROOT/dist/java-me-fullgame"
+DIST="$ROOT/dist/DevBuild/mobile"
 STUBS="$ROOT/deps/java-me/cldcapi11-2.0.4.jar:$ROOT/deps/java-me/midpapi20-2.0.4.jar"
 rm -rf "$BUILD/classes" "$BUILD/preverified"
 mkdir -p "$BUILD/classes/assets" "$BUILD/classes/data/wiki" "$BUILD/preverified" "$BUILD/manifest" "$DIST"

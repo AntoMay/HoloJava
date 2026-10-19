@@ -513,7 +513,7 @@ Assumptions:
 
 ## 13. Current Status and Next Step
 
-Phase 2 diagnostic validation is complete as of 2026-10-13. The clean Phase 3 full-game rebuild now exists under `src/java-me-fullgame` and packages as `dist/java-me-fullgame/HoloJavaFullGame.jar`. Static compilation, ProGuard preverification, resource-path, catalog, manifest, and JAD checks pass. J2ME Loader gameplay testing for the rebuilt JAR is still pending.
+Phase 2 diagnostic validation is complete as of 2026-10-13. The clean Phase 3 full-game rebuild now exists under `src/java-me-fullgame` and packages as `dist/DevBuild/mobile/HoloJavaFullGame.jar`. Static compilation, ProGuard preverification, resource-path, catalog, manifest, and JAD checks pass. J2ME Loader gameplay testing for the rebuilt JAR is still pending.
 
 Recommended next action:
 

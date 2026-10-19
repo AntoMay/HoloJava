@@ -1,14 +1,15 @@
 #!/bin/sh
-# Public build: both artifacts, with the coin top-up compiled in.
+# Public build: both artifacts, starting from zero coins.
 #
 # What is different from the development builds:
 #
-#   * ShopStartingCapital.VALUE is replaced with PUBLIC_CAPITAL, so a fresh or
-#     spent-down install is topped up to that balance and the whole shop can be
-#     driven without grinding. The development and test builds keep the zero
-#     default checked into ShopStartingCapital.java.
+#   * ShopStartingCapital.VALUE is forced to 0, so a fresh or spent-down install
+#     is left with whatever the player has actually earned. The development
+#     builds keep the large capital checked into ShopStartingCapital.java, which
+#     exists so the shop can be driven while the coin economy has no real
+#     earning rate.
 #
-#   * Both artifacts land in dist/public/ instead of their own directories.
+#   * Both artifacts land in dist/Public/{mobile,desktop}/.
 #
 # The capital is compiled in rather than passed as a system property because a
 # real MIDP device cannot be given -D flags, and FreeJ2ME-Plus's own
@@ -16,31 +17,32 @@
 # runtime switch that would work on an actual handset.
 #
 # The override is done by compiling from a copy of the sources with that one
-# file rewritten. Nothing under src/ is modified, and the default zero stays in
-# place for development and for tools/run_fullgame_tests.sh, whose SaveStore
-# tests pin a fresh install to no coins.
+# file rewritten. Nothing under src/ is modified, so the development and test
+# builds keep their large capital.
 #
 # Outputs:
-#   dist/public/HoloJavaFullGame.jar            preverified, sideload on a phone
-#   dist/public/HoloJavaFullGame-desktop.jar    runs in FreeJ2ME-Plus
-#   dist/public/HoloJavaFullGame.jad             descriptor for the phone JAR
-#   dist/public/HoloJavaFullGame-desktop.jad    descriptor for the desktop JAR
+#   dist/Public/mobile/HoloJavaFullGame.jar    preverified, sideload on a phone
+#   dist/Public/mobile/HoloJavaFullGame.jad    descriptor
+#   dist/Public/desktop/HoloJavaFullGame.jar  runs in FreeJ2ME-Plus
+#   dist/Public/desktop/HoloJavaFullGame.jad  descriptor
 #
-# Usage: tools/build_public.sh [capital]
+# Both artifacts are called HoloJavaFullGame.jar: the directory says which is
+# mobile and which is desktop, so the file name does not have to.
+#
+# Usage: tools/build_public.sh [capital]     # capital defaults to 0
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
-# Large enough that nothing in the shop is out of reach: the priciest row is
-# Max HP Up at 36,000. Callers can override by passing a number.
-PUBLIC_CAPITAL=${1:-999999999}
+PUBLIC_CAPITAL=${1:-0}
 
 BUILD="$ROOT/build/public"
 SRC="$BUILD/src"
 CLASSES="$BUILD/classes"
 PREVERIFIED="$BUILD/preverified"
-DIST="$ROOT/dist/public"
+DIST_MOBILE="$ROOT/dist/Public/mobile"
+DIST_DESKTOP="$ROOT/dist/Public/desktop"
 STUBS="$ROOT/deps/java-me/cldcapi11-2.0.4.jar:$ROOT/deps/java-me/midpapi20-2.0.4.jar"
 
 case "$PUBLIC_CAPITAL" in
@@ -48,7 +50,7 @@ case "$PUBLIC_CAPITAL" in
 esac
 
 rm -rf "$BUILD"
-mkdir -p "$SRC" "$CLASSES/assets" "$CLASSES/data/wiki" "$PREVERIFIED" "$DIST"
+mkdir -p "$SRC" "$CLASSES/assets" "$CLASSES/data/wiki" "$PREVERIFIED" "$DIST_MOBILE" "$DIST_DESKTOP"
 
 cp -a "$ROOT/src/java-me-fullgame/." "$SRC/"
 cp -a "$ROOT/assets/fullgame" "$CLASSES/assets/"
@@ -67,7 +69,7 @@ patched, n = re.subn(r"static final long VALUE = \d+L;",
 if n != 1:
     sys.exit("expected exactly one VALUE declaration to patch, found %d" % n)
 open(path, "w").write(patched)
-print("  ShopStartingCapital.VALUE = %sL" % value)
+print("  ShopStartingCapital.VALUE forced to %sL" % value)
 PY
 
 echo "compiling (javac --release 8)"
@@ -103,8 +105,8 @@ cp "$CLASSES/META-INF/MANIFEST.MF" "$PREVERIFIED/META-INF/MANIFEST.MF"
 # through getResourceAsStream.
 cp "$CLASSES/data/wiki/collabs.csv" "$PREVERIFIED/data/wiki/collabs.csv"
 
-PHONE_JAR="$DIST/HoloJavaFullGame.jar"
-rm -f "$PHONE_JAR" "$DIST/HoloJavaFullGame.jad"
+PHONE_JAR="$DIST_MOBILE/HoloJavaFullGame.jar"
+rm -f "$PHONE_JAR" "$DIST_MOBILE/HoloJavaFullGame.jad"
 (cd "$PREVERIFIED" && zip -qr "$PHONE_JAR" META-INF assets data me)
 PHONE_SIZE=$(stat -c %s "$PHONE_JAR")
 
@@ -112,8 +114,8 @@ PHONE_SIZE=$(stat -c %s "$PHONE_JAR")
 # Plain javac output, because ProGuard 6.2.2 emits a StackMapTable a desktop
 # JVM rejects. See the header of tools/build_fullgame_desktop.sh.
 echo "packaging the desktop artifact"
-DESKTOP_JAR="$DIST/HoloJavaFullGame-desktop.jar"
-rm -f "$DESKTOP_JAR" "$DIST/HoloJavaFullGame-desktop.jad"
+DESKTOP_JAR="$DIST_DESKTOP/HoloJavaFullGame.jar"
+rm -f "$DESKTOP_JAR" "$DIST_DESKTOP/HoloJavaFullGame.jad"
 (cd "$CLASSES" && zip -qr "$DESKTOP_JAR" META-INF assets data me)
 DESKTOP_SIZE=$(stat -c %s "$DESKTOP_JAR")
 
@@ -134,16 +136,16 @@ MicroEdition-Profile: MIDP-2.0
 JAD
 }
 
-write_jad "$PHONE_JAR"   "$DIST/HoloJavaFullGame.jad"         "$PHONE_SIZE"
-write_jad "$DESKTOP_JAR" "$DIST/HoloJavaFullGame-desktop.jad" "$DESKTOP_SIZE"
+write_jad "$PHONE_JAR"   "$DIST_MOBILE/HoloJavaFullGame.jad"  "$PHONE_SIZE"
+write_jad "$DESKTOP_JAR" "$DIST_DESKTOP/HoloJavaFullGame.jad" "$DESKTOP_SIZE"
 
 cat <<SUMMARY
 
-Public build ready in dist/public/
+Public build ready in dist/Public/
   starting coin capital : $PUBLIC_CAPITAL
 
-  HoloJavaFullGame.jar            $PHONE_SIZE bytes  (sideload on a phone)
-  HoloJavaFullGame-desktop.jar    $DESKTOP_SIZE bytes  (FreeJ2ME-Plus)
+  mobile/HoloJavaFullGame.jar   $PHONE_SIZE bytes  (sideload on a phone)
+  desktop/HoloJavaFullGame.jar  $DESKTOP_SIZE bytes  (FreeJ2ME-Plus)
 SUMMARY
 
 EMULATOR=${EMULATOR:-/home/antomay/Projects/tools/freej2me-plus/build/freej2me_plus.jar}

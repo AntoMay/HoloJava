@@ -9,7 +9,7 @@ Current roadmap version: `0.2`.
 - Phase 1: complete for the existing asset and symbol evidence inventory.
 - Phase 2: complete — architecture, compatibility, and diagnostic toolchain validation verified.
 - Phase 3: clean full-game rebuild implementation milestone; the runtime is data-driven and packaged, but full HoloCure parity and broad runtime validation remain deferred.
-- Phase 3: rebuilt full-game runtime implemented (`dist/java-me-fullgame/HoloJavaFullGame.jar`); compile, ProGuard preverification, and packaging validated; J2ME Loader runtime gameplay test pending.
+- Phase 3: rebuilt full-game runtime implemented (`dist/DevBuild/mobile/HoloJavaFullGame.jar`); compile, ProGuard preverification, and packaging validated; J2ME Loader runtime gameplay test pending.
 - Phase 4: not started.
 - Phase 5: not started.
 - Phase 6: not started.
@@ -62,12 +62,45 @@ unvalidated placeholders, not balanced values.
 ## Current Full-Game Rebuild Snapshot
 
 - New source set: `src/java-me-fullgame`.
-- New build artifacts: `build/java-me-fullgame/` and `dist/java-me-fullgame/`.
+- New build artifacts: `build/java-me-fullgame/` and `dist/DevBuild/`.
 - Implemented data-driven runtime: menus, Stage/Endless/Time modes, five verified playable Myth characters, ten stage definitions, enemy director, boss schedule, weapons, items, skills, specials, EXP, level-up, collab prerequisites, pause, results, and optional RMS persistence.
 - Evidence-based coverage: `docs/rebuild/COVERAGE.md`.
 - Asset mapping: `docs/rebuild/ASSET_MAPPING.md` and `reports/fullgame_asset_manifest.csv`.
 - The prior diagnostic, first-slice, and Phase 3 prototype artifacts remain preserved as regression evidence.
 - J2ME Loader runtime success for the rebuilt JAR is not yet verified.
+
+### Build outputs
+
+`tools/build_all.sh` empties `dist/` and rebuilds everything. The layout is by target
+first, then by flavour:
+
+```text
+dist/
+  DevBuild/            large coin capital, so the shop can be driven without grinding
+    mobile/HoloJavaFullGame.jar    preverified (ProGuard), sideload on a phone
+    desktop/HoloJavaFullGame.jar  plain javac output, runs in FreeJ2ME-Plus
+  Public/              zero coins, so players earn what they spend
+    mobile/HoloJavaFullGame.jar
+    desktop/HoloJavaFullGame.jar
+```
+
+Each directory also carries the matching `.jad` descriptor. Both flavours name the file
+`HoloJavaFullGame.jar` because the directory already says which target it is.
+
+The mobile artifact is ProGuard-preverified because a real MIDP device expects it. The
+desktop artifact is plain `javac` output because ProGuard 6.2.2 emits a `StackMapTable`
+that a desktop JVM rejects outright — see the header of `tools/build_fullgame_desktop.sh`.
+
+The two builds differ in exactly one thing, the compiled-in value of
+`ShopStartingCapital.VALUE`. It has to be compiled in rather than passed as a system
+property, because a real MIDP device cannot be given `-D` flags and FreeJ2ME's own
+`restartApp()` puts them after `-jar` where the JVM ignores them. `tools/build_public.sh`
+therefore compiles from a copy of the sources with that one file rewritten; nothing under
+`src/` is modified, so the development and test builds keep the large capital.
+
+Note that the dated audit material under `reports/` and `docs/rebuild/` still refers to
+the previous `dist/java-me-fullgame/` path. Those are records of what was true at the
+time and were deliberately left alone.
 
 ## Level-Up Offer Mix Fix (2026-10-17)
 

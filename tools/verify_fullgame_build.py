@@ -9,8 +9,9 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JAR = ROOT / "dist/java-me-fullgame/HoloJavaFullGame.jar"
-JAD = ROOT / "dist/java-me-fullgame/HoloJavaFullGame.jad"
+# The development phone artifact; tools/build_fullgame.sh writes it.
+JAR = ROOT / "dist/DevBuild/mobile/HoloJavaFullGame.jar"
+JAD = ROOT / "dist/DevBuild/mobile/HoloJavaFullGame.jad"
 CLASSES = ROOT / "build/java-me-fullgame/classes"
 
 

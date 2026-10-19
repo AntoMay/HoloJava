@@ -24,6 +24,11 @@
 # a *desktop emulator* artifact, not a substitute for the preverified JAR that
 # real devices want. Both are produced by the same sources.
 #
+# Development build: ships the development starting coin capital. The zero-coin
+# counterpart is tools/build_public.sh.
+#
+# Output: dist/DevBuild/desktop/
+#
 # Usage: tools/build_fullgame_desktop.sh [emulator-jar]
 set -eu
 
@@ -31,7 +36,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
 BUILD="$ROOT/build/java-me-fullgame-desktop"
-DIST="$ROOT/dist/java-me-fullgame-desktop"
+DIST="$ROOT/dist/DevBuild/desktop"
 STUBS="$ROOT/deps/java-me/cldcapi11-2.0.4.jar:$ROOT/deps/java-me/midpapi20-2.0.4.jar"
 
 rm -rf "$BUILD"

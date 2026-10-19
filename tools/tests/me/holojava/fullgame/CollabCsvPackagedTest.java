@@ -29,8 +29,9 @@ public final class CollabCsvPackagedTest {
     private static int checks = 0;
     private static int failures = 0;
 
+    // The development phone artifact; tools/build_fullgame.sh writes it.
     private static final String JAR_PATH =
-        "dist/java-me-fullgame/HoloJavaFullGame.jar";
+        "dist/DevBuild/mobile/HoloJavaFullGame.jar";
     private static final String ENTRY = "data/wiki/collabs.csv";
 
     public static void main(String[] args) throws Exception {

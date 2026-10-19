@@ -778,12 +778,25 @@ public final class CharacterShopTest {
             "coin value stops at the +200% cap");
     }
 
-    /** Public build has zero starting capital; balance model still accepts crediting. */
+    /**
+     * The starting capital the development build ships with.
+     *
+     * <p>It is a balance <em>ceiling</em> that {@code FullGameMIDlet.ensureStartingCapital()} tops
+     * up to, not a clobber, so the balance model has to accept a credit of its size. The public
+     * build overrides it to zero at build time; this test covers the value compiled into the
+     * sources, which is the development one.
+     */
     private static void testStartingCapitalConstant() throws Exception {
         System.out.println("[14] the starting capital is usable by the balance model");
         long capital = FullGameCanvas.SHOP_STARTING_CAPITAL;
-        expect(capital == 0L, "public build starts with 0 coins");
-        // canAdd(0, 0) is false by design (amount must be > 0), which is fine for public build.
+        expect(capital > 0L, "the development build ships with a spendable balance");
+        // The priciest row in the shop is Max HP Up at 36,000, so the ceiling must clear it by a
+        // wide margin or it would not actually let someone buy everything.
+        expect(capital >= 1000000L, "the ceiling clears every price in the catalogue");
+
+        SaveStore save = new SaveStore(new Recording(new byte[56]));
+        save.creditCoins(capital);
+        expectEq(save.coinBalance(), capital, "the balance model holds the whole capital");
     }
 
     /**
