@@ -70,19 +70,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int KEY_PAUSE = '0';        // alternate pause
     private static final int KEY_SPECIAL = '9';
 
-    // Choose Your Idol grid layout
+    // Choose Your Idol grid layout — proporsional untuk 320x240
     private static final int IDOL_COLS = 5;                    // 5 karakter = 5 kolom
     private static final int IDOL_ROWS = 1;
-    private static final int IDOL_BOX_W = 56;                  // 56*5 = 280, margin 20 each side
-    private static final int IDOL_BOX_H = 72;
-    private static final int IDOL_GRID_X = 20;                 // start x
-    private static final int IDOL_GRID_Y = 60;                 // start y (below header)
+
+    private static final int IDOL_BOX_W = 48;                  // dikecilkan untuk proporsi 320x240
+    private static final int IDOL_BOX_H = 56;                  // dikecilkan dari 72
+    private static final int IDOL_GRID_X = 4;                  // start x: (320 - (5*48 + 4*8)) / 2 = 4
+    private static final int IDOL_GRID_Y = 50;                 // start y (below header, 40+10 margin)
     private static final int IDOL_GAP = 8;                     // gap antar kotak
-    // Panel detail (kanan/bawah grid)
-    private static final int IDOL_PANEL_X = 20;
-    private static final int IDOL_PANEL_Y = 150;
-    private static final int IDOL_PANEL_W = 280;
-    private static final int IDOL_PANEL_H = 80;
+    // Panel detail (di bawah grid, cukup tinggi untuk sprite + text)
+    private static final int IDOL_PANEL_X = 10;
+    private static final int IDOL_PANEL_Y = 115;               // di bawah grid (50+56+10 margin = 116)
+    private static final int IDOL_PANEL_W = 300;               // hampir full width
+    private static final int IDOL_PANEL_H = 110;               // lebih tinggi untuk sprite + text
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
@@ -997,10 +998,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private void drawChooseIdol(Graphics g, int x, int y) {
         title(g, x, y, "CHOOSE YOUR IDOL");
         int charCount = ContentCatalog.CHARACTERS.length; // 5
-        int boxW = 48;  // dikecilkan dari 56
-        int boxH = 62;  // dikecilkan dari 72
-        int startX = 28;  // center 5 * (48+8) = 280, margin = (320-280)/2 = 20
-        int startY = 60;
+        int boxW = IDOL_BOX_W;
+        int boxH = IDOL_BOX_H;
+        int startX = IDOL_GRID_X;
+        int startY = IDOL_GRID_Y;
 
         // Update animasi timer
         idolAnimTimer++;
@@ -1011,7 +1012,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
         // Draw 5 character boxes (hanya portrait, tanpa nama)
         for (int i = 0; i < charCount; i++) {
-            int bx = startX + i * (boxW + 8);  // gap 8
+            int bx = startX + i * (boxW + IDOL_GAP);
             int by = startY;
             boolean selected = (i == menuIndex);
 
@@ -1023,7 +1024,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                 g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
             }
 
-            // Character box: HANYA portrait
+            // Character box: HANYA portrait (centered vertically & horizontally)
             ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
             Image portrait = assets.characterPortrait(i);
             if (portrait != null) {
@@ -1045,7 +1046,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         g.drawRect(px, py, pw - 1, ph - 1);
         g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
 
-        // Character name at top of panel
+        // Character name at top of panel (centered)
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         drawText(g, px + pw / 2, py + 10, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
@@ -1057,7 +1058,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             spriteW = idleSprite.getWidth();
             spriteH = idleSprite.getHeight();
             int sx = x + px + 8;
-            int sy = y + py + ph - spriteH - 8;
+            // Center sprite vertically in the text area (py+8 to py+ph-8)
+            int textAreaTop = py + 8;
+            int textAreaBottom = py + ph - 8;
+            int textAreaCenterY = textAreaTop + (textAreaBottom - textAreaTop) / 2;
+            int sy = y + textAreaCenterY - spriteH / 2;
             g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
         }
 
@@ -1085,19 +1090,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
 
         g.clipRect(0, 0, Viewport.MIN_W, Viewport.MIN_H); // reset clip
-
-        // Tombol "Kembali" di pojok kanan bawah layar
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-        g.drawRect(x + 260, y + 216, 52, 18);
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        drawText(g, x + 286, y + 220, "Kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
     private String[] buildIdolDetailLines(ContentCatalog.CharacterDef c) {
         ContentCatalog.WeaponDef wp = ContentCatalog.weapon(c.mainWeapon);
         String wpName = wp != null ? wp.name : c.mainWeapon;
         return new String[] {
-            c.name,
-            "",
             "HP: " + c.hp,
             "ATK: " + c.atkPercent + "%",
             "SPD: " + c.spdPercent + "%",
