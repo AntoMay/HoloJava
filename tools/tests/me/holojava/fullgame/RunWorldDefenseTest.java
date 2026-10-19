@@ -30,6 +30,7 @@ public final class RunWorldDefenseTest {
         testCharactersCarryNoDefenceOfTheirOwn();
         testDefenseUpStacksOnTheCharacterStat();
         testDefenseUpIsCappedAtItsAdvertisedMaximum();
+        testDefenseUpTouchesNothingButIncomingDamage();
         testEveryShopRowReachesTheRun();
 
         System.out.println("checks=" + checks + " failures=" + failures);
@@ -111,6 +112,69 @@ public final class RunWorldDefenseTest {
         absurd[defenseRow] = 999;
         expectEq(defense(world(0, absurd)), characterBase + 15,
                 "an absurd injected level still stops at 15%");
+    }
+
+    /**
+     * Defense Up is a one-directional stat: it lowers what the player <em>takes</em> and does
+     * nothing else. Not outgoing damage, not HP, not speed, not crit, not pickup range.
+     *
+     * <p>That is worth pinning rather than trusting. {@code defensePercent} is read in exactly one
+     * place -- inside {@code damagePlayer} -- so a row that only reduced incoming damage could
+     * silently start doing more if a stat were ever reused or if the clamp were folded into a
+     * neighbouring total. This walks every stat {@code recomputeStats()} owns and asserts Defense
+     * Up moves one of them and no other, then checks the two directions of damage directly.
+     */
+    private static void testDefenseUpTouchesNothingButIncomingDamage() throws Exception {
+        section("Defense Up only reduces damage taken");
+        int defenseRow = ContentCatalog.upgradeIndex("defense_up");
+        int[] maxed = new int[ContentCatalog.UPGRADES.length];
+        maxed[defenseRow] = ContentCatalog.UPGRADES[defenseRow].maxLevel;
+
+        Object plain = world(0, new int[ContentCatalog.UPGRADES.length]);
+        Object bought = world(0, maxed);
+
+        // Every stat recomputeStats owns, so a stray effect cannot hide in the list.
+        String[] owned = { "atkPercentBonus", "hastePercent", "speedPercentBonus",
+                "pickupPercentBonus", "critPercentBonus", "expPercentBonus", "defensePercent",
+                "coinDropBonus", "foodDropBonus", "regenHealPerTick", "playerMaxHp", "playerHp" };
+        for (String field : owned) {
+            int was = getInt(plain, field);
+            int now = getInt(bought, field);
+            if (field.equals("defensePercent")) {
+                expect(now > was, "Defense Up raises damage reduction (" + was + "% -> " + now + "%)");
+            } else {
+                expectEq(now, was, "Defense Up leaves " + field + " alone");
+            }
+        }
+
+        // Incoming: the same hit costs less health with Defense Up bought.
+        int raw = 40;
+        int plainCost = incomingDamage(plain, raw);
+        int boughtCost = incomingDamage(bought, raw);
+        expect(boughtCost < plainCost,
+                "the same " + raw + " incoming damage costs less with Defense Up ("
+                        + plainCost + " -> " + boughtCost + ")");
+        expectEq(boughtCost, raw * (100 - 15) / 100,
+                "and it is exactly the advertised 15% reduction off the raw hit");
+
+        // Outgoing: a character's attack is not reduced by their own mitigation. checked via the
+        // bonus field above, but stated here so the intent is explicit at the point of the check.
+        expectEq(getInt(bought, "atkPercentBonus"), getInt(plain, "atkPercentBonus"),
+                "Defense Up does not reduce outgoing damage");
+    }
+
+    /** Applies one raw hit to a world and returns how much health it actually cost. */
+    private static int incomingDamage(Object w, int amount) throws Exception {
+        set(w, "state", Integer.valueOf(0));                 // STATE_RUNNING
+        set(w, "playerHp", Integer.valueOf(1000));
+        set(w, "playerMaxHp", Integer.valueOf(1000));
+        set(w, "shield", Integer.valueOf(0));
+        set(w, "invulUntil", Long.valueOf(0L));
+        set(w, "itemCount", Integer.valueOf(0));
+        Method m = worldClass().getDeclaredMethod("damagePlayer", int.class, long.class);
+        m.setAccessible(true);
+        m.invoke(w, Integer.valueOf(amount), Long.valueOf(1L));
+        return 1000 - getInt(w, "playerHp");
     }
 
     /**
