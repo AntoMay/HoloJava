@@ -1113,7 +1113,15 @@ final class RunWorld {
     private void fireWeapon(int slot, ContentCatalog.WeaponDef def, long now) {
         int level = weaponLevels[slot];
         int damage = def.damage + Math.max(0, level - 1);
-        damage = (damage * (100 + character.atkPercent + atkPercentBonus)) / 100;
+        // atkPercent IS the multiplier, not a bonus on top of one: the wiki records it as
+        // atk_multiplier_percent, and the game shows it as "ATK 1.10", i.e. the character deals
+        // 110% of base. The two sibling stats confirm the convention -- speed is read as
+        // 120 * spdPercent / 100 with no offset, and crit as a straight percentage. This line used
+        // to add a spurious 100, so Gura's 1.10 was applied as 2.10 and Kiara's 1.00 as 2.00: every
+        // character hit for roughly double what the table says. atkPercentBonus is the shop's
+        // "+6% damage per level" and is additive on the same multiplier, so a level of it moves
+        // 110 to 116 rather than being added to a base that was already counted twice.
+        damage = (damage * (character.atkPercent + atkPercentBonus)) / 100;
         boolean crit = rand(100) < MathUtil.clampInt(character.critPercent + critPercentBonus, 0, 75);
         if (crit) damage *= 2; // critical multiplier is a documented-mechanic approximation.
         int count = def.count + (weaponLevels[slot] >= 5 ? 1 : 0);
