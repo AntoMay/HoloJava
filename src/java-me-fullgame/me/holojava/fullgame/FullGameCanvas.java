@@ -1042,27 +1042,34 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             int py = y + IDOL_PANEL_Y;
             int pw = IDOL_PANEL_W;
             int ph = IDOL_PANEL_H;
-            int contentH = ph - 16; // padding top/bottom
 
             // Panel border only (light blue)
             g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
             g.drawRect(px, py, pw - 1, ph - 1);
             g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
 
-            // Clip to panel interior for scrolling
-            g.clipRect(px + 4, py + 4, pw - 8, ph - 8);
+            // Draw idle sprite at bottom right corner of panel (outside clip)
+            Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
+            if (idleSprite != null) {
+                int sx = x + px + pw - idleSprite.getWidth() - 8;
+                int sy = y + py + ph - idleSprite.getHeight() - 8;
+                g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
+            }
+
+            // Clip to panel interior for scrolling text
+            g.clipRect(x + px + 4, y + py + 4, pw - 8, ph - 8 - idleSprite.getHeight() - 8);
 
             // Build detail lines
             String[] lines = buildIdolDetailLines(sel);
             int lineH = 14;
             int detailStartY = py + 8 - idolDetailScroll * lineH;
-            int maxVisible = (ph - 16) / lineH;
+            int maxVisible = (ph - 16 - idleSprite.getHeight() - 8) / lineH;
 
             g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
             int visible = 0;
             for (int i = 0; i < lines.length && visible < maxVisible; i++) {
                 int lineY = detailStartY + i * lineH;
-                if (lineY + lineH >= py + 8 && lineY <= py + ph - 8) {
+                if (lineY + lineH >= py + 8 && lineY <= py + ph - 8 - idleSprite.getHeight() - 8) {
                     drawText(g, px + 8, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
                     visible++;
                 }
