@@ -80,10 +80,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int IDOL_GRID_Y = 49;                 // 9px gap atas (dari header y=40) dan 9px gap bawah (ke panel y=114)
     private static final int IDOL_GAP = 8;                     // gap antar kotak
     // Panel detail (exact layout per spec)
-    private static final int IDOL_PANEL_X = 12;
-    private static final int IDOL_PANEL_Y = 114;               // divider at 114, panel starts at 114
-    private static final int IDOL_PANEL_W = 296;               // 320 - 2*12
-    private static final int IDOL_PANEL_H = 126;               // 240 - 114 = 126
+    private static final int IDOL_PANEL_X = 12;                // 12px gap on the left
+    private static final int IDOL_PANEL_Y = 114;               // panel starts below the grid
+    private static final int IDOL_PANEL_W = 296;               // 320 - 2*12, so the right gap matches the left
+    private static final int IDOL_PANEL_H = 114;               // 240 - 114 - 12: the bottom gap equals the side gaps
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
@@ -1061,9 +1061,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, px + 8, py + 6, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
         // Everything below the name row: sprite on the left, status column on the right.
-        // The bottom keeps its own padding so the last status line never runs into the border.
+        // The breathing room at the bottom comes from the panel's own margin to the screen
+        // edge, so the body only needs a small internal pad to clear the border.
         int padSide = 8;
-        int padBottom = 12;
+        int padBottom = 6;
         int bodyTop = py + nameRowH;
         int bodyH = ph - nameRowH - padBottom;
 
