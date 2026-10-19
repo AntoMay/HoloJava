@@ -29,17 +29,18 @@ public final class UiStateMachineTest {
     private static final int CHOOSE_MODE = 2;
     private static final int STAGES = 3;
     private static final int SETTINGS = 4;
-    private static final int PREP = 5;
-    private static final int GAME = 6;
-    private static final int RESULTS = 7;
-    private static final int CONTROLS = 8;
-    private static final int SPLASH = 9;
-    private static final int SHOP = 10;
-    private static final int UPGRADES = 11;
-    private static final int ARMORY = 12;
-    private static final int LOCKED = 13;
-    private static final int CREDITS = 14;
-    private static final int SHOPTABS = 15;
+    private static final int HELP = 5;
+    private static final int PREP = 6;
+    private static final int GAME = 7;
+    private static final int RESULTS = 8;
+    private static final int CONTROLS = 9;
+    private static final int SPLASH = 10;
+    private static final int SHOP = 11;
+    private static final int UPGRADES = 12;
+    private static final int ARMORY = 13;
+    private static final int LOCKED = 14;
+    private static final int CREDITS = 15;
+    private static final int SHOPTABS = 16;
 
     private static Object unsafe;
 
@@ -745,8 +746,11 @@ public final class UiStateMachineTest {
         expectEq(getInt(c, "screen"), CHOOSE_MODE, "back from Stage steps up to Choose Mode");
         chooseMode(c, false, false, false, true, false);
         expectEq(getInt(c, "screen"), CHOOSE_IDOL, "back from Choose Mode steps up to Choose Idol");
-        chooseIdol(c, false, false, false, true, false);
-        expectEq(getInt(c, "screen"), MENU, "back from Choose Idol returns to the menu");
+        // In new flow: LEFT at index 0 wraps to Back entry (index 5), not directly to MENU.
+        // Navigate to Back entry (index 5) then FIRE to return to MENU.
+        for (int i = 0; i < 5; i++) chooseIdol(c, false, false, false, false, true); // RIGHT to index 5 (Back)
+        chooseIdol(c, false, false, true, false, false); // FIRE on Back -> MENU
+        expectEq(getInt(c, "screen"), MENU, "back from Choose Idol (via Back entry) returns to the menu");
         expectEq(getInt(c, "menuIndex"), 3, "with the cursor still on Main");
     }
 

@@ -13,19 +13,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int CHOOSE_MODE = 2;   // Choose Mode: hanya Stage Mode (simplified)
     private static final int STAGES = 3;
     private static final int SETTINGS = 4;
-    private static final int PREP = 5;
-    private static final int GAME = 6;
-    private static final int RESULTS = 7;
-    private static final int CONTROLS = 8;
-    private static final int SPLASH = 9;
-    private static final int SHOP = 10;     // Toko submenu: Beli Upgrade / Armory / Keluar
-    private static final int UPGRADES = 11; // Beli Upgrade: the three-tab purchase page
-    private static final int ARMORY = 12;   // weapon and item catalogue, view-only while locked
-    private static final int LOCKED = 13;   // placeholder page shared by the three shut entries
-    private static final int CREDITS = 14;
+    private static final int HELP = 5;          // Help screen in Settings
+    private static final int PREP = 6;
+    private static final int GAME = 7;
+    private static final int RESULTS = 8;
+    private static final int CONTROLS = 9;
+    private static final int SPLASH = 10;
+    private static final int SHOP = 11;     // Toko submenu: Beli Upgrade / Armory / Keluar
+    private static final int UPGRADES = 12; // Beli Upgrade: the three-tab purchase page
+    private static final int ARMORY = 13;   // weapon and item catalogue, view-only while locked
+    private static final int LOCKED = 14;   // placeholder page shared by the three shut entries
+    private static final int CREDITS = 15;
     // Toko internal step: Beli Upgrade opens this tab submenu (Ability / Stat / Lainnya /
     // Kembali) before the purchase page, so tab choice is a list pick instead of an L/R swipe.
-    private static final int SHOPTABS = 15;
+    private static final int SHOPTABS = 16;
     // Old CHARACTERS (2) and MODES (1) removed; flow now: Main -> CHOOSE_IDOL -> CHOOSE_MODE -> STAGES
     /**
      * Main menu rows, in draw order: Papan Peringkat, Pencapaian, Toko, Main, Holo House,
@@ -86,6 +87,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
     private int idolAnimTimer = 0;
+    private int idolDetailScroll = 0; // scroll offset for detail panel
 
     // Shared HoloJava UI palette. The page and the panel are both light, so every piece of menu
     // text is drawn in MENU_INK: white only reaches 1.66:1 on MENU_BG and 1.35:1 on MENU_PANEL,
@@ -350,6 +352,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else if (screen == CREDITS) updateCredits(fireEdge || leftEdge || rightEdge);
         else if (screen == STAGES) updateStages(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
         else if (screen == SETTINGS) updateSettings(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
+        else if (screen == HELP) updateHelp(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == CONTROLS) handleControlsInput(leftEdge || rightEdge, fireEdge);
         else if (screen == PREP) updatePrep(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
         else if (screen == RESULTS) updateResults(upEdge, downEdge, fireEdge || leftEdge, rightEdge);
@@ -403,36 +406,45 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * CHOOSE YOUR IDOL — grid 5 karakter (Gura, Ame, Calli, Kiara, Ina).
-     * Navigasi: L/R antar kotak (wrap). FIRE pilih → ke CHOOSE_MODE.
-     * LEFT di index 0 → kembali ke MENU. Panel detail di bawah.
+     * CHOOSE YOUR IDOL — grid 5 karakter + Back entry (6 items total).
+     * Navigasi: L/R antar item (wrap). FIRE pilih karakter → CHOOSE_MODE, atau Back → MENU.
+     * LEFT/RIGHT wrap around 6 items. No dark panel below.
      */
     private void updateChooseIdol(boolean up, boolean down, boolean fire, boolean left, boolean right) {
-        int count = ContentCatalog.CHARACTERS.length; // 5
+        int charCount = ContentCatalog.CHARACTERS.length; // 5
+        int totalCount = charCount + 1; // +1 for Back entry
         if (left) {
-            if (menuIndex == 0) {
-                screen = MENU;
-                menuIndex = MAIN_PLAY;
-            } else {
-                menuIndex = (menuIndex - 1 + count) % count;
-            }
+            menuIndex = (menuIndex - 1 + totalCount) % totalCount;
+            idolDetailScroll = 0; // reset scroll on navigation
             return;
         }
         if (right) {
-            menuIndex = (menuIndex + 1) % count;
+            menuIndex = (menuIndex + 1) % totalCount;
+            idolDetailScroll = 0;
             return;
         }
-        // U/D tidak dipakai di grid 1 baris, tapi support untuk future multi-row
-        if (up || down) {
-            // no-op for 1 row
+        // U/D untuk scroll detail panel
+        if (up) {
+            if (idolDetailScroll > 0) idolDetailScroll--;
+            return;
+        }
+        if (down) {
+            idolDetailScroll++;
             return;
         }
         if (!fire) return;
+        // FIRE: jika Back entry (index 5) → kembali ke MENU
+        if (menuIndex == charCount) {
+            screen = MENU;
+            menuIndex = MAIN_PLAY;
+            return;
+        }
         // Pilih karakter
         characterIndex = menuIndex;
         save.setSelectedCharacter(characterIndex);
         screen = CHOOSE_MODE;
-        menuIndex = 0; // hanya Stage Mode
+        menuIndex = 0;
+        idolDetailScroll = 0;
     }
 
     /**
@@ -637,8 +649,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void updateSettings(boolean up, boolean down, boolean fire, boolean left) {
-        // Audio, Controls, Exit, Back. Hardcore left this page (its shop row in the Lainnya tab
-        // still toggles the same flag), and Exit keeps the shutdown path with the risky choices.
+        // Audio, Controls, Help, Back. Hardcore moved to Shop (tab Lainnya).
         if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 4);
         if (left) { screen = MENU; menuIndex = MAIN_SETTINGS; return; }
         if (!fire) return;
@@ -652,7 +663,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             bgm().setEnabled(on);
         }
         else if (menuIndex == 1) screen = CONTROLS;
-        else if (menuIndex == 2) { exitRequested = true; stopped = true; shutdownRequest.requestShutdown(); }
+        else if (menuIndex == 2) screen = HELP;
         else { screen = MENU; menuIndex = MAIN_SETTINGS; }
     }
 
@@ -780,6 +791,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else if (screen == CREDITS) drawCredits(g, x, y);
         else if (screen == STAGES) drawStages(g, x, y);
         else if (screen == SETTINGS) drawSettings(g, x, y);
+        else if (screen == HELP) drawHelp(g, x, y);
         else if (screen == CONTROLS) drawControls(g, x, y);
         else if (screen == PREP) drawPrep(g, x, y);
     }
@@ -964,106 +976,129 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         list(g, x, y + 60, items, menuIndex);
         ink(g);
         drawText(g, x + 20, y + 195, ContentCatalog.MODES[modeIndex].objective, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 20, y + 210, "Endless & Time belum tersedia. L/R: kembali.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     /**
-     * CHOOSE YOUR IDOL — grid 5 karakter + panel detail.
-     * Layout: 5 kotak horizontal (56x72 each), panel detail di bawah (280x80).
-     * Setiap kotak: portrait + nama. Panel: animasi idle, stats, weapon, skill, special, skill desc.
+     * CHOOSE YOUR IDOL — grid 5 karakter + Back entry (6 items).
+     * Layout: 6 kotak horizontal (56x72 each), detail panel di bawah dengan scroll.
+     * Setiap kotak: hanya portrait + nama, border biru muda. Tidak ada dark panel.
+     * Detail panel: border biru muda, konten scroll (Atas/Bawah untuk scroll).
      */
     private void drawChooseIdol(Graphics g, int x, int y) {
         title(g, x, y, "CHOOSE YOUR IDOL");
-        int count = ContentCatalog.CHARACTERS.length; // 5
+        int charCount = ContentCatalog.CHARACTERS.length; // 5
+        int totalCount = charCount + 1; // +1 Back
         int boxW = IDOL_BOX_W;
         int boxH = IDOL_BOX_H;
         int startX = IDOL_GRID_X;
         int startY = IDOL_GRID_Y;
 
-        // Update animasi timer (dipanggil per frame via render)
+        // Update animasi timer
         idolAnimTimer++;
-        if (idolAnimTimer >= (1000 / IDOL_ANIM_FPS) / 33) { // ~33ms per frame
+        if (idolAnimTimer >= (1000 / IDOL_ANIM_FPS) / 33) {
             idolAnimTimer = 0;
-            idolAnimFrame = (idolAnimFrame + 1) % 4; // 4 frame idle
+            idolAnimFrame = (idolAnimFrame + 1) % 4;
         }
 
-        // Draw 5 character boxes
-        for (int i = 0; i < count; i++) {
-            ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
+        // Draw 6 boxes (5 chars + Back)
+        for (int i = 0; i < totalCount; i++) {
             int bx = startX + i * (boxW + IDOL_GAP);
             int by = startY;
             boolean selected = (i == menuIndex);
 
-            // Box background
-            g.setColor(selected ? MENU_ACCENT_R : MENU_INK_R,
-                       selected ? MENU_ACCENT_G : MENU_INK_G,
-                       selected ? MENU_ACCENT_B : MENU_INK_B);
-            g.fillRect(x + bx, y + by, boxW, boxH);
+            // Box: NO fill, only light blue border
             g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-            g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
-
-            // Portrait in box (centered)
-            Image portrait = assets.characterPortrait(i);
-            if (portrait != null) {
-                int px = x + bx + (boxW - portrait.getWidth()) / 2;
-                int py = y + by + 4;
-                g.drawImage(portrait, px, py, Graphics.TOP | Graphics.LEFT);
-            }
-
-            // Name below portrait
-            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-            drawText(g, x + bx + boxW / 2, y + by + boxH - 18,
-                    c.name, selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
-
-            // Selected marker
             if (selected) {
-                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-                g.drawRect(x + bx - 2, y + by - 2, boxW + 3, boxH + 3);
+                g.drawRect(x + bx - 2, y + by - 2, boxW + 3, boxH + 3); // thicker selected
+            } else {
+                g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
+            }
+
+            if (i < charCount) {
+                // Character box: portrait + name
+                ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
+                Image portrait = assets.characterPortrait(i);
+                if (portrait != null) {
+                    int px = x + bx + (boxW - portrait.getWidth()) / 2;
+                    int py = y + by + 4;
+                    g.drawImage(portrait, px, py, Graphics.TOP | Graphics.LEFT);
+                }
+                // Name below portrait
+                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+                drawText(g, x + bx + boxW / 2, y + by + boxH - 18,
+                        c.name, selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            } else {
+                // Back entry
+                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+                drawText(g, x + bx + boxW / 2, y + by + boxH / 2 - 6,
+                        "Kembali", selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
             }
         }
 
-        // Panel detail for selected character
-        ContentCatalog.CharacterDef sel = ContentCatalog.CHARACTERS[menuIndex];
-        int px = x + IDOL_PANEL_X;
-        int py = y + IDOL_PANEL_Y;
-        int pw = IDOL_PANEL_W;
-        int ph = IDOL_PANEL_H;
+        // Detail panel for selected (only for characters, not Back)
+        if (menuIndex < charCount) {
+            ContentCatalog.CharacterDef sel = ContentCatalog.CHARACTERS[menuIndex];
+            int px = x + IDOL_PANEL_X;
+            int py = y + IDOL_PANEL_Y;
+            int pw = IDOL_PANEL_W;
+            int ph = IDOL_PANEL_H;
+            int contentH = ph - 16; // padding top/bottom
 
-        // Panel background
-        g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
-        g.fillRect(px, py, pw, ph);
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-        g.drawRect(px, py, pw - 1, ph - 1);
+            // Panel border only (light blue)
+            g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+            g.drawRect(px, py, pw - 1, ph - 1);
+            g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
 
-        // Left side: animated sprite (idle)
-        Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
-        if (idleSprite != null) {
-            int sx = px + 10;
-            int sy = py + (ph - idleSprite.getHeight()) / 2;
-            g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
+            // Clip to panel interior for scrolling
+            g.clipRect(px + 4, py + 4, pw - 8, ph - 8);
+
+            // Build detail lines
+            String[] lines = buildIdolDetailLines(sel);
+            int lineH = 14;
+            int detailStartY = py + 8 - idolDetailScroll * lineH;
+            int maxVisible = (ph - 16) / lineH;
+
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+            int visible = 0;
+            for (int i = 0; i < lines.length && visible < maxVisible; i++) {
+                int lineY = detailStartY + i * lineH;
+                if (lineY + lineH >= py + 8 && lineY <= py + ph - 8) {
+                    drawText(g, px + 8, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
+                    visible++;
+                }
+            }
+
+            // Scroll indicator
+            if (idolDetailScroll > 0 || (idolDetailScroll + maxVisible) < lines.length) {
+                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+                drawText(g, px + pw - 30, py + 2, "\u25B2 \u25BC", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            }
+
+            g.clipRect(0, 0, Viewport.MIN_W, Viewport.MIN_H); // reset clip
         }
 
-        // Right side: stats & info
-        int tx = px + 70;
-        int ty = py + 8;
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        drawText(g, tx, ty, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
-        ty += 18;
-        drawText(g, tx, ty, "HP: " + sel.hp + "  ATK: " + sel.atkPercent + "%", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty += 16;
-        drawText(g, tx, ty, "SPD: " + sel.spdPercent + "%  CRT: " + sel.critPercent + "%", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty += 16;
-        ContentCatalog.WeaponDef wp = ContentCatalog.weapon(sel.mainWeapon);
-        String wpName = wp != null ? wp.name : sel.mainWeapon;
-        drawText(g, tx, ty, "Weapon: " + wpName, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty += 16;
-        drawText(g, tx, ty, "Special: " + sel.special, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty += 16;
-        drawText(g, tx, ty, "Skill: " + sel.skill, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        // No hint text
+    }
 
-        // Hint
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        drawText(g, x + 20, y + 225, "L/R: pilih  FIRE: pilih  L: kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    private String[] buildIdolDetailLines(ContentCatalog.CharacterDef c) {
+        ContentCatalog.WeaponDef wp = ContentCatalog.weapon(c.mainWeapon);
+        String wpName = wp != null ? wp.name : c.mainWeapon;
+        return new String[] {
+            c.name,
+            "",
+            "HP: " + c.hp,
+            "ATK: " + c.atkPercent + "%",
+            "SPD: " + c.spdPercent + "%",
+            "CRT: " + c.critPercent + "%",
+            "Size: " + c.size,
+            "",
+            "Weapon: " + wpName,
+            "Special: " + c.special,
+            "Skill: " + c.skill,
+            "",
+            "Asset: " + c.assetGroup,
+            c.fallbackArt ? "(fallback art)" : "(original art)"
+        };
     }
 
     /**
@@ -1076,7 +1111,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         ink(g);
         drawText(g, x + 20, y + 150, "Hanya Stage Mode tersedia.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 20, y + 170, "Endless & Time coming soon.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 20, y + 210, "FIRE: lanjut  L: kembali ke Choose Idol", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     /**
@@ -1237,7 +1271,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         ink(g);
         drawText(g, x + 12, y + 176, "Beli Upgrade: submenu tab Ability / Stat / Lainnya.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 12, y + 194, "Armory: katalog senjata & item.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 12, y + 214, "FIRE: pilih    L/R: kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     /**
@@ -1252,8 +1285,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         list(g, x, y + 70, items, menuIndex);
         ink(g);
         drawText(g, x + 12, y + 176, "Tab belanja per kategori upgrade.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 12, y + 194, "FIRE: buka tab.  Kembali: ke menu Toko.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 12, y + 214, "L/R: kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     /**
@@ -1306,8 +1337,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             drawText(g, x + 12, y + 206, "Upgrade bersifat permanen.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
         ink(g);
-        drawText(g, x + 12, y + 222, "FIRE: beli  L/R / akhir: kembali ke tab",
-                Font.STYLE_PLAIN, Font.SIZE_SMALL);
 
         // Confirmation popup, drawn last so it covers the list. updateUpgrades clears the flags
         // on any d-pad press, so the popup and its pending action always describe the row that
@@ -1347,7 +1376,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         for (int i = 0; i < lines.length; i++) {
             drawText(g, px + 12, py + 30 + i * 16, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
-        drawText(g, px + 12, py + h - 22, "FIRE: ya    Geser: batal", Font.STYLE_BOLD, Font.SIZE_SMALL);
     }
 
     /** Level a row displays: Hardcore reads the settings bit, actions have no level. */
@@ -1495,11 +1523,44 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private void drawSettings(Graphics g, int x, int y) {
         title(g, x, y, "PENGATURAN");
         String[] items = { "Audio: " + (save != null && save.audioEnabled() ? "ON" : "OFF"),
-                "Controls", "Exit", "Back" };
+                "Controls", "Help", "Back" };
         list(g, x, y + 65, items, menuIndex);
         ink(g);
         drawText(g, x + 20, y + 190, "Hardcore kini ada di Toko (tab Lainnya).", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 20, y + 210, "Exit keluar dari game. Pilihan lain: kembali.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    private void updateHelp(boolean up, boolean down, boolean fire, boolean left, boolean right) {
+        if (left || right || fire || up || down) {
+            screen = SETTINGS;
+        }
+    }
+
+    private void drawHelp(Graphics g, int x, int y) {
+        title(g, x, y, "BANTUAN");
+        ink(g);
+        int ty = y + 50;
+        int lh = 18;
+        drawText(g, x + 20, ty, "Navigasi Menu:", Font.STYLE_BOLD, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "Atas/Bawah: pilih item", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "Kiri/Kanan: navigasi tab / kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "FIRE / 5: pilih / konfirmasi", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh * 2;
+        drawText(g, x + 20, ty, "Dalam Gameplay:", Font.STYLE_BOLD, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "1 / GAME A: Serang", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "5 / FIRE: Pause", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "9: Special (butuh upgrade)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "0: Pause alternatif", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh * 2;
+        drawText(g, x + 20, ty, "Skill karakter aktif otomatis.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "Orbiting/passive weapon otomatis.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawControls(Graphics g, int x, int y) {
