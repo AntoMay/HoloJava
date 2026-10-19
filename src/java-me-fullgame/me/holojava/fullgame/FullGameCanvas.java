@@ -1061,23 +1061,28 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, px + 8, py + 6, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
         // Everything below the name row: sprite on the left, status column on the right.
+        // The bottom keeps its own padding so the last status line never runs into the border.
+        int padSide = 8;
+        int padBottom = 12;
         int bodyTop = py + nameRowH;
-        int bodyH = ph - nameRowH - 6;
+        int bodyH = ph - nameRowH - padBottom;
 
         // Idle sprite on the left of the body, centred vertically in it.
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
         if (idleSprite != null) {
             int spriteH = idleSprite.getHeight();
             int sy = y + bodyTop + (bodyH - spriteH) / 2;
-            g.drawImage(idleSprite, x + px + 8, sy, Graphics.TOP | Graphics.LEFT);
+            g.drawImage(idleSprite, x + px + padSide, sy, Graphics.TOP | Graphics.LEFT);
         }
 
-        // Status column sits further right, with its right padding matching the left one, so
-        // the text block reads as centred in the space left of the panel edge. The column x is
-        // fixed, so only the sprite animates and the text never shifts with the frame.
-        int pad = 8;
-        int textX = px + pad + 40 + 20;
-        g.clipRect(x + textX, y + bodyTop, pw - pad - 40 - 20 - pad, bodyH);
+        // Status column sits well clear of the sprite, and its right padding matches the left
+        // one, so the block reads as balanced inside the frame. The column x is fixed, so only
+        // the sprite animates and the text never shifts with the frame.
+        int spriteZone = 40;
+        int textGap = 32;
+        int textX = px + padSide + spriteZone + textGap;
+        int textW = pw - padSide - spriteZone - textGap - padSide;
+        g.clipRect(x + textX, y + bodyTop, textW, bodyH);
 
         // Build detail lines
         String[] lines = buildIdolDetailLines(sel);
@@ -1087,9 +1092,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         int visible = 0;
+        int bodyBottom = bodyTop + bodyH;
         for (int i = 0; i < lines.length && visible < maxVisible; i++) {
             int lineY = detailStartY + i * lineH;
-            if (lineY + lineH >= bodyTop && lineY <= py + ph - 6) {
+            if (lineY + lineH >= bodyTop && lineY <= bodyBottom) {
                 drawText(g, textX, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
                 visible++;
             }
