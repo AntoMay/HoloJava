@@ -91,11 +91,18 @@ final class ContentCatalog {
         int critPercent;
         /**
          * Flat damage reduction this character starts a run with, in percent, before any shop
-         * Defense Up is added. The wiki character tables carry HP, ATK, SPD and CRT but no defence
-         * column, so this is our own balance stat rather than documented data, and it is set so
-         * that the bigger, tougher characters trade a little damage reduction for their larger HP
-         * pool instead of simply being strictly better. It stacks additively with the shop's
-         * Defense Up, which is why it is a flat percent and not a multiplier.
+         * Defense Up is added.
+         *
+         * <p>Zero for all five, and that is the documented value rather than an unfinished field.
+         * The original game ships a "Defense Up" upgrade -- it is in the unpacked string table
+         * between "Regeneration" and "Special Attack" -- but has no per-character defence stat:
+         * the unpacked symbol table only has AyameDefenseField, which is an ability, and every
+         * "reduce damage taken" string belongs to an item or a form. Reduction in the original
+         * comes from what the player picks up.
+         *
+         * <p>It is kept as a field so the shop's Defense Up has an explicit base to stack on top
+         * of rather than an implicit one, and so the wiring is testable. See the values in
+         * {@link #CHARACTERS} for why it must stay zero without evidence.
          */
         int defensePercent;
         int size;
@@ -242,16 +249,26 @@ final class ContentCatalog {
     // character indices 0-4 (AssetLibrary.groupIndex), and each entry's mainWeapon must
     // resolve against BASE_WEAPONS for validate() to pass.
     static final CharacterDef[] BASE_CHARACTERS = {
-        // Base damage reduction per character, in percent, before any shop Defense Up. The wiki tables
-        // carry no defence column, so this is our own balance stat: the larger the character, the
-        // more of each hit they shrug off, which keeps Kiara's 90 HP from making her strictly
-        // better than everyone else. Gura carries the least because she also has the smallest
-        // pool, and the gap between her and Kiara is deliberately narrow so no pick is wasted.
-        character("gura", "Gawr Gura", 65, 110, 140, 5, 1, "trident_thrust", "Shark Call", "Shark Bite", true, "Gura", false, 4),
-        character("ame", "Amelia Watson", 75, 130, 135, 10, 3, "pistol_shot", "Slow Time", "Hunter's Instinct", true, "Ame", false, 6),
-        character("calli", "Mori Calliope", 70, 115, 130, 10, 4, "scythe_swing", "The Reaper", "Undying", true, "Calli", false, 6),
-        character("kiara", "Takanashi Kiara", 90, 100, 140, 5, 3, "phoenix_sword", "Phoenix Fire", "Second Flame", true, "Kiara", false, 10),
-        character("ina", "Ninomae Inanis", 75, 90, 150, 1, 1, "summon_tentacle", "Spirit of the Oni", "The Ancient One", true, "Ina", false, 6)
+        // Base damage reduction per character, in percent, before any shop Defense Up.
+        //
+        // Every value is 0, and that is the documented answer rather than a placeholder. The
+        // original game has a "Defense Up" upgrade -- it appears verbatim in the unpacked string
+        // table between "Regeneration" and "Special Attack" -- but it has no per-character defence
+        // stat at all: searching the unpacked symbol table for "defense"/"defence" turns up only
+        // AyameDefenseField, which is an ability, and every "reduce damage taken" string belongs
+        // to an item or a form. Damage reduction in the original comes from what you pick up, not
+        // from who you are.
+        //
+        // So the field exists to give the shop's Defense Up a base to stack on top of, and it is
+        // deliberately left at zero for every character. Inventing per-character numbers here
+        // would be unsourced balance masquerading as data, and it would make the larger
+        // characters better on two axes at once. Raise these only with evidence, or as a
+        // deliberately recorded balance decision of its own.
+        character("gura", "Gawr Gura", 65, 110, 140, 5, 1, "trident_thrust", "Shark Call", "Shark Bite", true, "Gura", false, 0),
+        character("ame", "Amelia Watson", 75, 130, 135, 10, 3, "pistol_shot", "Slow Time", "Hunter's Instinct", true, "Ame", false, 0),
+        character("calli", "Mori Calliope", 70, 115, 130, 10, 4, "scythe_swing", "The Reaper", "Undying", true, "Calli", false, 0),
+        character("kiara", "Takanashi Kiara", 90, 100, 140, 5, 3, "phoenix_sword", "Phoenix Fire", "Second Flame", true, "Kiara", false, 0),
+        character("ina", "Ninomae Inanis", 75, 90, 150, 1, 1, "summon_tentacle", "Spirit of the Oni", "The Ancient One", true, "Ina", false, 0)
     };
 
     static final CharacterDef[] CHARACTERS = WikiCatalogData.buildCharacters(BASE_CHARACTERS);

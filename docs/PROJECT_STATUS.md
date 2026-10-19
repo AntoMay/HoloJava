@@ -141,14 +141,22 @@ hitbox for all five characters, now `PLAYER_HIT_W`/`PLAYER_HIT_H`. Two tests had
 inverted behaviour as intended — `RunWorldEnemyAiTest` [3] said outright that a fresh spawn's
 future `nextAttack` "is what arms contact damage" — and are rewritten.
 
-**Damage reduction.** Characters had no defence stat at all: the wiki tables carry HP, ATK, SPD
-and CRT but no defence column, so every character took identical damage and the bigger ones were
-simply better. `CharacterDef.defensePercent` is our own balance stat, set so the larger characters
-trade some reduction for their larger pool rather than being strictly better — Gura 4% (smallest
-pool), Ame 6%, Calli 6%, Ina 6%, Kiara 10% (largest pool). It is our own number, not documented
-data. It stacks with the shop's Defense Up, which is clamped to the 15% the row advertises so that
-the two numbers have separate owners; `recomputeStats()` rebuilds reduction from the character's
-base rather than from zero, which is what stops a repeated call compounding it.
+**Damage reduction.** The original has a "Defense Up" upgrade — it appears verbatim in the unpacked
+string table between "Regeneration" and "Special Attack" — but **no per-character defence stat**:
+searching the unpacked symbol table for "defense"/"defence" turns up only `AyameDefenseField`, which
+is an ability, and every "reduce damage taken" string belongs to an item or a form. Reduction in
+the original comes from what the player picks up, not from who they are.
+
+An earlier pass gave the characters 4–10% each. Those were invented balance numbers presented as a
+stat, which contradicts how this project treats evidence, and they also made the larger characters
+better on two axes at once. They are back to **0 for all five**. `CharacterDef.defensePercent` is
+kept as a field so the shop's Defense Up has an explicit base to stack on rather than an implicit
+one, and so the wiring stays testable.
+
+The defence *system* is unchanged and is what the tests cover: Defense Up stacks on the character's
+base instead of replacing it, `recomputeStats()` rebuilds from that base so a repeated call neither
+compounds nor strips it, and the shop's own contribution is clamped to the 15% the row advertises
+rather than to the total, so the two numbers keep separate owners.
 
 **Shop wiring audit.** All 34 rows reach the run: 11 through an `EFFECT_*` that `recomputeStats()`
 folds in, and the rest through flags the run actually reads (`specialLocked`, `rerolls`, `holds`,

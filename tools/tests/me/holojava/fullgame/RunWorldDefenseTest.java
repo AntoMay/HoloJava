@@ -27,7 +27,7 @@ public final class RunWorldDefenseTest {
     private static int failures = 0;
 
     public static void main(String[] args) throws Exception {
-        testCharacterReductionIsDistinctAndSane();
+        testCharactersCarryNoDefenceOfTheirOwn();
         testDefenseUpStacksOnTheCharacterStat();
         testDefenseUpIsCappedAtItsAdvertisedMaximum();
         testEveryShopRowReachesTheRun();
@@ -38,33 +38,33 @@ public final class RunWorldDefenseTest {
     }
 
     /**
-     * Every character carries a reduction, they are not all the same, and the biggest character is
-     * not simply the best on both axes at once.
-     */
-    private static void testCharacterReductionIsDistinctAndSane() {
-        section("each character has its own damage reduction");
-        int min = Integer.MAX_VALUE;
-        int max = Integer.MIN_VALUE;
+     * Characters carry no defence of their own, because the original game has none.
+ *
+ * <p>This is pinned as a fact rather than left open on purpose. The unpacked HoloCure data has a
+ * "Defense Up" upgrade but no per-character defence stat: the only "defense" symbol is
+ * AyameDefenseField, an ability, and every "reduce damage taken" string belongs to an item or a
+ * form. So an earlier pass that gave the characters 4..10% was inventing balance numbers and
+ * presenting them as a stat. If someone later adds real values with evidence behind them, this
+ * test is where that decision has to be made deliberately.
+ */
+    private static void testCharactersCarryNoDefenceOfTheirOwn() {
+        section("characters have no built-in reduction, matching the original");
         for (int i = 0; i < ContentCatalog.CHARACTERS.length; i++) {
             ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
-            expect(c.defensePercent > 0,
-                    c.name + " has some built-in reduction (" + c.defensePercent + "%)");
-            expect(c.defensePercent < 50,
-                    c.name + " is not near immune (" + c.defensePercent + "%)");
-            if (c.defensePercent < min) min = c.defensePercent;
-            if (c.defensePercent > max) max = c.defensePercent;
+            expectEq(c.defensePercent, 0,
+                    c.name + " starts with no damage reduction of its own");
         }
-        expect(max > min, "the characters are not all identical (spread " + min + ".." + max + ")");
 
-        // The character with the largest pool is not also the one with the least reduction.
-        int fattest = 0;
-        for (int i = 1; i < ContentCatalog.CHARACTERS.length; i++) {
-            if (ContentCatalog.CHARACTERS[i].hp > ContentCatalog.CHARACTERS[fattest].hp) fattest = i;
+        // The field still exists so the shop's Defense Up has an explicit base; if it were removed
+        // the stacking would become implicit and untestable.
+        boolean fieldPresent = false;
+        try {
+            ContentCatalog.CHARACTERS[0].getClass().getDeclaredField("defensePercent");
+            fieldPresent = true;
+        } catch (NoSuchFieldException ignored) {
+            fieldPresent = false;
         }
-        expect(ContentCatalog.CHARACTERS[fattest].defensePercent
-                    == max,
-                "the biggest character carries the most reduction, so HP and defence are not "
-                    + "the same axis twice");
+        expect(fieldPresent, "the field is still there, so Defense Up has a declared base");
     }
 
     /** Defense Up adds to the character's stat rather than replacing it. */
