@@ -984,14 +984,21 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * Setiap kotak: hanya portrait + nama, border biru muda. Tidak ada dark panel.
      * Detail panel: border biru muda, konten scroll (Atas/Bawah untuk scroll).
      */
+
+    /**
+     * CHOOSE YOUR IDOL — grid 5 karakter (tanpa Back entry).
+     * Layout: 5 kotak horizontal (dikecilkan), detail panel di bawah dengan scroll.
+     * Setiap kotak: portrait + nama, border biru muda. Tidak ada dark panel.
+     * Detail panel: border biru muda, konten scroll (Atas/Bawah untuk scroll).
+     * Idle sprite di pojok kanan bawah panel.
+     */
     private void drawChooseIdol(Graphics g, int x, int y) {
         title(g, x, y, "CHOOSE YOUR IDOL");
         int charCount = ContentCatalog.CHARACTERS.length; // 5
-        int totalCount = charCount + 1; // +1 Back
-        int boxW = IDOL_BOX_W;
-        int boxH = IDOL_BOX_H;
-        int startX = IDOL_GRID_X;
-        int startY = IDOL_GRID_Y;
+        int boxW = 48;  // dikecilkan dari 56
+        int boxH = 62;  // dikecilkan dari 72
+        int startX = 28;  // center 5 * (48+8) = 280, margin = (320-280)/2 = 20
+        int startY = 60;
 
         // Update animasi timer
         idolAnimTimer++;
@@ -1000,9 +1007,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             idolAnimFrame = (idolAnimFrame + 1) % 4;
         }
 
-        // Draw 6 boxes (5 chars + Back)
-        for (int i = 0; i < totalCount; i++) {
-            int bx = startX + i * (boxW + IDOL_GAP);
+        // Draw 5 character boxes
+        for (int i = 0; i < charCount; i++) {
+            int bx = startX + i * (boxW + 8);  // gap 8
             int by = startY;
             boolean selected = (i == menuIndex);
 
@@ -1014,79 +1021,67 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                 g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
             }
 
-            if (i < charCount) {
-                // Character box: portrait + name
-                ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
-                Image portrait = assets.characterPortrait(i);
-                if (portrait != null) {
-                    int px = x + bx + (boxW - portrait.getWidth()) / 2;
-                    int py = y + by + 4;
-                    g.drawImage(portrait, px, py, Graphics.TOP | Graphics.LEFT);
-                }
-                // Name below portrait
-                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-                drawText(g, x + bx + boxW / 2, y + by + boxH - 18,
-                        c.name, selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
-            } else {
-                // Back entry
-                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-                drawText(g, x + bx + boxW / 2, y + by + boxH / 2 - 6,
-                        "Kembali", selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            // Character box: portrait + name
+            ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
+            Image portrait = assets.characterPortrait(i);
+            if (portrait != null) {
+                int px = x + bx + (boxW - portrait.getWidth()) / 2;
+                int py = y + by + 4;
+                g.drawImage(portrait, px, py, Graphics.TOP | Graphics.LEFT);
             }
-        }
-
-        // Detail panel for selected (only for characters, not Back)
-        if (menuIndex < charCount) {
-            ContentCatalog.CharacterDef sel = ContentCatalog.CHARACTERS[menuIndex];
-            int px = x + IDOL_PANEL_X;
-            int py = y + IDOL_PANEL_Y;
-            int pw = IDOL_PANEL_W;
-            int ph = IDOL_PANEL_H;
-
-            // Panel border only (light blue)
-            g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-            g.drawRect(px, py, pw - 1, ph - 1);
-            g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
-
-            // Draw idle sprite at bottom right corner of panel (outside clip)
-            Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
-            if (idleSprite != null) {
-                int sx = x + px + pw - idleSprite.getWidth() - 8;
-                int sy = y + py + ph - idleSprite.getHeight() - 8;
-                g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
-            }
-
-            // Clip to panel interior for scrolling text
-            g.clipRect(x + px + 4, y + py + 4, pw - 8, ph - 8 - idleSprite.getHeight() - 8);
-
-            // Build detail lines
-            String[] lines = buildIdolDetailLines(sel);
-            int lineH = 14;
-            int detailStartY = py + 8 - idolDetailScroll * lineH;
-            int maxVisible = (ph - 16 - idleSprite.getHeight() - 8) / lineH;
-
+            // Name below portrait
             g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-            int visible = 0;
-            for (int i = 0; i < lines.length && visible < maxVisible; i++) {
-                int lineY = detailStartY + i * lineH;
-                if (lineY + lineH >= py + 8 && lineY <= py + ph - 8 - idleSprite.getHeight() - 8) {
-                    drawText(g, px + 8, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
-                    visible++;
-                }
-            }
-
-            // Scroll indicator
-            if (idolDetailScroll > 0 || (idolDetailScroll + maxVisible) < lines.length) {
-                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-                drawText(g, px + pw - 30, py + 2, "\u25B2 \u25BC", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-            }
-
-            g.clipRect(0, 0, Viewport.MIN_W, Viewport.MIN_H); // reset clip
+            drawText(g, x + bx + boxW / 2, y + by + boxH - 14,
+                    c.name, selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
 
-        // No hint text
-    }
+        // Detail panel for selected
+        ContentCatalog.CharacterDef sel = ContentCatalog.CHARACTERS[menuIndex];
+        int px = x + IDOL_PANEL_X;
+        int py = y + IDOL_PANEL_Y;
+        int pw = IDOL_PANEL_W;
+        int ph = IDOL_PANEL_H;
 
+        // Panel border only (light blue)
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.drawRect(px, py, pw - 1, ph - 1);
+        g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
+
+        // Draw idle sprite at bottom right corner of panel
+        Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
+        if (idleSprite != null) {
+            int sx = x + px + pw - idleSprite.getWidth() - 8;
+            int sy = y + py + ph - idleSprite.getHeight() - 8;
+            g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
+        }
+
+        // Clip to panel interior for scrolling text
+        g.clipRect(x + px + 4, y + py + 4, pw - 8, ph - 8 - idleSprite.getHeight() - 8);
+
+        // Build detail lines
+        String[] lines = buildIdolDetailLines(sel);
+        int lineH = 14;
+        int detailStartY = py + 8 - idolDetailScroll * lineH;
+        int maxVisible = (ph - 16 - idleSprite.getHeight() - 8) / lineH;
+
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        int visible = 0;
+        for (int i = 0; i < lines.length && visible < maxVisible; i++) {
+            int lineY = detailStartY + i * lineH;
+            if (lineY + lineH >= py + 8 && lineY <= py + ph - 8 - idleSprite.getHeight() - 8) {
+                drawText(g, px + 8, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
+                visible++;
+            }
+        }
+
+        // Scroll indicator
+        if (idolDetailScroll > 0 || (idolDetailScroll + maxVisible) < lines.length) {
+            g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+            drawText(g, px + pw - 30, py + 2, "\u25B2 \u25BC", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
+
+        g.clipRect(0, 0, Viewport.MIN_W, Viewport.MIN_H); // reset clip
+    }
     private String[] buildIdolDetailLines(ContentCatalog.CharacterDef c) {
         ContentCatalog.WeaponDef wp = ContentCatalog.weapon(c.mainWeapon);
         String wpName = wp != null ? wp.name : c.mainWeapon;
