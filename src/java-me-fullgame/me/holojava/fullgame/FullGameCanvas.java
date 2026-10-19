@@ -1055,37 +1055,41 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         g.drawRect(px, py, pw - 1, ph - 1);
         g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
 
-        // Character name at left top of panel (above sprite area)
+        // The name gets its own full-width row across the top of the panel, so the status column
+        // below it starts clear of it instead of overprinting it.
+        int nameRowH = 18;
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        drawText(g, px + 8, py + 8, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
+        drawText(g, px + 8, py + 6, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
-        // Idle sprite on the left of the panel, centred vertically in the area under the name.
+        // Everything below the name row: sprite on the left, status column on the right.
+        int bodyTop = py + nameRowH;
+        int bodyH = ph - nameRowH - 6;
+
+        // Idle sprite on the left of the body, centred vertically in it.
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
         if (idleSprite != null) {
             int spriteH = idleSprite.getHeight();
-            int textAreaTop = py + 18;
-            int textAreaBottom = py + ph - 8;
-            int textAreaCenterY = textAreaTop + (textAreaBottom - textAreaTop) / 2;
-            int sy = y + textAreaCenterY - spriteH / 2;
+            int sy = y + bodyTop + (bodyH - spriteH) / 2;
             g.drawImage(idleSprite, x + px + 8, sy, Graphics.TOP | Graphics.LEFT);
         }
 
         // Status text fills the right of the same box. Its column is fixed, so only the sprite
         // animates and the text never shifts with the frame.
-        g.clipRect(x + px + 8 + 40 + 8, y + py + 8, pw - 16 - 40 - 8, ph - 16);
+        int textX = px + 8 + 40 + 8;
+        g.clipRect(x + textX, y + bodyTop, pw - 16 - 40 - 8, bodyH);
 
         // Build detail lines
         String[] lines = buildIdolDetailLines(sel);
         int lineH = 14;
-        int detailStartY = py + 8 - idolDetailScroll * lineH;
-        int maxVisible = (ph - 16) / lineH;
+        int detailStartY = bodyTop - idolDetailScroll * lineH;
+        int maxVisible = bodyH / lineH;
 
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         int visible = 0;
         for (int i = 0; i < lines.length && visible < maxVisible; i++) {
             int lineY = detailStartY + i * lineH;
-            if (lineY + lineH >= py + 8 && lineY <= py + ph - 8) {
-                drawText(g, px + 8 + 40 + 8, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            if (lineY + lineH >= bodyTop && lineY <= py + ph - 6) {
+                drawText(g, textX, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
                 visible++;
             }
         }

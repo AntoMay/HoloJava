@@ -279,6 +279,7 @@ public final class UiStateMachineTest {
         testModesScreenRoutesAndBacks();
         testChooseIdolSelectsAndPersists();
         testChooseIdolIndexWraps();
+        testChooseIdolDetailScroll();
         testStageScreenRefusesLockedStages();
         testStageScreenBackRestoresCharacter();
         testSettingsTogglesAndRoutes();
@@ -450,6 +451,38 @@ public final class UiStateMachineTest {
             expect(idx >= 0 && idx < count, "index " + idx + " stayed within [0," + count + ")");
         }
         // LEFT at index > 0 goes to previous index; LEFT at 0 goes back to MENU (not tested here)
+    }
+
+    /**
+     * Up/Down scroll the status column instead of moving the character cursor. The offset is
+     * clamped at the top, and moving between characters resets it, so the panel never opens
+     * part-way down the list.
+     */
+    private static void testChooseIdolDetailScroll() throws Exception {
+        System.out.println("[7b] up/down scroll the status column, never the character cursor");
+        Object c = canvas(CHOOSE_IDOL, 2);
+        expectEq(getInt(c, "idolDetailScroll"), 0, "a freshly opened panel starts unscrolled");
+
+        chooseIdol(c, false, true, false, false, false);   // down
+        expectEq(getInt(c, "idolDetailScroll"), 1, "down scrolls the status column");
+        expectEq(getInt(c, "menuIndex"), 2, "and leaves the character cursor where it was");
+
+        chooseIdol(c, false, true, false, false, false);   // down again
+        expectEq(getInt(c, "idolDetailScroll"), 2, "down keeps scrolling");
+
+        chooseIdol(c, true, false, false, false, false);   // up
+        expectEq(getInt(c, "idolDetailScroll"), 1, "up scrolls back");
+
+        chooseIdol(c, true, false, false, false, false);   // up
+        expectEq(getInt(c, "idolDetailScroll"), 0, "up reaches the top");
+        chooseIdol(c, true, false, false, false, false);   // up past the top
+        expectEq(getInt(c, "idolDetailScroll"), 0, "and clamps at the top instead of going negative");
+        expectEq(getInt(c, "menuIndex"), 2, "still no character movement");
+
+        // Changing character reopens the panel at the top.
+        chooseIdol(c, false, false, false, false, true);   // right
+        expectEq(getInt(c, "menuIndex"), 3, "right moves the character cursor");
+        expectEq(getInt(c, "idolDetailScroll"), 0, "and resets the scroll offset");
     }
 
     /** A locked stage is refused outright: no selection, no transition. */
