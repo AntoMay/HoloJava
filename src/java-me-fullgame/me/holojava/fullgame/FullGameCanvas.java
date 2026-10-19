@@ -96,10 +96,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // heading right where the word CHOOSE breaks.
     private static final int IDOL_TEXT_X = 124;                 // 12 + 124 = 136 absolute
     private static final int IDOL_SPRITE_X = 28;                // idle sprite left edge inside the panel
-    // Ground line the sprites stand on, measured down from the panel's top border. 85 puts Calli
-    // exactly where the panel used to draw her: bodyTop (18) + (90 - 47) / 2 + 46, i.e. her feet
-    // on row 199 of the panel. Every other character is then placed so their feet land there too.
-    private static final int IDOL_FEET_Y = 85;
+    // Ground line the sprites stand on, measured down from the panel's top border. Every sprite has
+    // its feet on the last row of its own canvas, so a single line here aligns the whole cast:
+    // 76 puts their feet on row 190 of the screen.
+    private static final int IDOL_FEET_Y = 76;
+    // Per-character horizontal nudge on top of IDOL_SPRITE_X, in the same order as
+    // ContentCatalog.CHARACTERS. Calli's canvas is the widest of the five because her scythe is
+    // drawn out to one side, which leaves her standing noticeably further right than everyone
+    // else even with the same left edge; -12 pulls her back in line. The rest of the art is
+    // already centred on its canvas and needs no correction.
+    private static final int[] IDOL_SPRITE_DX = { 0, 0, -12, 0, 0 };
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
@@ -1113,7 +1119,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
         if (idleSprite != null) {
             int sy = py + IDOL_FEET_Y - (idleSprite.getHeight() - 1);
-            g.drawImage(idleSprite, px + IDOL_SPRITE_X, sy, Graphics.TOP | Graphics.LEFT);
+            int sx = px + IDOL_SPRITE_X
+                    + IDOL_SPRITE_DX[menuIndex % IDOL_SPRITE_DX.length];
+            g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
         }
 
         // The status column starts in the gap between the E of CHOOSE and the Y of YOUR in the
