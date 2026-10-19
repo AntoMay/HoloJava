@@ -90,6 +90,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int IDOL_NAME_ROW_H = 18;
     private static final int IDOL_BODY_PAD_BOTTOM = 6;
     private static final int IDOL_LINE_H = 12;
+    // Horizontal placement inside the panel, measured from the panel's left border.
+    // The status column starts at 146px on screen, which is the gap between the E of CHOOSE
+    // and the Y of YOUR in the title above (E ends at 143.7, Y starts at 149.0), so the block
+    // sits directly under the middle of the heading.
+    private static final int IDOL_TEXT_X = 134;                 // 12 + 134 = 146 absolute
+    private static final int IDOL_SPRITE_X = 40;                // idle sprite left edge inside the panel
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
@@ -1088,23 +1094,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int bodyTop = py + IDOL_NAME_ROW_H;
         int bodyH = ph - IDOL_NAME_ROW_H - IDOL_BODY_PAD_BOTTOM;
 
-        // Idle sprite on the left of the body, centred vertically in it. Untouched by the
-        // column spacing below: only its own size and the body centre matter here.
-        // px/py already carry the canvas origin, so they are used as-is here.
+        // Idle sprite on the left of the body, centred vertically in it. px/py already carry
+        // the canvas origin, so they are used as-is here.
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
         if (idleSprite != null) {
             int spriteH = idleSprite.getHeight();
             int sy = bodyTop + (bodyH - spriteH) / 2;
-            g.drawImage(idleSprite, px + padSide, sy, Graphics.TOP | Graphics.LEFT);
+            g.drawImage(idleSprite, px + IDOL_SPRITE_X, sy, Graphics.TOP | Graphics.LEFT);
         }
 
-        // Status column sits well clear of the sprite, and its right padding matches the left
-        // one, so the block reads as balanced inside the frame. The column x is fixed, so only
-        // the sprite animates and the text never shifts with the frame.
-        int spriteZone = 40;
-        int textGap = 40;
-        int textX = px + padSide + spriteZone + textGap;
-        int textW = pw - padSide - spriteZone - textGap - padSide;
+        // The status column starts in the gap between the E of CHOOSE and the Y of YOUR in the
+        // title above, measured off the rendered glyphs (E ends at 143.7, Y starts at 149.0), so
+        // the block reads as sitting directly under the middle of the heading.
+        int textX = px + IDOL_TEXT_X;
+        int textW = pw - IDOL_TEXT_X - padSide;
         g.clipRect(textX, bodyTop, textW, bodyH);
 
         // Build detail lines
@@ -1114,12 +1117,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int maxVisible = idolVisibleLines();
 
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        Font rowFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         int visible = 0;
         int bodyBottom = bodyTop + bodyH;
         for (int i = 0; i < lines.length && visible < maxVisible; i++) {
             int lineY = detailStartY + i * lineH;
             if (lineY + lineH >= bodyTop && lineY <= bodyBottom) {
-                drawText(g, textX, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
+                g.setFont(rowFont);
+                g.drawString(ellipsize(rowFont, lines[i], textW), textX, lineY,
+                        Graphics.TOP | Graphics.LEFT);
                 visible++;
             }
         }
@@ -1769,6 +1775,19 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private void drawText(Graphics g, int x, int y, String text, int style, int size) {
         g.setFont(Font.getFont(Font.FACE_SYSTEM, style, size));
         g.drawString(text, x, y, Graphics.TOP | Graphics.LEFT);
+    }
+
+    /**
+     * Shortens a row so it ends in an ellipsis instead of running past the column edge. The
+     * status column is anchored under the title and cannot grow without breaking that
+     * alignment, so the few long values ("Special: Spirit of the Oni") are trimmed here rather
+     * than being cut off mid-word by the clip.
+     */
+    private static String ellipsize(Font f, String text, int maxWidth) {
+        if (f.stringWidth(text) <= maxWidth) return text;
+        int end = text.length();
+        while (end > 0 && f.stringWidth(text.substring(0, end) + "...") > maxWidth) end--;
+        return text.substring(0, end) + "...";
     }
 
     private String timeString(long seconds) {
