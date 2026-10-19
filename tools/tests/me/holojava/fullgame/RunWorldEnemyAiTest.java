@@ -301,38 +301,50 @@ public final class RunWorldEnemyAiTest {
     }
 
     /**
-     * Contact damage requires {@code invulUntil <= now < e.nextAttack}: the same timestamp that
-     * gates a ranged shot also gates a touch, so it only bites while that cooldown is still in the
-     * future. Repeat damage is prevented by the player's own invulnerability window, not by the
-     * enemy, which is what this test pins down.
+     * Contact damage is gated the same way every other attack path is: an enemy is ready when
+     * {@code now >= e.nextAttack}. {@code nextAttack} is a "not ready until" stamp, set to
+     * {@code now + cooldown} on spawn and again after each hit, which is how the bomber, shooter,
+     * charger, orbit and boss branches all read it.
+     *
+     * <p>This test used to assert the opposite — that a fresh spawn, whose {@code nextAttack} is
+     * in the future, is what <em>arms</em> contact damage. That inverted reading meant a chaser
+     * could only bite during the first second of its life and was harmless forever after, which is
+     * what left Stage 1, built entirely from chasers, dealing no damage at all.
      */
     private static void testContactDamageLandsOnceThenIsBlockedByCooldown() throws Exception {
-        System.out.println("[3] contact damage lands once, then invulnerability blocks it");
+        System.out.println("[3] contact damage waits out the cooldown, then lands and is re-gated");
         int defIndex = defIndexWithBehavior(ContentCatalog.AI_CHASER);
         long cooldown = ContentCatalog.ENEMIES[defIndex].cooldownMs;
         expect(cooldown > 0, "the fixture enemy has a real contact cooldown");
 
         Object w = world(320, 240);
-        // A fresh spawn carries nextAttack in the future, which is what arms contact damage.
+        // A fresh spawn carries nextAttack in the future, so it is still cooling down.
         Object e = place(w, ContentCatalog.AI_CHASER, 160, 120, 1.0, 1000L + cooldown);
-
         updateEnemies(w, 1000L);
-        expect(getInt(w, "playerHp") < 100, "the overlapping enemy hurt the player");
-        expect(getLong(e, "nextAttack") > 1000L, "and rescheduled its next attack");
+        expectEq(getInt(w, "playerHp"), 100,
+            "a freshly spawned chaser is on cooldown and cannot bite yet");
+
+        // Once that cooldown has elapsed the same enemy does bite, and reschedules itself.
+        set(e, "x", Integer.valueOf(160));
+        set(e, "y", Integer.valueOf(120));
+        set(e, "nextAttack", Long.valueOf(1000L));
+        updateEnemies(w, 2000L);
+        expect(getInt(w, "playerHp") < 100, "once the cooldown lapses the chaser hurts the player");
+        expect(getLong(e, "nextAttack") > 2000L, "and rescheduled its next attack");
 
         // The hit opened the player's invulnerability window, so a following tick cannot re-hit.
         int afterFirst = getInt(w, "playerHp");
-        updateEnemies(w, 1100L);
+        updateEnemies(w, 2100L);
         expectEq(getInt(w, "playerHp"), afterFirst,
             "a second tick inside the player's window did no further damage");
 
-        // Once that window closes, contact damage is available again. The chaser walked off the
-        // player while biting, so it is put back in contact first.
+        // Once both that window and the enemy's own cooldown have closed, contact damage is
+        // available again -- repeatedly, not only once per enemy.
         set(e, "x", Integer.valueOf(160));
         set(e, "y", Integer.valueOf(120));
         set(e, "nextAttack", Long.valueOf(3000L));
-        updateEnemies(w, 1000L + 1000L);
-        expect(getInt(w, "playerHp") < afterFirst, "after the window the enemy can hit again");
+        updateEnemies(w, 5000L);
+        expect(getInt(w, "playerHp") < afterFirst, "after the windows the enemy can hit again");
 
         // And an enemy that is nowhere near the player must never deal contact damage, which is
         // what makes the overlap test load-bearing rather than incidental.
@@ -341,6 +353,16 @@ public final class RunWorldEnemyAiTest {
         updateEnemies(farWorld, 1000L);
         expectEq(getInt(farWorld, "playerHp"), 100,
             "an enemy far from the player dealt no contact damage at all");
+
+        // Finally the case the bug produced: an enemy that has been alive for ages, with its
+        // cooldown long expired, must still be a threat.
+        Object oldWorld = world(320, 240);
+        Object veteran = place(oldWorld, ContentCatalog.AI_CHASER, 160, 120, 0.0, 1L);
+        updateEnemies(oldWorld, 60000L);
+        expect(getInt(oldWorld, "playerHp") < 100,
+            "a long-lived chaser is still a threat a minute into the run");
+        expect(getLong(veteran, "nextAttack") > 60000L,
+            "and its hit rescheduled its next attack rather than being swallowed");
     }
 
     /**

@@ -148,6 +148,14 @@ final class RunWorld {
 
     private int px = 130;
     private int py = 95;
+    /**
+     * Player hitbox used by every contact check. One box for all five characters on purpose: the
+     * sprites differ in size, but what decides a hit is the body the player is steering, and a box
+     * that changed size per character would make the same approach land differently for each of
+     * them. Named here because the contact path used to carry a bare 24.
+     */
+    private static final int PLAYER_HIT_W = 24;
+    private static final int PLAYER_HIT_H = 24;
     private int facingX = 1;
     private int facingY = 0;
     private boolean moving;
@@ -807,9 +815,15 @@ final class RunWorld {
             applyEnemyKnockback(e, now);
             clampEnemy(e, w, h);
             if (now >= e.nextAnim) { e.nextAnim = now + 150L; e.anim = (e.anim + 1) % 3; }
-            if (now < invulUntil || now >= e.nextAttack) {
-                // Contact damage uses the enemy cooldown; the global invulnerability window wins.
-            } else if (overlap(px, py, 24, 24, e.x, e.y, w, h)) {
+            if (now < invulUntil || now < e.nextAttack) {
+                // Contact damage respects the same two gates every other attack path uses: the
+                // global invulnerability window, and this enemy's own cooldown. nextAttack is set
+                // to now + cooldown when the enemy spawns and again after each hit, so it is a
+                // "not ready until" stamp -- the ready state is now >= nextAttack, as used by the
+                // bomber, shooter, charger, orbit and boss paths. This guard had it the other way
+                // round, which made a chaser deal damage only during the first second of its life
+                // and then go permanently harmless.
+            } else if (overlap(px, py, PLAYER_HIT_W, PLAYER_HIT_H, e.x, e.y, w, h)) {
                 damagePlayer(e.atk, now);
                 e.nextAttack = now + def.cooldownMs;
             }

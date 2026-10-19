@@ -189,9 +189,10 @@ public final class RunWorldLifecycleIntegrationTest {
             set(e, "x", Integer.valueOf(getInt(w, "px") + 12 + dx));
             set(e, "y", Integer.valueOf(getInt(w, "py") + 12 + dy));
             set(e, "hp", Integer.valueOf(hp));
-            // Contact damage fires while now < nextAttack, so a far-future stamp is what
-            // arms it. The enemy still walks toward the player on its own.
-            set(e, "nextAttack", Long.valueOf(now + 300000L));
+            // nextAttack is a "not ready until" stamp, so an already-elapsed one is what makes
+            // the enemy free to deal contact damage on this tick. The enemy still walks toward
+            // the player on its own.
+            set(e, "nextAttack", Long.valueOf(0L));
             return e;
         }
         return null;
