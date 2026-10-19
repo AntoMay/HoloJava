@@ -996,8 +996,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * Idle sprite di pojok kiri bawah panel detail.
      */
     private void drawChooseIdol(Graphics g, int x, int y) {
-        // ===== HEADER: CHOOSE YOUR IDOL (Y=0-30, centered) =====
-        titleCentered(g, x, y, "CHOOSE YOUR IDOL");
+        // ===== HEADER: CHOOSE YOUR IDOL (Y=0-40, centered vertically) =====
+        // Draw manually to center vertically in blue band (Y=0-40)
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_LARGE);
+        String titleText = "CHOOSE YOUR IDOL";
+        int titleX = x + (Viewport.MIN_W - f.stringWidth(titleText)) / 2;
+        g.setFont(f);
+        g.drawString(titleText, titleX, y + 10, Graphics.TOP | Graphics.LEFT);
 
         // ===== GRID: 5 karakter (Y=30-108, boxes at Y=41-97) =====
         int charCount = ContentCatalog.CHARACTERS.length; // 5
@@ -1037,12 +1043,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
         }
 
-        // ===== DIVIDER LINE: Y=108-114 =====
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-        g.drawLine(x + 10, y + 108, x + 310, y + 108);
-        g.drawLine(x + 10, y + 113, x + 310, y + 113);
-
-        // ===== DETAIL PANEL: Y=114-240 =====
+        // ===== DETAIL PANEL: Y=114-240 (no divider line) =====
         ContentCatalog.CharacterDef sel = ContentCatalog.CHARACTERS[menuIndex];
         int px = x + IDOL_PANEL_X;      // 12
         int py = y + IDOL_PANEL_Y;      // 114
@@ -1054,7 +1055,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         g.drawRect(px, py, pw - 1, ph - 1);
         g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
 
-        // Draw idle sprite at left side, centered vertically in text area (py+8 to py+ph-8)
+        // Character name at left top of panel (above sprite area)
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        drawText(g, px + 8, py + 8, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
+
+        // Draw idle sprite at left side, centered vertically in text area (py+18 to py+ph-8)
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
         int spriteW = 0;
         int spriteH = 0;
@@ -1062,25 +1067,24 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             spriteW = idleSprite.getWidth();
             spriteH = idleSprite.getHeight();
             int sx = x + px + 8;  // 8px from panel left
-            // Center sprite vertically in the text area (py+8 to py+ph-8)
-            int textAreaTop = py + 8;
+            // Center sprite vertically in the text area (py+18 to py+ph-8)
+            int textAreaTop = py + 18;
             int textAreaBottom = py + ph - 8;
             int textAreaCenterY = textAreaTop + (textAreaBottom - textAreaTop) / 2;
             int sy = y + textAreaCenterY - spriteH / 2;
-            g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
+            g.drawImage(idleSprite, x + px + 8, sy, Graphics.TOP | Graphics.LEFT);
         }
 
-        // Character name at left, above sprite (Y = panel top + 8)
+        // Character name at left top of panel (above sprite area)
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        int nameY = py + 8;
-        drawText(g, px + 8, nameY, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
+        drawText(g, px + 8, py + 8, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
-        // Text area for stats starts at right of sprite
-        int textX = px + 8 + spriteW + 8;
-        int textW = pw - 16 - spriteW - 8;
+        // Stats area: FIXED position on the right, independent of sprite animation
+        int textX = px + 8 + 40 + 8; // fixed: 8px panel padding + 40px max sprite width + 8px gap
+        int textW = pw - 16 - 40 - 8;  // fixed width for stats
 
-        // Clip to panel interior for scrolling text (stats area)
-        g.clipRect(x + 8 + spriteW + 8, y + py + 8, pw - 16 - spriteW - 8, ph - 16);
+        // Clip to panel interior for scrolling text (stats area only, fixed position)
+        g.clipRect(x + 8 + 40 + 8, y + py + 8, pw - 16 - 40 - 8, ph - 16);
 
         // Build detail lines
         String[] lines = buildIdolDetailLines(sel);
@@ -1093,7 +1097,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         for (int i = 0; i < lines.length && visible < maxVisible; i++) {
             int lineY = detailStartY + i * lineH;
             if (lineY + lineH >= py + 8 && lineY <= py + ph - 8) {
-                drawText(g, textX, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
+                drawText(g, px + 8 + 40 + 8, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
                 visible++;
             }
         }
