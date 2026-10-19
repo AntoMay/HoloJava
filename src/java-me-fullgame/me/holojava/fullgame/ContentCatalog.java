@@ -490,68 +490,95 @@ final class ContentCatalog {
         item("headphones", "Headphones", 2, EFFECT_NEGATE, 15, 5, 4, "bullet")
     };
 
+    /**
+     * Enemy roster. Every row's {@code documentedBaseStats} is false, and that flag is the honest
+     * answer to "where did these numbers come from".
+     *
+     * <p>There is no source for them. The original ships a "Defense Up" upgrade but no per-character
+     * defence stat, and -- the same problem here -- the wiki's Enemy page carries no HP or ATK
+     * column; {@code data/wiki/bosses.csv} says so outright for the bosses ("individual boss HP/ATK/
+     * EXP values are not on the Enemy page"). There is no {@code enemies.csv} because there was
+     * nothing to extract into one. The unpacked tree under {@code ~/Projects/HoloCure_Unpacked} does
+     * not help either: {@code binary_logic/} holds script and object <em>names</em> only, with no
+     * decompiled GML and no numeric literals to read.
+     *
+     * <p>So hp/atk here are balance numbers we chose, which is why they are flagged rather than
+     * dressed up as data. They were originally 30..8 for mobs and 20..48 for bosses, and both were
+     * cut roughly in half: a boss hit of 48 against a 65 HP character removed three quarters of the
+     * health pool in one touch, and a chaser hit every time its cooldown expired made Stage 1 --
+     * which is built only from chasers -- unsurvivable. They now read 2..4 for mobs and 9..22 for
+     * bosses, against character HP pools of 65..90 that <em>are</em> documented.
+     *
+     * <p>If real figures ever surface, replace them and flip {@code documentedBaseStats} to true;
+     * do not quietly tune these and leave the flag false.
+     */
     static final EnemyDef[] ENEMIES = {
-        enemy("shrimp", "Shrimp", AI_CHASER, 30, 4, 0.40, 900, 7, 90, 20, 18, "Shrimp", false),
-        enemy("dark_shrimp", "Dark Shrimp", AI_CHASER, 48, 5, 0.48, 800, 9, 75, 20, 18, "Shrimp2", false),
-        enemy("sukonbu", "Sukonbu", AI_BOMBER, 42, 5, 0.42, 1100, 9, 80, 20, 20, "Sukonbu", false),
-        enemy("kuro_sukonbu", "Kuro Sukonbu", AI_BOMBER, 62, 6, 0.48, 950, 11, 65, 20, 20, "Sukonbu2", false),
-        enemy("matsurisu", "Matsurisu", AI_CHARGER, 38, 5, 0.50, 850, 10, 85, 22, 18, "Matsurisu", false),
-        enemy("matsurisu3", "Matsurisu 3", AI_CHARGER, 60, 7, 0.58, 750, 14, 65, 22, 18, "Matsurisu3", false),
-        enemy("moonafic", "Moonafic", AI_SHOOTER, 52, 5, 0.38, 1200, 12, 80, 18, 20, "Moonafic", false),
-        enemy("moonafic_vip", "Moonafic VIP", AI_SHOOTER, 78, 7, 0.44, 1000, 16, 60, 18, 20, "Moonafic2", false),
-        enemy("nousagi_a", "Nousagi A", AI_CHASER, 45, 6, 0.52, 800, 12, 85, 18, 16, "NousagiA", false),
-        enemy("nousagi_b", "Nousagi B", AI_SHOOTER, 58, 6, 0.46, 1050, 15, 75, 18, 16, "NousagiB", false),
-        enemy("nousagi_c", "Nousagi C", AI_CHARGER, 66, 7, 0.62, 700, 18, 65, 18, 16, "NousagiC", false),
-        enemy("nousagi_d", "Nousagi D", AI_BOMBER, 72, 8, 0.40, 950, 20, 60, 18, 16, "NousagiD", false),
-        enemy("otaku", "Otaku", AI_HEALER, 90, 6, 0.34, 1400, 20, 60, 22, 28, "Otaku", false),
+        enemy("shrimp", "Shrimp", AI_CHASER, 30, 2, 0.40, 900, 7, 90, 20, 18, "Shrimp", false),
+        enemy("dark_shrimp", "Dark Shrimp", AI_CHASER, 48, 3, 0.48, 800, 9, 75, 20, 18, "Shrimp2", false),
+        enemy("sukonbu", "Sukonbu", AI_BOMBER, 42, 3, 0.42, 1100, 9, 80, 20, 20, "Sukonbu", false),
+        enemy("kuro_sukonbu", "Kuro Sukonbu", AI_BOMBER, 62, 3, 0.48, 950, 11, 65, 20, 20, "Sukonbu2", false),
+        enemy("matsurisu", "Matsurisu", AI_CHARGER, 38, 3, 0.50, 850, 10, 85, 22, 18, "Matsurisu", false),
+        enemy("matsurisu3", "Matsurisu 3", AI_CHARGER, 60, 4, 0.58, 750, 14, 65, 22, 18, "Matsurisu3", false),
+        enemy("moonafic", "Moonafic", AI_SHOOTER, 52, 3, 0.38, 1200, 12, 80, 18, 20, "Moonafic", false),
+        enemy("moonafic_vip", "Moonafic VIP", AI_SHOOTER, 78, 4, 0.44, 1000, 16, 60, 18, 20, "Moonafic2", false),
+        enemy("nousagi_a", "Nousagi A", AI_CHASER, 45, 3, 0.52, 800, 12, 85, 18, 16, "NousagiA", false),
+        enemy("nousagi_b", "Nousagi B", AI_SHOOTER, 58, 3, 0.46, 1050, 15, 75, 18, 16, "NousagiB", false),
+        enemy("nousagi_c", "Nousagi C", AI_CHARGER, 66, 4, 0.62, 700, 18, 65, 18, 16, "NousagiC", false),
+        enemy("nousagi_d", "Nousagi D", AI_BOMBER, 72, 4, 0.40, 950, 20, 60, 18, 16, "NousagiD", false),
+        enemy("otaku", "Otaku", AI_HEALER, 90, 3, 0.34, 1400, 20, 60, 22, 28, "Otaku", false),
         // Original design: small palm seed minion, fragile but persistent. It orbits the player
         // for a few random laps before darting in (AI_ORBIT_CHARGER): the frond crown flares as it
         // closes, which reads as a wind-up. atk 3 and speed 0.48 are a deliberate nerf from the
         // first pass (4 / 0.55): the swarm fills the arena, so per-enemy pressure has to stay low
         // enough that the stage is playable from the moment it is unlocked.
-        enemy("biji_sawit", "Biji Sawit", AI_ORBIT_CHARGER, 35, 3, 0.48, 800, 10, 80, 18, 16, "BijiSawit", false),
+        enemy("biji_sawit", "Biji Sawit", AI_ORBIT_CHARGER, 35, 2, 0.48, 800, 10, 80, 18, 16, "BijiSawit", false),
         // Original design: 19 Kucing, the frantic fan searching for his missing cat. Walks
         // straight at the player (AI_CHASER) with mid-table stats, so the Hutan Sawit swarm
         // gains a second silhouette without changing the stage's difficulty profile. The art
         // frame is 14x32; the hitbox is 12x28 so the thin legs at the bottom do not count
         // as body.
-        enemy("19kucing", "19 Kucing", AI_CHASER, 40, 4, 0.50, 800, 12, 75, 12, 28, "Kucing19", false)
+        enemy("19kucing", "19 Kucing", AI_CHASER, 40, 2, 0.50, 800, 12, 75, 12, 28, "Kucing19", false)
     };
 
     static final BossDef[] BOSSES = {
-        // Stage 1 Hard stats verified against the wiki Stage 1 (Hard) enemy
-        // composition (HP/ATK/SPD/EXP columns); SPD has no per-boss runtime
-        // field (boss.speed is derived), so only HP/ATK/EXP are applied here.
+        // An earlier comment here claimed these stats were "verified against the wiki Stage 1
+        // (Hard) enemy composition (HP/ATK/SPD/EXP columns)". They are not, and they could not
+        // have been: data/wiki/bosses.csv has columns id, name, stage_id,
+        // scheduled_time_seconds, mode_restrictions, source_url and coverage_note -- there is no
+        // HP, ATK, SPD or EXP column anywhere in the extracted wiki data, and the file's own
+        // coverage_note says so. What IS documented for a boss is when it appears, and that is
+        // what bossATimeSec/bossBTimeSec carry. HP, ATK and EXP below are our own balance
+        // numbers, cut roughly in half alongside the mob damage.
         //
         // collW/collH are the frame size of each boss's art directory (see
         // AssetLibrary.bossDirs and RunWorldBossArtTest, which pins the two
         // together), so the hitbox covers the sprite instead of one fixed
         // 42x42 corner of it.
-        boss("fubuzilla", "Fubuzilla", 15000, 22, AI_SHOOTER, 1400, 1500, "fubuzilla", false, 64, 55),
-        boss("smol_ame", "Smol Ame", 12000, 20, AI_CHASER, 1000, 1500, "AchanBoss", true, 61, 84),
-        boss("mikodanye", "Mikodanye", 2200, 24, AI_SHOOTER, 1300, 65, "Mikodanye", false, 51, 67),
-        boss("achan", "A-chan", 2000, 22, AI_CHARGER, 850, 60, "AchanBoss", false, 24, 29),
-        boss("shubangelion", "Shubangelion", 3200, 28, AI_CHARGER, 1200, 85, "Shubangelion_walk", false, 68, 101),
-        boss("spiderchama", "Spiderchama", 3600, 30, AI_SHOOTER, 1000, 90, "Pekodam", true, 128, 69),
-        boss("udin", "Udin", 4200, 34, AI_SHOOTER, 1100, 110, "Udin_walk", false, 43, 53),
-        boss("area15", "Area 15", 4600, 36, AI_BOMBER, 1200, 120, "Pekodam", true, 83, 67),
-        boss("nanora", "Nanora", 5000, 38, AI_CHASER, 900, 130, "Moonafic2", true, 25, 28),
-        boss("pekodam", "Pekodam", 6000, 42, AI_SHOOTER, 850, 160, "Pekodam", false, 99, 116),
-        boss("halloween_bae", "Halloween Bae", 72000, 27, AI_BOMBER, 1000, 6000, "Pekodam", true, 78, 70),
-        boss("nodoka", "Harusaki Nodoka", 5000, 40, AI_SHOOTER, 950, 140, "Mikodanye", true, 22, 33),
-        boss("halloween_myth", "Halloween Myth", 6000, 44, AI_CHARGER, 1000, 160, "Pekodam", true, 66, 79),
-        boss("goriela", "Goriela", 6500, 46, AI_SHOOTER, 900, 180, "Pekodam", true, 98, 75),
+        boss("fubuzilla", "Fubuzilla", 15000, 10, AI_SHOOTER, 1400, 1500, "fubuzilla", false, 64, 55),
+        boss("smol_ame", "Smol Ame", 12000, 9, AI_CHASER, 1000, 1500, "AchanBoss", true, 61, 84),
+        boss("mikodanye", "Mikodanye", 2200, 11, AI_SHOOTER, 1300, 65, "Mikodanye", false, 51, 67),
+        boss("achan", "A-chan", 2000, 10, AI_CHARGER, 850, 60, "AchanBoss", false, 24, 29),
+        boss("shubangelion", "Shubangelion", 3200, 12, AI_CHARGER, 1200, 85, "Shubangelion_walk", false, 68, 101),
+        boss("spiderchama", "Spiderchama", 3600, 13, AI_SHOOTER, 1000, 90, "Pekodam", true, 128, 69),
+        boss("udin", "Udin", 4200, 15, AI_SHOOTER, 1100, 110, "Udin_walk", false, 43, 53),
+        boss("area15", "Area 15", 4600, 16, AI_BOMBER, 1200, 120, "Pekodam", true, 83, 67),
+        boss("nanora", "Nanora", 5000, 17, AI_CHASER, 900, 130, "Moonafic2", true, 25, 28),
+        boss("pekodam", "Pekodam", 6000, 18, AI_SHOOTER, 850, 160, "Pekodam", false, 99, 116),
+        boss("halloween_bae", "Halloween Bae", 72000, 12, AI_BOMBER, 1000, 6000, "Pekodam", true, 78, 70),
+        boss("nodoka", "Harusaki Nodoka", 5000, 18, AI_SHOOTER, 950, 140, "Mikodanye", true, 22, 33),
+        boss("halloween_myth", "Halloween Myth", 6000, 20, AI_CHARGER, 1000, 160, "Pekodam", true, 66, 79),
+        boss("goriela", "Goriela", 6500, 21, AI_SHOOTER, 900, 180, "Pekodam", true, 98, 75),
         // Original design: WoWo, guardian of the burnt palm grove. Keeps its distance
         // and fires a widening radial seed burst, so the fight is about dodging
         // rings rather than chasing a single bullet. Tuned above Pekodam, the final
         // boss of the stage this one unlocks behind, on both axes: it closes the
         // normal stage list and must not feel like a step back.
-        boss("wowo", "WoWo", 9000, 44, AI_SHOOTER, 1000, 300, "WoWo", false, 64, 64),
+        boss("wowo", "WoWo", 9000, 20, AI_SHOOTER, 1000, 300, "WoWo", false, 64, 64),
         // Original design: FufuFafa, the second Arena Hutan Sawit boss, scheduled for the
         // 20:00 encounter so the stage closes on a new fight instead of a repeat WoWo. Same
         // radial-burst family as WoWo but on a tighter cooldown and a step up on both HP and
         // ATK. collW/collH track the 46x56 frame size of bosses/FufuFafa.
-        boss("fufufafa", "FufuFafa", 12000, 48, AI_SHOOTER, 900, 400, "FufuFafa", false, 46, 56)
+        boss("fufufafa", "FufuFafa", 12000, 22, AI_SHOOTER, 900, 400, "FufuFafa", false, 46, 56)
     };
 
     static final ModeDef[] MODES = {

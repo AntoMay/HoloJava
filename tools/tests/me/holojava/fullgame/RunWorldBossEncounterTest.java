@@ -230,7 +230,8 @@ public final class RunWorldBossEncounterTest {
             "at zero scaling a 72000 boss surfaces ~72000 HP");
         expectNear(getInt(boss(w), "hp"), maxHp, 0,
             "current HP starts at max");
-        expectNear(getInt(boss(w), "atk"), 27, 2, "ATK is the catalog value at scale zero");
+        expectNear(getInt(boss(w), "atk"), ContentCatalog.boss("halloween_bae").atk, 2,
+            "ATK is the catalog value at scale zero");
     }
 
     /**
@@ -475,13 +476,25 @@ public final class RunWorldBossEncounterTest {
         return ContentCatalog.BOSSES[f.getInt(b)].id;
     }
 
-    /** Stage 1 Hard HP/ATK/EXP verified against the wiki Stage 1 (Hard) page.
-     * SPD has no per-boss runtime field and is intentionally not asserted. */
+    /**
+     * Pins the Stage 1 Hard boss numbers so a later balance pass changes them deliberately.
+     *
+     * <p>The test used to be called "stats match the verified source", and its javadoc claimed
+     * they were verified against the wiki's Stage 1 (Hard) HP/ATK/SPD/EXP columns. They were not.
+     * {@code data/wiki/bosses.csv} carries only id, name, stage id, scheduled time, mode
+     * restrictions and a source URL -- there is no HP/ATK/SPD/EXP column in any of the extracted
+     * wiki data, and the file's own {@code coverage_note} states that those values are not on the
+     * Enemy page. What is documented for a boss is its spawn time, and that is asserted elsewhere.
+     *
+     * <p>So these are balance numbers, like the mob damage they were halved alongside. Pinning
+     * them is still worth doing: it makes a later change a deliberate edit here rather than a
+     * quiet drift, and the name now says what they actually are.
+     */
     private static void testStage1HardStatsAreVerified() throws Exception {
-        System.out.println("[8] stage 1 hard boss stats match the verified source");
-        expectBoss( "fubuzilla", 15000, 22, 1500);
-        expectBoss("smol_ame", 12000, 20, 1500);
-        expectBoss("halloween_bae", 72000, 27, 6000);
+        System.out.println("[8] stage 1 hard boss stats match the pinned balance values");
+        expectBoss("fubuzilla", 15000, 10, 1500);
+        expectBoss("smol_ame", 12000, 9, 1500);
+        expectBoss("halloween_bae", 72000, 12, 6000);
     }
 
     private static void expectBoss(String id, int hp, int atk, int exp) {
