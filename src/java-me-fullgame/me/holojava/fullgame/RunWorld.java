@@ -1151,6 +1151,7 @@ final class RunWorld {
             s.returning = false;
             s.target = nearestTarget();
             s.sprite = def.sprite;
+            measureShotBox(s);
             if (s.attached) {
                 s.orbitAngle = (Math.PI * 2.0 * i / count) + now / 900.0;
                 s.x = playerCenterX(); s.y = playerCenterY();
@@ -1211,19 +1212,31 @@ final class RunWorld {
             Melee m = melee[i];
             if (!m.active) continue;
             if (now >= m.until) { m.active = false; continue; }
+            // The hitbox is the animation frame itself, anchored exactly where drawMelee puts it.
+            // It used to be a square of side m.area centred on the player while the art was drawn
+            // ahead of the player, so the effect visibly connected with an enemy that the box did
+            // not cover, and missed ones it appeared to cover. Same anchoring helpers as the draw
+            // path, so the two cannot drift apart.
             int cx = px + 12;
             int cy = py + 12;
-            int mx = cx - m.area / 2;
-            int my = cy - m.area / 2;
+            int boxW = m.area;
+            int boxH = m.area;
+            Image frame = meleeFrameBox(m, now);
+            if (frame != null) {
+                boxW = frame.getWidth();
+                boxH = frame.getHeight();
+            }
+            int mx = meleeDrawX(cx, boxW, m.animDir >= 0);
+            int my = meleeDrawY(cy, boxH);
             for (int e = 0; e < enemies.length; e++) {
                 Enemy enemy = enemies[e];
                 if (!enemy.active || (m.hitMask & (1L << e)) != 0L) continue;
-                if (overlap(mx, my, m.area, m.area, enemy.x, enemy.y, enemyWidth(enemy.defIndex), enemyHeight(enemy.defIndex))) {
+                if (overlap(mx, my, boxW, boxH, enemy.x, enemy.y, enemyWidth(enemy.defIndex), enemyHeight(enemy.defIndex))) {
                     m.hitMask |= 1L << e;
                     damageEnemy(e, enemy, m.damage, m.critical, m.knockback, px - enemy.x, py - enemy.y);
                 }
             }
-            if (boss.active && !m.bossHit && overlap(mx, my, m.area, m.area, boss.x, boss.y, bossWidth(), bossHeight())) {
+            if (boss.active && !m.bossHit && overlap(mx, my, boxW, boxH, boss.x, boss.y, bossWidth(), bossHeight())) {
                 m.bossHit = true;
                 damageBoss(m.damage, m.critical, m.knockback);
             }
@@ -1237,9 +1250,13 @@ final class RunWorld {
             s.life--;
             s.age++;
             if (s.attached) {
-                s.orbitAngle += 0.18;
-                s.x = playerCenterX() + (int) (Math.cos(s.orbitAngle) * 30.0);
-                s.y = playerCenterY() + (int) (Math.sin(s.orbitAngle) * 30.0);
+                // Each orb keeps its own phase, advanced on its own, so several orbiting weapons
+                // sit at different points of the circle instead of stacking on one spot. The
+                // radius scales with the weapon's own reach field, so a wider orb sits wider.
+                s.orbitAngle += ORBIT_SPEED;
+                double r = orbitRadius(s);
+                s.x = playerCenterX() + (int) (Math.cos(s.orbitAngle) * r);
+                s.y = playerCenterY() + (int) (Math.sin(s.orbitAngle) * r);
             } else {
                 if (s.pattern == ContentCatalog.PATTERN_HOMING && s.target == TARGET_BOSS && boss.active) {
                     // Steering uses the same box the hit test uses, so a homing shot converges on
@@ -1279,28 +1296,48 @@ final class RunWorld {
             }
             if (s.fromPlayer) {
                 boolean remove = false;
+                // No break out of this loop. A shot that is inside two enemies at once used to
+                // damage only the first and stop, which read as the weapon hitting "one enemy in
+                // turn" no matter how much of it was covered. hitMask already stops the same
+                // enemy being hit twice, so walking the whole pool lets one shot clear a crowd it
+                // is genuinely overlapping -- and the shot is still removed afterwards unless it
+                // is a piercing or boomerang pattern.
+                //
+                // Orbiting weapons are the exception that matters: they are attached to the player
+                // and exist to keep sweeping, so they must survive contact. Without this they were
+                // consumed by the first enemy they touched and the slot sat empty until the next
+                // volley.
                 for (int e = 0; e < enemies.length; e++) {
                     Enemy enemy = enemies[e];
                     if (!enemy.active || (s.hitMask & (1L << e)) != 0L) continue;
                     if (overlap(s.x, s.y, shotWidth(s), shotHeight(s), enemy.x, enemy.y, enemyWidth(enemy.defIndex), enemyHeight(enemy.defIndex))) {
                         s.hitMask |= 1L << e;
                         damageEnemy(e, enemy, s.damage, s.critical, s.knockback, s.dx, s.dy);
-                        if (s.pattern == ContentCatalog.PATTERN_AOE) { explode(s.x, s.y, s.area, 0, false); remove = true; }
-                        else if (s.pattern != ContentCatalog.PATTERN_PIERCING && s.pattern != ContentCatalog.PATTERN_BOOMERANG) remove = true;
-                        if (remove) break;
+                        if (s.pattern == ContentCatalog.PATTERN_AOE) {
+                            explode(s.x, s.y, s.area, 0, false);
+                            remove = true;
+                        } else if (s.attached) {
+                            // stays alive and keeps sweeping
+                        } else if (s.pattern != ContentCatalog.PATTERN_PIERCING
+                                && s.pattern != ContentCatalog.PATTERN_BOOMERANG) {
+                            remove = true;
+                        }
                     }
                 }
                 if (!remove && boss.active && !s.bossHit
                         && overlap(s.x, s.y, shotWidth(s), shotHeight(s), boss.x, boss.y, bossWidth(), bossHeight())) {
                     s.bossHit = true;
                     damageBoss(s.damage, s.critical, s.knockback);
-                    if (s.pattern != ContentCatalog.PATTERN_PIERCING) remove = true;
+                    // Same rule as against a mob: an orb keeps sweeping the boss, a boomerang
+                    // comes back, only a plain shot is spent.
+                    if (!s.attached && s.pattern != ContentCatalog.PATTERN_PIERCING) remove = true;
                 }
                 if (remove) {
                     if (s.pattern == ContentCatalog.PATTERN_AOE) explode(s.x, s.y, s.area, s.damage, s.critical);
                     s.active = false;
                 }
-            } else if (overlap(s.x, s.y, 7, 7, px, py, 24, 24)) {
+            } else if (overlap(s.x, s.y, shotWidth(s), shotHeight(s), px, py,
+                    PLAYER_HIT_W, PLAYER_HIT_H)) {
                 if (!playerInvulnerable(now)) damagePlayer(s.damage, now);
                 s.active = false;
             }
@@ -1522,6 +1559,7 @@ final class RunWorld {
         s.weaponIndex = -1; s.damage = damage; s.critical = false; s.knockback = 0;
         s.area = 0; s.life = 120; s.age = 0; s.hitMask = 0L; s.bossHit = false;
         s.attached = false; s.returning = false; s.target = -1; s.sprite = "bullet";
+        measureShotBox(s);
         s.x = x; s.y = y; s.dx = (int) (dx / len * speed); s.dy = (int) (dy / len * speed);
     }
 
@@ -2036,8 +2074,72 @@ final class RunWorld {
         int h = ContentCatalog.BOSSES[boss.defIndex].collH;
         return h > 0 ? h : 42;
     }
-    private int shotWidth(Shot s) { return s.sprite != null && ("bomb".equals(s.sprite) || "axe".equals(s.sprite)) ? 12 : 7; }
-    private int shotHeight(Shot s) { return s.sprite != null && ("bomb".equals(s.sprite) || "axe".equals(s.sprite)) ? 12 : 7; }
+    /**
+     * Measures a shot's hitbox from the sprite it will be drawn with, once, when it is fired.
+     *
+     * <p>The box used to be a hardcoded 7x7, widened to 12x12 for two sprite keys by name. That
+     * made it fiction: a bomb drew far larger than the box that hurt you, and any weapon sharing a
+     * sprite key silently inherited whichever size that name happened to be given. Reading the real
+     * image ties the box to the picture.
+     *
+     * <p>Measured here rather than in the collision loop on purpose: collision runs for every live
+     * shot on every tick, so a per-tick asset lookup would be both wasteful and a hard dependency on
+     * the asset library, which a headless run does not have. {@code SHOT_HIT_FALLBACK} keeps a
+     * partial build playable instead of making every shot intangible.
+     */
+    private void measureShotBox(Shot s) {
+        Image im = s.fromPlayer && assets != null ? assets.projectile(s.sprite) : null;
+        if (im == null && !s.fromPlayer && assets != null) im = assets.bullet;
+        s.hitW = im != null ? im.getWidth() : SHOT_HIT_FALLBACK;
+        s.hitH = im != null ? im.getHeight() : SHOT_HIT_FALLBACK;
+    }
+
+    private int shotWidth(Shot s) { return s.hitW > 0 ? s.hitW : SHOT_HIT_FALLBACK; }
+    private int shotHeight(Shot s) { return s.hitH > 0 ? s.hitH : SHOT_HIT_FALLBACK; }
+
+    /** Hitbox used when a shot has no sprite to measure. */
+    private static final int SHOT_HIT_FALLBACK = 7;
+
+    /**
+     * The melee frame that is on screen right now, so the hitbox can be measured from it.
+     *
+     * <p>Returns null when the character has no melee animation loaded, which is the partial-build
+     * case; the caller then falls back to the catalog's area.
+     */
+    private Image meleeFrameBox(Melee m, long now) {
+        AssetLibrary.MeleeAnimation anim = assets.meleeAnim(characterIndex);
+        if (anim == null || anim.frames == null || anim.frames.length == 0) return null;
+        if (anim.frameDuration <= 0) return anim.frames[0];
+        int frameIndex = (int) ((now - m.animTimer) / anim.frameDuration);
+        if (frameIndex >= anim.frames.length) frameIndex = anim.frames.length - 1;
+        if (frameIndex < 0) frameIndex = 0;
+        Image[] set = (m.animDir < 0 && anim.framesM != null) ? anim.framesM : anim.frames;
+        if (frameIndex >= set.length) return set.length > 0 ? set[0] : null;
+        return set[frameIndex];
+    }
+    /** Radians per tick an orbiting weapon sweeps. */
+    private static final double ORBIT_SPEED = 0.18;
+    /** Closest an orb may sit to the player, so a small sprite cannot orbit inside the body. */
+    private static final int ORBIT_MIN_RADIUS = 22;
+    /** Furthest an orb may sit, so a long-reach weapon does not sweep the whole screen. */
+    private static final int ORBIT_MAX_RADIUS = 64;
+
+    /**
+     * Orbit radius for one shot, taken from its weapon's reach.
+     *
+     * <p>Previously every orb sat at a fixed 30px whatever weapon it belonged to, which meant the
+     * hitbox of each orb was unrelated to the weapon that produced it. Reading it off the weapon
+     * keeps an orb where its own art suggests it should be, and clamping means a small reach cannot
+     * put the sprite inside the player and a large one cannot sweep the entire screen.
+     */
+    private int orbitRadius(Shot s) {
+        ContentCatalog.WeaponDef def = ContentCatalog.weapon(s.weaponIndex);
+        if (def == null) return ORBIT_MIN_RADIUS;
+        int half = def.range / 2;
+        if (half < ORBIT_MIN_RADIUS) half = ORBIT_MIN_RADIUS;
+        if (half > ORBIT_MAX_RADIUS) half = ORBIT_MAX_RADIUS;
+        return half;
+    }
     private int playerCenterX() { return px + 12; }
     private int playerCenterY() { return py + 12; }
     private int rand(int n) { return n <= 1 ? 0 : (random.nextInt() & 0x7fffffff) % n; }
@@ -2097,7 +2199,9 @@ final class RunWorld {
      * whole character (whose frames already hold the weapon) shifts a few
      * pixels toward the facing direction, so the held weapon moves with the
      * swing instead of standing static under the effect. Positive means
-     * toward the right; the caller negates for left. Hitbox untouched.
+     * toward the right; the caller negates for left. The lunge is cosmetic:
+     * the melee hitbox is the animation frame, anchored by the same helpers
+     * the draw path uses.
      */
     static int playerLungePx(boolean meleeActive) {
         return meleeActive ? 3 : 0;
@@ -2272,7 +2376,8 @@ final class RunWorld {
             // Front-anchored to the facing direction: the effect extends ahead
             // of the character instead of straddling the center, and the left
             // side mirrors the right side. MIDP 2.0 cannot mirror images, so
-            // the same frame is anchored to the correct edge. Hitbox untouched.
+            // the same frame is anchored to the correct edge. updateMelee measures the hitbox
+            // from this very frame through meleeDrawX/meleeDrawY, so picture and box agree.
             int cx = offX + px + 12;
             int cy = offY + py + 12;
             int frameW = frame.getWidth();
@@ -2483,6 +2588,14 @@ final class RunWorld {
         boolean active; boolean fromPlayer; boolean attached; boolean returning; boolean critical;
         int pattern; int weaponIndex; int damage; int life; int age; int dx; int dy; int x; int y;
         int area; int knockback; int target; long hitMask; boolean bossHit; double orbitAngle; String sprite;
+        /**
+         * Hitbox measured from the sprite at the moment this shot was fired, so the collision loop
+         * never has to reach into the asset library. Two reasons: the collision pass runs for every
+         * live shot every tick, and the asset library is not guaranteed to be present -- a headless
+         * test builds the same world without one. Measuring once at fire time also pins the box to
+         * the frame the shot was drawn with, which is what "the animation is the hitbox" means.
+         */
+        int hitW; int hitH;
     }
     private static final class Melee {
         boolean active; boolean critical; long until; int x; int y; int range; int area; int damage;
