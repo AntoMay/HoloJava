@@ -749,7 +749,7 @@ public final class RunWorldLifecycleIntegrationTest {
         Object canvas = allocate(Class.forName("me.holojava.fullgame.FullGameCanvas"));
         set(canvas, "assets", assets);
         set(canvas, "save", save);
-        set(canvas, "screen", Integer.valueOf(6));          // GAME
+        set(canvas, "screen", Integer.valueOf(7));          // GAME (was 6, now 7 due to HELP=5)
         set(canvas, "characterIndex", Integer.valueOf(0));
         set(canvas, "modeIndex", Integer.valueOf(0));
         set(canvas, "stageIndex", Integer.valueOf(0));
@@ -767,7 +767,7 @@ public final class RunWorldLifecycleIntegrationTest {
         m.setAccessible(true);
         m.invoke(canvas);
 
-        expectEq(getInt(canvas, "screen"), 7, "the canvas moved to the results screen");
+        expectEq(getInt(canvas, "screen"), 8, "the canvas moved to the results screen (was 7, now 8)");
         expect(getBool(canvas, "worldWasVictory"), "and recorded it as a victory");
         expectEq(getInt(canvas, "resultIndex"), 0, "with the first entry highlighted");
         int writesAfterFirst = store.writes;
@@ -784,10 +784,10 @@ public final class RunWorldLifecycleIntegrationTest {
         expect(worldField.get(canvas) == null, "and drops the world reference");
 
         // Restarting from results builds a genuinely new world.
-        set(canvas, "screen", Integer.valueOf(7));
+        set(canvas, "screen", Integer.valueOf(8));
         set(canvas, "resultIndex", Integer.valueOf(0));
         updateResults.invoke(canvas, Boolean.FALSE, Boolean.FALSE, Boolean.TRUE, Boolean.FALSE);
-        expectEq(getInt(canvas, "screen"), 6, "restarting returns to gameplay");
+        expectEq(getInt(canvas, "screen"), 7, "restarting returns to gameplay (GAME=7)");
         Object restarted = worldField.get(canvas);
         expect(restarted != null, "a new world was constructed");
         if (restarted != null) {

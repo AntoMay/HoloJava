@@ -406,24 +406,30 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * CHOOSE YOUR IDOL — grid 5 karakter + Back entry (6 items total).
-     * Navigasi: L/R antar item (wrap). FIRE pilih karakter → CHOOSE_MODE, atau Back → MENU.
-     * LEFT/RIGHT wrap around 6 items. No dark panel below.
+     * CHOOSE YOUR IDOL — grid 5 karakter (tanpa Back entry di grid).
+     * Layout: 5 kotak horizontal, detail panel di bawah.
+     * Navigasi: L/R antar 5 karakter (wrap). Atas/Bawah scroll detail panel.
+     * LEFT di index 0 → kembali ke MENU. FIRE pilih karakter → CHOOSE_MODE.
+     * Tombol "Kembali" visual di pojok kanan bawah layar.
      */
     private void updateChooseIdol(boolean up, boolean down, boolean fire, boolean left, boolean right) {
         int charCount = ContentCatalog.CHARACTERS.length; // 5
-        int totalCount = charCount + 1; // +1 for Back entry
         if (left) {
-            menuIndex = (menuIndex - 1 + totalCount) % totalCount;
-            idolDetailScroll = 0; // reset scroll on navigation
-            return;
-        }
-        if (right) {
-            menuIndex = (menuIndex + 1) % totalCount;
+            if (menuIndex == 0) {
+                screen = MENU;
+                menuIndex = MAIN_PLAY;
+            } else {
+                menuIndex = (menuIndex - 1 + charCount) % charCount;
+            }
             idolDetailScroll = 0;
             return;
         }
-        // U/D untuk scroll detail panel
+        if (right) {
+            menuIndex = (menuIndex + 1) % charCount;
+            idolDetailScroll = 0;
+            return;
+        }
+        // Up/Down untuk scroll detail panel
         if (up) {
             if (idolDetailScroll > 0) idolDetailScroll--;
             return;
@@ -433,12 +439,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             return;
         }
         if (!fire) return;
-        // FIRE: jika Back entry (index 5) → kembali ke MENU
-        if (menuIndex == charCount) {
-            screen = MENU;
-            menuIndex = MAIN_PLAY;
-            return;
-        }
         // Pilih karakter
         characterIndex = menuIndex;
         save.setSelectedCharacter(characterIndex);
@@ -988,9 +988,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     /**
      * CHOOSE YOUR IDOL — grid 5 karakter (tanpa Back entry).
      * Layout: 5 kotak horizontal (dikecilkan), detail panel di bawah dengan scroll.
-     * Setiap kotak: portrait + nama, border biru muda. Tidak ada dark panel.
-     * Detail panel: border biru muda, konten scroll (Atas/Bawah untuk scroll).
-     * Idle sprite di pojok kanan bawah panel.
+     * Setiap kotak: HANYA portrait (gambar karakter), border biru muda.
+     * Detail panel: border biru muda, nama karakter di atas, idle sprite kiri bawah,
+     *               stat di kanan sprite (scroll Atas/Bawah).
+     * Tombol "Kembali" di pojok kanan bawah layar.
+     * Idle sprite di pojok kiri bawah panel detail.
      */
     private void drawChooseIdol(Graphics g, int x, int y) {
         title(g, x, y, "CHOOSE YOUR IDOL");
@@ -1007,7 +1009,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             idolAnimFrame = (idolAnimFrame + 1) % 4;
         }
 
-        // Draw 5 character boxes
+        // Draw 5 character boxes (hanya portrait, tanpa nama)
         for (int i = 0; i < charCount; i++) {
             int bx = startX + i * (boxW + 8);  // gap 8
             int by = startY;
@@ -1021,18 +1023,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                 g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
             }
 
-            // Character box: portrait + name
+            // Character box: HANYA portrait
             ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
             Image portrait = assets.characterPortrait(i);
             if (portrait != null) {
                 int px = x + bx + (boxW - portrait.getWidth()) / 2;
-                int py = y + by + 4;
+                int py = y + by + (boxH - portrait.getHeight()) / 2;
                 g.drawImage(portrait, px, py, Graphics.TOP | Graphics.LEFT);
             }
-            // Name below portrait
-            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-            drawText(g, x + bx + boxW / 2, y + by + boxH - 14,
-                    c.name, selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
 
         // Detail panel for selected
@@ -1046,6 +1044,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.drawRect(px, py, pw - 1, ph - 1);
         g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
+
+        // Character name at top of panel
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        drawText(g, px + pw / 2, py + 10, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
         // Draw idle sprite at bottom LEFT corner of panel (8px margin)
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
@@ -1082,13 +1084,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
         }
 
-        // Scroll indicator
-        if (idolDetailScroll > 0 || (idolDetailScroll + maxVisible) < lines.length) {
-            g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-            drawText(g, px + pw - 30, py + 2, "\u25B2 \u25BC", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        }
-
         g.clipRect(0, 0, Viewport.MIN_W, Viewport.MIN_H); // reset clip
+
+        // Tombol "Kembali" di pojok kanan bawah layar
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.drawRect(x + 260, y + 216, 52, 18);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        drawText(g, x + 286, y + 220, "Kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
     private String[] buildIdolDetailLines(ContentCatalog.CharacterDef c) {
         ContentCatalog.WeaponDef wp = ContentCatalog.weapon(c.mainWeapon);

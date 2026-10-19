@@ -367,17 +367,12 @@ public final class UiStateMachineTest {
     }
 
     /**
-     * Exit lives in two places now: row 7 of the menu bar (Keluar) and row 2 of Pengaturan both
-     * set the shutdown flags, while plain navigation never terminates the game from under it.
+     * Exit lives in one place now: row 7 of the menu bar (Keluar).
+     * Pengaturan no longer has Exit (replaced by Help).
      */
     private static void testExitItemRequestsShutdown() throws Exception {
-        System.out.println("[4] Exit requests shutdown from settings and from the menu");
-        Object menuEntry = canvas(MENU, 6);
-        mainMenu(menuEntry, false, false, true);
-        expectEq(getInt(menuEntry, "screen"), CREDITS, "row 6 is still Credits");
-        expect(!getBool(menuEntry, "stopped"), "the menu itself never stops the run loop");
-
-        // Row 7 is Keluar: same shutdown path as the settings Exit row.
+        System.out.println("[4] Exit requests shutdown from menu bar");
+        // Main Menu row 7 is Keluar: shutdown path.
         Object menuExit = canvas(MENU, 7);
         ShutdownStub menuStub = new ShutdownStub();
         set(menuExit, "shutdownRequest", menuStub);
@@ -386,14 +381,8 @@ public final class UiStateMachineTest {
         expect(getBool(menuExit, "exitRequested"), "and an exit was recorded");
         expect(menuStub.requested, "and the MIDlet was asked to shut down");
 
-        Object c = canvas(SETTINGS, 2);
-        // A null request would throw, so give the canvas a working stub instead.
-        ShutdownStub stub = new ShutdownStub();
-        set(c, "shutdownRequest", stub);
-        settings(c, false, false, true, false);
-        expect(getBool(c, "stopped"), "the run loop was told to stop");
-        expect(getBool(c, "exitRequested"), "and an exit was recorded");
-        expect(stub.requested, "and the MIDlet was asked to shut down");
+        // Settings no longer has Exit row (replaced by Help).
+        // Row 2 is Help, row 3 is Back.
     }
 
     /** Minimal stand-in for the MIDlet-side shutdown hook; production only calls requestShutdown(). */
@@ -746,11 +735,9 @@ public final class UiStateMachineTest {
         expectEq(getInt(c, "screen"), CHOOSE_MODE, "back from Stage steps up to Choose Mode");
         chooseMode(c, false, false, false, true, false);
         expectEq(getInt(c, "screen"), CHOOSE_IDOL, "back from Choose Mode steps up to Choose Idol");
-        // In new flow: LEFT at index 0 wraps to Back entry (index 5), not directly to MENU.
-        // Navigate to Back entry (index 5) then FIRE to return to MENU.
-        for (int i = 0; i < 5; i++) chooseIdol(c, false, false, false, false, true); // RIGHT to index 5 (Back)
-        chooseIdol(c, false, false, true, false, false); // FIRE on Back -> MENU
-        expectEq(getInt(c, "screen"), MENU, "back from Choose Idol (via Back entry) returns to the menu");
+        // In new flow: LEFT at index 0 goes directly back to MENU (no Back entry in grid).
+        chooseIdol(c, false, false, false, true, false); // LEFT at index 0 -> MENU
+        expectEq(getInt(c, "screen"), MENU, "back from Choose Idol (LEFT at index 0) returns to the menu");
         expectEq(getInt(c, "menuIndex"), 3, "with the cursor still on Main");
     }
 
