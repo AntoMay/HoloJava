@@ -91,11 +91,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int IDOL_BODY_PAD_BOTTOM = 6;
     private static final int IDOL_LINE_H = 12;
     // Horizontal placement inside the panel, measured from the panel's left border.
-    // The status column starts at 146px on screen, which is the gap between the E of CHOOSE
-    // and the Y of YOUR in the title above (E ends at 143.7, Y starts at 149.0), so the block
-    // sits directly under the middle of the heading.
-    private static final int IDOL_TEXT_X = 134;                 // 12 + 134 = 146 absolute
-    private static final int IDOL_SPRITE_X = 40;                // idle sprite left edge inside the panel
+    // The status column starts at 140px on screen, which is the middle of the E in CHOOSE
+    // (the glyph spans 137.0..143.7, so its centre is 140.35), so the block hangs off the
+    // title's own centre letter rather than the gap beside it.
+    private static final int IDOL_TEXT_X = 128;                 // 12 + 128 = 140 absolute
+    private static final int IDOL_SPRITE_X = 28;                // idle sprite left edge inside the panel
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
