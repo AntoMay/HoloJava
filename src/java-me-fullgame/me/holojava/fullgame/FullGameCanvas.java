@@ -130,6 +130,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * word must not sit at two different heights depending on which screen drew it.
      */
     private static final int TITLE_TOP = 8;
+    /**
+     * Top of the coin readout on the Toko pages, measured from the top of the screen. It has to
+     * clear the heading, which is {@link #TITLE_TOP} in {@link Font#SIZE_LARGE} and reaches about
+     * row 24, while staying inside the 40px title band. See {@link #drawCoin}.
+     */
+    private static final int COIN_TOP = 28;
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
@@ -231,6 +237,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private boolean refundConfirm;
     /** A pending purchase question on the highlighted row: the first FIRE asks, the second buys. */
     private boolean buyConfirm;
+    /** Which answer the shop popup has highlighted: SHOP_CHOICE_YES or SHOP_CHOICE_NO. */
+    private int shopConfirmChoice = SHOP_CHOICE_YES;
+    private static final int SHOP_CHOICE_NO = 0;
+    private static final int SHOP_CHOICE_YES = 1;
     /** Heading of the currently open placeholder page (Papan Peringkat / Pencapaian / Holo House). */
     private String lockedTitle = "TERKUNCI";
     /** Scroll offset of the CREDITS page, in rows. Reset whenever the page is opened. */
@@ -582,10 +592,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private void updateUpgrades(boolean up, boolean down, boolean fire, boolean left, boolean right) {
         int rows = ContentCatalog.upgradeGroupCount(shopTab) + 1;
         if (buyConfirm || refundConfirm) {
-            if (fire) buyUpgrade(ContentCatalog.upgradeGroupStart(shopTab) + menuIndex);
-            else if (up || down || left || right) {       // a d-pad press closes it in place
-                buyConfirm = false;
-                refundConfirm = false;
+            if (up || down || left || right) {
+                // The popup owns the input while it is open: a d-pad press moves the answer,
+                // never the list behind it, so cancelling cannot scroll the page underneath.
+                shopConfirmChoice = (shopConfirmChoice == SHOP_CHOICE_YES)
+                        ? SHOP_CHOICE_NO : SHOP_CHOICE_YES;
+            } else if (fire) {
+                int target = ContentCatalog.upgradeGroupStart(shopTab) + menuIndex;
+                boolean yes = shopConfirmChoice == SHOP_CHOICE_YES;
+                closeShopPopup();
+                if (yes) confirmShopAction(target);
             }
             return;                                        // an idle tick keeps the popup open
         }
@@ -677,9 +693,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(upgradeIndex);
         if (def == null || def.locked) return;
         if (def.buyKind == ContentCatalog.BUY_ACTION) {
-            if (refundConfirm) { refundConfirm = false; save.refundAll(); }
-            else refundConfirm = true;
             buyConfirm = false;
+            openShopPopup(true);
             return;
         }
         refundConfirm = false;
@@ -691,9 +706,44 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int level = save.upgradeLevel(upgradeIndex);
         long cost = ContentCatalog.upgradeCost(def, level);
         if (cost < 0) return;                            // already maxed: nothing to ask
-        if (!buyConfirm) { buyConfirm = true; return; }  // first press only asks
+        if (!buyConfirm) {                                // first press only asks
+            buyConfirm = true;
+            openShopPopup(false);
+            return;
+        }
         buyConfirm = false;
         if (cost > 0 && !save.spendCoins(cost)) return;  // free rows never touch the balance
+        save.setUpgradeLevel(upgradeIndex, level + 1);
+    }
+
+    /** Opens the asking popup with Ya highlighted, so a single FIRE still confirms. */
+    private void openShopPopup(boolean refund) {
+        if (refund) { refundConfirm = true; buyConfirm = false; }
+        else { buyConfirm = true; refundConfirm = false; }
+        shopConfirmChoice = SHOP_CHOICE_YES;
+    }
+
+    /** Closes whichever popup is open and resets the answer. */
+    private void closeShopPopup() {
+        buyConfirm = false;
+        refundConfirm = false;
+        shopConfirmChoice = SHOP_CHOICE_YES;
+    }
+
+    /**
+     * Runs the action the popup was asking about. Split from {@link #buyUpgrade} so confirming
+     * executes in one press instead of re-arming and waiting for a second one -- with an explicit
+     * Ya/Tidak popup, FIRE is the answer, not a request to open the question again.
+     */
+    private void confirmShopAction(int upgradeIndex) {
+        ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(upgradeIndex);
+        if (def == null || def.locked) return;
+        if (def.buyKind == ContentCatalog.BUY_ACTION) { save.refundAll(); return; }
+        if (def.buyKind == ContentCatalog.BUY_TOGGLE) { save.setHardcore(!save.hardcore()); return; }
+        int level = save.upgradeLevel(upgradeIndex);
+        long cost = ContentCatalog.upgradeCost(def, level);
+        if (cost < 0) return;
+        if (cost > 0 && !save.spendCoins(cost)) return;
         save.setUpgradeLevel(upgradeIndex, level + 1);
     }
 
@@ -1459,13 +1509,21 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Modal shop confirmation, drawn last on the page so it covers the list. It names the action
-     * and its effect on the coin balance, and states both outcomes in words — FIRE executes, any
-     * d-pad press closes it — because the popup is the only place the pending action is announced.
+     * Modal shop confirmation, drawn last on the page so it covers the list.
+     *
+     * <p>It names the action, spells out its effect on the coin balance, and offers an explicit
+     * <b>Ya / Tidak</b> pair. The answers used to be implicit -- FIRE bought, any d-pad press
+     * cancelled -- which meant the popup never actually asked a question the player could read,
+     * and a second look at a purchase was the same gesture as the first. Now the highlighted
+     * answer is stated on screen and FIRE commits the one that is highlighted.
+     *
+     * <p>Ya is highlighted when the popup opens, so a single FIRE still confirms and anyone used
+     * to the old gesture is not surprised; a d-pad press toggles the answer while the popup holds
+     * the input, so the list behind it cannot move while the question is open.
      */
     private void drawShopPopup(Graphics g, int x, int y, String heading, String[] lines) {
-        int w = 248, h = 96;
-        int px = x + (Viewport.MIN_W - w) / 2, py = y + 64;
+        int w = 248, h = 108;
+        int px = x + (Viewport.MIN_W - w) / 2, py = y + 58;
         g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
         g.fillRect(px, py, w, h);
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
@@ -1475,6 +1533,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         for (int i = 0; i < lines.length; i++) {
             drawText(g, px + 12, py + 30 + i * 16, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
+
+        // The two answers, spaced apart so they read as a choice rather than a sentence, with the
+        // highlighted one bold and marked.
+        int answersY = py + h - 26;
+        boolean yes = shopConfirmChoice == SHOP_CHOICE_YES;
+        drawShopAnswer(g, px + 36, answersY, "Tidak", !yes);
+        drawShopAnswer(g, px + 148, answersY, "Ya", yes);
+    }
+
+    /** One answer in the popup's Ya/Tidak pair. The cursor marks the highlighted one. */
+    private void drawShopAnswer(Graphics g, int ax, int ay, String label, boolean selected) {
+        ink(g);
+        drawText(g, ax, ay, (selected ? "> " : "  ") + label,
+                selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     /** Level a row displays: Hardcore reads the settings bit, actions have no level. */
@@ -1891,9 +1963,18 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /** Coin balance pinned to the top-right corner of every Toko-family page, in the title band. */
+    /**
+     * Coin balance, right-aligned in the title band on every Toko-family page.
+     *
+     * <p>{@code COIN_TOP} sits below the heading rather than level with it. The heading is
+     * {@code TITLE_TOP} (8) in {@link Font#SIZE_LARGE}, which reaches about row 24; at 20 the two
+     * shared the same line and a long balance ran into the title. 28 clears the heading and still
+     * lands inside the 40px band, so the balance stays part of the header instead of floating over
+     * the page below it.
+     */
     private void drawCoin(Graphics g, int x, int y, long balance) {
         ink(g);
-        drawRight(g, x, y + 20, "Koin: " + balance);
+        drawRight(g, x, y + COIN_TOP, "Koin: " + balance);
     }
 
     /** Shared selectable list. The selected row is marked the same way everywhere: the "> " arrow,

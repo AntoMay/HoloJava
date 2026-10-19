@@ -114,6 +114,21 @@ no frame around it and no `[ ]` brackets -- a box and brackets made it read like
 is a status -- the copy follows underneath, and a short accent rule closes the block in place of
 the old footer line.
 
+**Shop confirmation asks Ya / Tidak.** The popup itself was never removed -- commit `2c55fca`
+introduced it and nothing since has touched it -- but its yes/no was *implicit*: FIRE bought, any
+d-pad press cancelled. The popup therefore never asked a readable question, and "look again, then
+confirm" was the same gesture as the first press. It now shows an explicit `Ya` / `Tidak` pair and
+highlights whichever is selected; a d-pad press toggles the answer (never the list behind it) and
+FIRE commits the highlighted one. Ya is highlighted when the popup opens, so one FIRE still
+confirms and the old reflex still works, and the gesture that used to cancel now lands on `Tidak`
+and still cannot spend. `confirmShopAction()` is split out of `buyUpgrade()` so answering executes
+in one press rather than re-arming and waiting for a second. `[15b]` drives the Tidak path through
+the real input handler.
+
+**Coin readout lowered.** It sat at `y + 20`, level with the heading (which reaches about row 24),
+so a long balance ran into the title. It is now at `y + 28` (`COIN_TOP`), which clears the heading
+and still lands inside the 40px title band.
+
 ### Build outputs
 
 `tools/build_all.sh` empties `dist/` and rebuilds everything. The layout is by target

@@ -247,6 +247,7 @@ public final class CharacterShopTest {
         testUpgradeRowsReachRunStats();
         testStartingCapitalConstant();
         testPurchaseAsksForConfirmation();
+        testShopPopupTidakNeverSpends();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -672,16 +673,24 @@ public final class CharacterShopTest {
 
         upgradeFire(c, refundAll);
         expect(getBool(c, "refundConfirm"), "the first press only arms the confirmation");
+        expectEq(getInt(c, "shopConfirmChoice"), 1, "and it opens on Ya");
         upgradesIdleTicks(c, 3);
         expect(getBool(c, "refundConfirm"), "idle ticks leave the refund question open too");
         expectEq(save.upgradeLevel(reroll), 1, "nothing was refunded yet");
-        upgradesMove(c, true, false);                     // a d-pad press closes the popup...
-        expect(!getBool(c, "refundConfirm"), "a d-pad press closes the pending confirmation");
+        upgradesMove(c, true, false);                     // a d-pad press moves the answer...
+        expect(getBool(c, "refundConfirm"), "the popup stays open while the answer moves");
+        expectEq(getInt(c, "shopConfirmChoice"), 0, "and lands on Tidak");
         expectEq(getInt(c, "screen"), UPGRADES, "without leaving the purchase page");
+
+        // Confirming "Tidak" must not refund anything.
+        upgradeFire(c, refundAll);
+        expect(!getBool(c, "refundConfirm"), "answering Tidak closes the popup");
+        expectEq(save.upgradeLevel(reroll), 1, "and refunded nothing");
+        expectEq(save.coinBalance(), balance, "and moved no coins");
 
         upgradeFire(c, refundAll);                        // arm again...
         upgradesIdleTicks(c, 2);
-        upgradeFire(c, refundAll);                        // ...and confirm
+        upgradeFire(c, refundAll);                        // ...and confirm the Ya
         expect(!getBool(c, "refundConfirm"), "the confirmation cleared");
         expectEq(save.upgradeLevel(reroll), 0, "the reroll level was refunded");
         expectEq(save.upgradeLevel(hp), 0, "the stat level was refunded");
@@ -804,11 +813,16 @@ public final class CharacterShopTest {
     }
 
     /**
-     * A levelled row asks before it buys: first FIRE arms a modal popup, any d-pad press closes
-     * it in place (no cursor move, no navigation), and only a second FIRE spends.
+     * A levelled row asks before it buys. The popup now offers an explicit Ya / Tidak pair: the
+     * first FIRE opens it with "Ya" highlighted, a d-pad press toggles the answer instead of
+     * dismissing the question, and FIRE commits whichever answer is highlighted.
+     *
+     * <p>The gesture that used to cancel -- a d-pad press while the popup was open -- now lands
+     * on "Tidak", so it still cannot spend money; it just gets there the way the popup says it
+     * does rather than by accident.
      */
     private static void testPurchaseAsksForConfirmation() throws Exception {
-        System.out.println("[15] a purchase asks first and only buys on the second press");
+        System.out.println("[15] a purchase asks with explicit Ya/Tidak before it spends");
         Recording storage = new Recording(new byte[56]);
         SaveStore save = new SaveStore(storage);
         save.creditCoins(1000000L);
@@ -820,35 +834,39 @@ public final class CharacterShopTest {
 
         upgradeFire(c, reroll);
         expect(getBool(c, "buyConfirm"), "the first press only arms the question");
+        expectEq(getInt(c, "shopConfirmChoice"), 1, "and it opens on Ya");
         upgradesIdleTicks(c, 3);                          // the real loop ticks every40ms...
         expect(getBool(c, "buyConfirm"), "idle ticks between presses never close the popup");
         expectEq(save.upgradeLevel(reroll), 0, "nothing was bought yet");
         expectEq(save.coinBalance(), before, "and nothing was charged yet");
 
-        // The popup owns the input while open: a back press (geser) closes it in place instead
-        // of stepping back to the tab submenu — the popup exists so geser is never hijacked.
+        // The popup owns the input while open: a d-pad press moves the answer, not the list.
         int row = getInt(c, "menuIndex");
         upgradesBack(c);
-        expect(!getBool(c, "buyConfirm"), "a back press closes the pending popup");
+        expect(getBool(c, "buyConfirm"), "a d-pad press keeps the popup open");
+        expectEq(getInt(c, "shopConfirmChoice"), 0, "and flips the answer to Tidak");
         expectEq(getInt(c, "screen"), UPGRADES, "without leaving the purchase page");
         expectEq(getInt(c, "menuIndex"), row, "and without moving the cursor");
 
-        upgradeFire(c, reroll);                             // arm again...
-        upgradesMove(c, false, true);                       // a scroll press while open
-        expect(!getBool(c, "buyConfirm"), "a scroll press closes the popup too");
-        expectEq(getInt(c, "menuIndex"), row, "without scrolling the cursor");
-        expectEq(save.upgradeLevel(reroll), 0, "still nothing bought after the cancels");
+        // Confirming the "Tidak" answer must not spend.
+        upgradeFire(c, reroll);
+        expect(!getBool(c, "buyConfirm"), "answering Tidak closes the popup");
+        expectEq(save.upgradeLevel(reroll), 0, "and buys nothing");
+        expectEq(save.coinBalance(), before, "and charges nothing");
 
-        upgradeFire(c, reroll);                             // arm once more...
-        upgradesIdleTicks(c, 5);                            // ...the player hesitates...
-        upgradeFire(c, reroll);                             // ...and confirms
+        // Re-opening starts on Ya again, so a single FIRE still confirms for someone used to it.
+        upgradeFire(c, reroll);
+        expectEq(getInt(c, "shopConfirmChoice"), 1, "the popup reopens on Ya");
+        upgradeFire(c, reroll);
         expect(!getBool(c, "buyConfirm"), "the question cleared");
         expectEq(save.upgradeLevel(reroll), 1, "the confirmed press bought the level");
         expectEq(save.coinBalance(), before - cost, "and charged exactly the price");
 
-        // Max the row out through the same two-press path, then check it never arms again.
         save.creditCoins(100000000L);
-        for (int level = 1; level < def.maxLevel; level++) upgradeBuy(c, reroll);
+        for (int level = 1; level < def.maxLevel; level++) {
+            upgradeFire(c, reroll);
+            upgradeFire(c, reroll);
+        }
         expectEq(save.upgradeLevel(reroll), def.maxLevel, "the row reached its cap");
         upgradeFire(c, reroll);
         expect(!getBool(c, "buyConfirm"), "a maxed row never arms the question");
@@ -865,7 +883,47 @@ public final class CharacterShopTest {
         // Hardcore is a toggle, so it acts on the first press and never arms the purchase question.
         int hardcore = ContentCatalog.upgradeIndex("hardcore");
         upgradeFire(c, hardcore);
-        expect(getBool(c, "buyConfirm") == false, "the toggle row never arms the question");
+        expect(!getBool(c, "buyConfirm"), "the toggle row never arms the question");
         upgradeFire(c, hardcore); // put the flag back where the rest of this test expects it
     }
+
+    /**
+     * The popup's own "Tidak" answer, driven through the real input path rather than by poking
+     * fields, because the whole point of the explicit choice is that the safe answer is reachable
+     * without knowing anything about the state behind it.
+     */
+    private static void testShopPopupTidakNeverSpends() throws Exception {
+        System.out.println("[15b] answering Tidak never spends, however many times it is toggled");
+        Recording storage = new Recording(new byte[56]);
+        SaveStore save = new SaveStore(storage);
+        save.creditCoins(1000000L);
+        Object c = upgradeCanvas(save);
+        int reroll = ContentCatalog.upgradeIndex("reroll");
+        ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(reroll);
+        long before = save.coinBalance();
+
+        upgradeFire(c, reroll);
+        expect(getBool(c, "buyConfirm"), "the question opened");
+
+        // Toggle an odd number of times so "Tidak" ends up highlighted...
+        upgradesMove(c, false, true);
+        expectEq(getInt(c, "shopConfirmChoice"), 0, "Tidak is highlighted");
+        expect(getBool(c, "buyConfirm"), "and the popup is still open, not dismissed");
+
+        upgradeFire(c, reroll);
+        expect(!getBool(c, "buyConfirm"), "answering closes the popup");
+        expectEq(save.upgradeLevel(reroll), 0, "Tidak bought nothing");
+        expectEq(save.coinBalance(), before, "and charged nothing");
+
+        // And it reopens on Ya each time, so an abandoned question cannot leave "Tidak" armed for
+        // the next purchase the player did intend to make.
+        upgradeFire(c, reroll);
+        expectEq(getInt(c, "shopConfirmChoice"), 1, "the next question reopens on Ya");
+        upgradesIdleTicks(c, 2);
+        upgradeFire(c, reroll);
+        expectEq(save.upgradeLevel(reroll), 1, "which then buys as expected");
+        expectEq(save.coinBalance(), before - ContentCatalog.upgradeCost(def, 0),
+            "charging exactly the price");
+    }
 }
+
