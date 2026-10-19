@@ -1047,29 +1047,37 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         g.drawRect(px, py, pw - 1, ph - 1);
         g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
 
-        // Draw idle sprite at bottom right corner of panel
+        // Draw idle sprite at bottom LEFT corner of panel (8px margin)
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
+        int spriteW = 0;
+        int spriteH = 0;
         if (idleSprite != null) {
-            int sx = x + px + pw - idleSprite.getWidth() - 8;
-            int sy = y + py + ph - idleSprite.getHeight() - 8;
+            spriteW = idleSprite.getWidth();
+            spriteH = idleSprite.getHeight();
+            int sx = x + px + 8;
+            int sy = y + py + ph - spriteH - 8;
             g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
         }
 
-        // Clip to panel interior for scrolling text
-        g.clipRect(x + px + 4, y + py + 4, pw - 8, ph - 8 - idleSprite.getHeight() - 8);
+        // Text area starts after sprite (with gap)
+        int textX = px + 8 + spriteW + 8;
+        int textW = pw - 16 - spriteW - 8;
+
+        // Clip to panel interior for scrolling text (text area only)
+        g.clipRect(x + textX, y + py + 4, textW, ph - 8);
 
         // Build detail lines
         String[] lines = buildIdolDetailLines(sel);
         int lineH = 14;
         int detailStartY = py + 8 - idolDetailScroll * lineH;
-        int maxVisible = (ph - 16 - idleSprite.getHeight() - 8) / lineH;
+        int maxVisible = (ph - 8) / lineH;
 
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         int visible = 0;
         for (int i = 0; i < lines.length && visible < maxVisible; i++) {
             int lineY = detailStartY + i * lineH;
-            if (lineY + lineH >= py + 8 && lineY <= py + ph - 8 - idleSprite.getHeight() - 8) {
-                drawText(g, px + 8, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            if (lineY + lineH >= py + 8 && lineY <= py + ph - 8) {
+                drawText(g, textX, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
                 visible++;
             }
         }
