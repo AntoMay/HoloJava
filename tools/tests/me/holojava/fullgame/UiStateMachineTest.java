@@ -33,14 +33,13 @@ public final class UiStateMachineTest {
     private static final int PREP = 6;
     private static final int GAME = 7;
     private static final int RESULTS = 8;
-    private static final int CONTROLS = 9;
-    private static final int SPLASH = 10;
-    private static final int SHOP = 11;
-    private static final int UPGRADES = 12;
-    private static final int ARMORY = 13;
-    private static final int LOCKED = 14;
-    private static final int CREDITS = 15;
-    private static final int SHOPTABS = 16;
+    private static final int SPLASH = 9;
+    private static final int SHOP = 10;
+    private static final int UPGRADES = 11;
+    private static final int ARMORY = 12;
+    private static final int LOCKED = 13;
+    private static final int CREDITS = 14;
+    private static final int SHOPTABS = 15;
 
     private static Object unsafe;
 
@@ -304,10 +303,11 @@ public final class UiStateMachineTest {
         testChooseIdolDetailScroll();
         testChooseIdolScrollStopsAtLastRow();
         testChooseIdolLayoutConstants();
+        testCreditsAndLockedFitThePage();
         testStageScreenRefusesLockedStages();
         testStageScreenBackRestoresCharacter();
         testSettingsTogglesAndRoutes();
-        testControlsScreenReturnsToSettings();
+        testHelpScreenReturnsToSettings();
         testPrepBackRestoresStageSelection();
         testResultsScreenExitsAndBounds();
         testStartRunRefusesALockedStage();
@@ -614,7 +614,7 @@ public final class UiStateMachineTest {
     }
 
     private static void testSettingsTogglesAndRoutes() throws Exception {
-        System.out.println("[11] settings routes controls, exit and back");
+        System.out.println("[11] settings routes audio, help and back");
         // Audio is row 0: it stays on the settings page but flips the saved preference.
         Object audio = canvas(SETTINGS, 0);
         boolean before = audioEnabled(audio);
@@ -624,44 +624,89 @@ public final class UiStateMachineTest {
         settings(audio, false, false, true, false);
         expect(audioEnabled(audio) == before, "pressing the audio row again toggles it back");
 
-        Object controls = canvas(SETTINGS, 1);
-        settings(controls, false, false, true, false);
-        expectEq(getInt(controls, "screen"), CONTROLS, "the controls entry opens the controls page");
+        // Controls no longer has its own row: the bindings moved into Help, so row 1 opens that.
+        Object help = canvas(SETTINGS, 1);
+        settings(help, false, false, true, false);
+        expectEq(getInt(help, "screen"), HELP, "the help entry opens the help page");
 
-        // Hardcore left this page (its shop row toggles the same flag); row 2 is Exit, row 3 Back.
-        Object back = canvas(SETTINGS, 3);
+        // Left backs out of the page; row 2 is Back.
+        Object back = canvas(SETTINGS, 2);
         settings(back, false, false, false, true);
         expectEq(getInt(back, "screen"), MENU, "back returns to the menu");
         expectEq(getInt(back, "menuIndex"), 5, "with the cursor on Pengaturan");
 
-        Object backRow = canvas(SETTINGS, 3);
+        Object backRow = canvas(SETTINGS, 2);
         settings(backRow, false, false, true, false);
         expectEq(getInt(backRow, "screen"), MENU, "the trailing Back row returns to the menu");
         expectEq(getInt(backRow, "menuIndex"), 5, "with the cursor on Pengaturan");
 
-        // The cursor stays inside the four rows no matter how far it walks.
+        // The cursor stays inside the three rows no matter how far it walks.
         Object walk = canvas(SETTINGS, 0);
         for (int i = 0; i < 20; i++) settings(walk, false, true, false, false);
         int idx = getInt(walk, "menuIndex");
-        expect(idx >= 0 && idx < 4, "the settings index stayed within [0,4), saw " + idx);
+        expect(idx >= 0 && idx < 3, "the settings index stayed within [0,3), saw " + idx);
     }
 
-    private static void testControlsScreenReturnsToSettings() throws Exception {
-        System.out.println("[12] the controls page returns to settings");
-        String[] kinds = { "left", "right", "fire" };
-        for (int k = 0; k < 3; k++) {
-            Object c = canvas(CONTROLS, 0);
-            call(c, "handleControlsInput", new Class<?>[] { boolean.class, boolean.class },
-                    new Object[] { Boolean.valueOf(k == 0 || k == 1),
-                            Boolean.valueOf(k == 2) });
+    /**
+     * The CREDITS and [TERKUNCI] pages are fixed blocks of text, so they either fit the 240px
+     * page or run off the bottom -- there is no scroll to catch them. These walk the same layout
+     * arithmetic the draw methods use and assert the last row lands clear of the edge.
+     */
+    private static void testCreditsAndLockedFitThePage() throws Exception {
+        System.out.println("[7e] the centred text pages fit the 240px page");
+        Class<?> k = canvasClass();
+        int gap = getStaticInt(k, "CREDIT_LINE_GAP");
+
+        // drawCredits stepped through exactly as the draw method does, so this fails the same way the
+        // page would if a line were added or the pitch changed.
+        int ty = 40;
+        ty += 18;                       // HOLOJAVA heading, medium
+        ty += gap;                      // Game Java ME ...
+        ty += gap;                      // by AntoMay
+        ty += gap;                      // facebook link
+        ty = ty + (gap + 2) + 8;        // first rule: a pitch below the row, then the next row
+        ty += gap;                      // BERBASIS PADA
+        ty += gap;                      // HoloCure, fan game hololive
+        ty += gap;                      // oleh kayfstarter
+        ty += gap;                      // holocure.wiki.gg
+        ty = ty + (gap + 2) + 8;        // second rule
+        ty += gap;                      // TERIMA KASIH
+        int lastRow = ty;               // keeps Hololive member & penggemarnya
+        expect(lastRow + 13 < 240,
+            "the last credits row lands on " + lastRow + ", clear of the 240px edge");
+
+        // The rule must clear the row above it: a small-font row is about 13px tall, so a rule any
+        // closer strikes through the glyphs.
+        expect(gap + 2 >= 13, "the block rule clears the row above it (gap " + gap + ")");
+
+        // drawLocked: the bare TERKUNCI word, then three rows, then the closing rule at 214.
+        int lockedFirstRow = 84 + 26;
+        int lockedLastRow = lockedFirstRow + 2 * 16;
+        expect(lockedLastRow < 214, "the locked page's text ends above its rule at 214, saw "
+            + lockedLastRow);
+    }
+
+    /** Help absorbed the old controls page; any confirming input still backs out to settings. */
+    private static void testHelpScreenReturnsToSettings() throws Exception {
+        System.out.println("[12] the help page returns to settings");
+        String[] kinds = { "left", "right", "fire", "up", "down" };
+        for (int k = 0; k < kinds.length; k++) {
+            Object c = canvas(HELP, 0);
+            call(c, "updateHelp", new Class<?>[] { boolean.class, boolean.class, boolean.class,
+                            boolean.class, boolean.class },
+                    new Object[] { Boolean.valueOf(k == 3), Boolean.valueOf(k == 4),
+                            Boolean.valueOf(k == 2), Boolean.valueOf(k == 0),
+                            Boolean.valueOf(k == 1) });
             expectEq(getInt(c, "screen"), SETTINGS,
-                kinds[k] + " on the controls page returned to settings");
+                kinds[k] + " on the help page returned to settings");
         }
         // Nothing pressed must leave the page up.
-        Object idle = canvas(CONTROLS, 0);
-        call(idle, "handleControlsInput", new Class<?>[] { boolean.class, boolean.class },
-                new Object[] { Boolean.FALSE, Boolean.FALSE });
-        expectEq(getInt(idle, "screen"), CONTROLS, "no input left the controls page alone");
+        Object idle = canvas(HELP, 0);
+        call(idle, "updateHelp", new Class<?>[] { boolean.class, boolean.class, boolean.class,
+                        boolean.class, boolean.class },
+                new Object[] { Boolean.FALSE, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                        Boolean.FALSE });
+        expectEq(getInt(idle, "screen"), HELP, "no input left the help page alone");
     }
 
     /** Leaving prep restores the stage cursor rather than dropping the player at the top. */

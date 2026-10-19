@@ -69,6 +69,45 @@ unvalidated placeholders, not balanced values.
 - The prior diagnostic, first-slice, and Phase 3 prototype artifacts remain preserved as regression evidence.
 - J2ME Loader runtime success for the rebuilt JAR is not yet verified.
 
+### Main-menu and pages pass
+
+Follow-on from the Choose Your Idol layout, the surrounding pages were brought in line with it.
+
+**Page headings, not bar labels.** The upper-case style belongs to the pages you open *from* the
+main menu, matching CHOOSE YOUR IDOL: PAPAN PERINGKAT, PENCAPAIAN, TOKO, MAIN, HOLO HOUSE,
+PENGATURAN, CREDITS, KELUAR appear as the title band of those pages. The gold label box at the
+bottom right of the title screen keeps its sentence case ("Papan Peringkat", "Pencapaian", …) —
+upper-casing that changed the look of the title screen itself, which is not what was wanted.
+
+Worth knowing if a name changes again: the bar label is baked into `menu_text_*.png`, so it is not
+a string edit. `ENTRY_NAMES` in `tools/prepare_title_menu_assets.py` holds the same list and has
+to be re-run, or the label box draws the old text while the fallback string says the new one.
+
+**Help text removed.** The `Kembali: FIRE / L / R` footer is gone from every page. Nothing else
+needed to say it: every screen already backs out on FIRE or L/R, and the Help page lists the
+bindings properly.
+
+**Pengaturan.** Audio / Help / Back. Controls was folded into Help rather than deleted outright,
+so the bindings are still documented in one place; `CONTROLS` is no longer a screen and the
+constants after it were renumbered.
+
+**Hardcore** left the Lainnya tab. `BUY_TOGGLE` went with it, since it had no other user. The
+SaveStore bit and the Endless Mode check stay, deliberately — see "Pengaturan dan Toko" below for
+why removing the row is safe for existing saves.
+
+**Credits** is now three centred blocks — the project and author, what it is based on, and the
+thanks — separated by short accent rules instead of blank lines, and carries the author's
+Facebook link. Every row is centred from its measured width via `drawCentered`, so nothing is
+positioned by eye. The vertical budget is tight: the last row lands on
+`78 + 10 * CREDIT_LINE_GAP` and the small font is about 13px tall, which is what fixes that
+constant at 14. `UiStateMachineTest` [7e] walks the same arithmetic so a fourth block or an
+extra line fails instead of silently running off the page.
+
+**`TERKUNCI`** is centred and proportional: the word stands on its own in the locked colour with
+no frame around it and no `[ ]` brackets — a box and brackets made it read as a button when it is
+a status — the copy follows underneath, and a short accent rule closes the block in place of the
+old footer line.
+
 ### Build outputs
 
 `tools/build_all.sh` empties `dist/` and rebuilds everything. The layout is by target
@@ -528,9 +567,13 @@ SIZE_SMALL string kept as the partial-build fallback. The bar gained its eighth 
 (red-X frame `menu_icon_7`), which sets the same shutdown flags as the Pengaturan Exit row, and
 `TITLE_BAR_X` moved 40 → 27 so the eight icons keep the old centred span (265 px).
 
-**2. Pengaturan.** The Hardcore row is gone; the page is Audio / Controls / Exit / Back with a
-note pointing at the shop row that still toggles the same flag. Hardcore remains togglable as
-the BUY_TOGGLE row in Toko → Beli Upgrade → Lainnya.
+**2. Pengaturan.** The page is now Audio / Help / Back. Two rows left it: **Controls**, whose
+bindings were folded into Help so the two pages cannot disagree about what a key does, and the
+note pointing at the Hardcore shop row. Hardcore itself has also gone from Toko → Beli Upgrade →
+Lainnya, so the shop's only non-levelled row is Refund All again. The mechanic is deliberately
+*not* deleted: `SaveStore` still keeps the hardcore bit and `RunWorld` still reads it for
+Endless Mode, so existing saves stay readable and the row is a one-line catalog change to bring
+back. See "Pengaturan dan Toko" below.
 
 **3. Toko layout and flow.** The TOKO heading is centred and the coin balance moved to the
 top-right of the title band on every Toko-family page (`drawCoin`). Beli Upgrade's three tabs

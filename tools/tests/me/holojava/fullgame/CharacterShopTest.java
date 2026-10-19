@@ -4,10 +4,10 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
- * Covers the three-tab shop: the 34-row upgrade catalog, the wiki price tables, the packed save
- * layout (34 nibbles at bytes 10..26, layout version 3), the migration from both older layouts,
- * the purchase transaction, the locked rows, the Hardcore toggle, the Refund All flow, and the
- * way purchased levels actually reach a run's stats.
+ * Covers the three-tab shop: the 33-row upgrade catalog, the wiki price tables, the packed save
+ * layout (one nibble per row at bytes 10..26, layout version 3), the migration from both older
+ * layouts, the purchase transaction, the locked rows, the Refund All flow, and the way purchased
+ * levels actually reach a run's stats.
  *
  * <p>Nothing here reimplements game logic. Prices come from {@code ContentCatalog.upgradeCost},
  * storage from {@code SaveStore}, the effect from {@code RunWorld.recomputeStats}, and the
@@ -15,10 +15,15 @@ import java.lang.reflect.Method;
  * {@code buyUpgrade}. Those are driven through reflection because {@code Canvas} and
  * {@code RunWorld} cannot be constructed on a desktop JVM and several of their fields are final.
  *
- * <p>The save layout matters most here: the shop is global, so all 34 rows are 34 nibbles in
- * bytes 10..26 and byte 46 carries the layout version that makes both older layouts — the
+ * <p>The save layout matters most here: the shop is global, so every row is one nibble in bytes
+ * 10..26 and byte 46 carries the layout version that makes both older layouts — the
  * eight-passive global vector (v2) and the per-character vector before it (v1) — detectable. A
  * careless accessor could silently spill one row's purchase into its neighbour's nibble.
+ *
+ * <p>Dropping the Hardcore row shortened the catalog from 34 to 33, and a nibble is addressed by
+ * catalog index, so every row after it moved down one slot. Hardcore sat second-to-last, so the
+ * only row that moved is Refund All — an action row, which never stores a level — and the 32 rows
+ * before it keep the index they always had. Existing saves therefore keep their levels.
  */
 public final class CharacterShopTest {
 
@@ -259,13 +264,13 @@ public final class CharacterShopTest {
     /** Every row is well formed, grouped contiguously, and maps to an effect the run knows. */
     private static void testCatalogIsCoherent() {
         System.out.println("[1] the upgrade catalog is coherent");
-        expectEq(ContentCatalog.UPGRADES.length, 34, "the shop has the 34 rows of the wiki tables");
+        expectEq(ContentCatalog.UPGRADES.length, 33, "the shop has the 33 rows of the wiki tables");
         expectEq(ContentCatalog.upgradeGroupCount(ContentCatalog.GROUP_ABILITY), 12,
             "the Ability tab holds 12 rows");
         expectEq(ContentCatalog.upgradeGroupCount(ContentCatalog.GROUP_STAT), 14,
             "the Stat tab holds 14 rows");
-        expectEq(ContentCatalog.upgradeGroupCount(ContentCatalog.GROUP_OTHERS), 8,
-            "the Lainnya tab holds 8 rows");
+        expectEq(ContentCatalog.upgradeGroupCount(ContentCatalog.GROUP_OTHERS), 7,
+            "the Lainnya tab holds 7 rows");
         expectEq(ContentCatalog.upgradeGroupStart(ContentCatalog.GROUP_ABILITY), 0,
             "Ability starts at index 0");
         expectEq(ContentCatalog.upgradeGroupStart(ContentCatalog.GROUP_STAT), 12,
@@ -373,9 +378,10 @@ public final class CharacterShopTest {
         ContentCatalog.UpgradeDef collabBan = ContentCatalog.upgrade("collab_ban");
         expectEq(collabBan.prices[0], 0L, "Collab Ban is free");
 
-        // The two non-levelled rows are exactly the two the wiki does not price per level.
-        expectEq(ContentCatalog.upgrade("hardcore").buyKind, ContentCatalog.BUY_TOGGLE,
-            "Hardcore is a toggle, mirroring the settings bit");
+        // Hardcore left the Lainnya tab; Refund All is the only non-levelled row left, and the wiki
+        // does not price it per level.
+        expect(ContentCatalog.upgrade("hardcore") == null,
+            "Hardcore is no longer offered in the shop");
         expectEq(ContentCatalog.upgrade("refund_all").buyKind, ContentCatalog.BUY_ACTION,
             "Refund All is an action, not a levelled purchase");
     }
@@ -440,10 +446,6 @@ public final class CharacterShopTest {
         expectEq(save.upgradeLevel(growth - 1), 0,
             "and the locked write did not leak into the row before it");
 
-        int hardcore = ContentCatalog.upgradeIndex("hardcore");
-        save.setUpgradeLevel(hardcore, 1);
-        expectEq(save.upgradeLevel(hardcore), 0,
-            "Hardcore mirrors the settings bit and never stores a nibble");
         int refundAll = ContentCatalog.upgradeIndex("refund_all");
         save.setUpgradeLevel(refundAll, 1);
         expectEq(save.upgradeLevel(refundAll), 0, "Refund All stores nothing");
@@ -641,21 +643,32 @@ public final class CharacterShopTest {
         expectEq(checked, 14, "every one of the 14 locked rows was exercised");
     }
 
-    /** Hardcore toggles the shared settings flag; Refund All needs two deliberate presses. */
+    /** Refund All needs two deliberate presses; Hardcore is gone from the shop entirely. */
     private static void testHardcoreTogglesAndRefundNeedsTwoPresses() throws Exception {
-        System.out.println("[11] Hardcore toggles, Refund All confirms");
+        System.out.println("[11] Hardcore is off the shop, Refund All confirms");
         Recording storage = new Recording(new byte[56]);
         SaveStore save = new SaveStore(storage);
         save.creditCoins(1000000L);
         Object c = upgradeCanvas(save);
 
-        int hardcore = ContentCatalog.upgradeIndex("hardcore");
+        // The hardcore bit itself survives in SaveStore and is still read by Endless Mode, so
+        // old saves keep their value; what is gone is the row that used to set it.
+        expectEq(ContentCatalog.upgradeIndex("hardcore"), -1,
+            "the shop has no Hardcore row to press");
+        expect(!save.hardcore(), "and the stored flag still reads off");
+        save.setHardcore(true);
+        expect(save.hardcore(), "while the stored flag itself still round-trips");
+
+        // Removing a row shortens the catalog, and a nibble is addressed by catalog index, so
+        // the rows after it shift down one slot. Hardcore was second-to-last, so Refund All is
+        // the only row that moved, and it is an action that never stores a level. Pinning the
+        // neighbours guards that: if a row is ever inserted before them, this fails.
+        expectEq(ContentCatalog.upgradeIndex("g_rank_off"), 31,
+            "the row before the gap kept its index, so its saved level is still readable");
+        expectEq(ContentCatalog.upgradeIndex("refund_all"), 32,
+            "only Refund All shifted down, and it is the row after the removed one");
+
         int refundAll = ContentCatalog.upgradeIndex("refund_all");
-        expect(!save.hardcore(), "hardcore starts off");
-        upgradeFire(c, hardcore);
-        expect(save.hardcore(), "the Hardcore row toggles the settings flag itself");
-        upgradeFire(c, hardcore);
-        expect(!save.hardcore(), "and pressing again toggles it back off");
 
         // Buy two rows, then arm a refund and let a cursor move cancel it.
         int reroll = ContentCatalog.upgradeIndex("reroll");
@@ -858,10 +871,11 @@ public final class CharacterShopTest {
         upgradeFire(c, lockedIndex);
         expect(!getBool(c, "buyConfirm"), "a locked row never arms the question");
 
-        // The Hardcore toggle buys nothing, so it still acts on the first press.
-        int hardcore = ContentCatalog.upgradeIndex("hardcore");
-        upgradeFire(c, hardcore);
-        expect(save.hardcore(), "the toggle row needs no confirmation");
-        expect(!getBool(c, "buyConfirm"), "and never arms one");
+        // An action row has no price to ask about, so it arms on the first press the same way the
+        // removed Hardcore toggle did -- buyConfirm must stay untouched.
+        int refundAll = ContentCatalog.upgradeIndex("refund_all");
+        upgradeFire(c, refundAll);
+        expect(getBool(c, "refundConfirm"), "the action row needs no confirmation");
+        expect(!getBool(c, "buyConfirm"), "and never arms a purchase question");
     }
 }

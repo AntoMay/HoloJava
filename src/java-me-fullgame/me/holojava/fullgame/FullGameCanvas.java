@@ -17,22 +17,24 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int PREP = 6;
     private static final int GAME = 7;
     private static final int RESULTS = 8;
-    private static final int CONTROLS = 9;
-    private static final int SPLASH = 10;
-    private static final int SHOP = 11;     // Toko submenu: Beli Upgrade / Armory / Keluar
-    private static final int UPGRADES = 12; // Beli Upgrade: the three-tab purchase page
-    private static final int ARMORY = 13;   // weapon and item catalogue, view-only while locked
-    private static final int LOCKED = 14;   // placeholder page shared by the three shut entries
-    private static final int CREDITS = 15;
+    private static final int SPLASH = 9;
+    private static final int SHOP = 10;     // Toko submenu: Beli Upgrade / Armory / Keluar
+    private static final int UPGRADES = 11; // Beli Upgrade: the three-tab purchase page
+    private static final int ARMORY = 12;   // weapon and item catalogue, view-only while locked
+    private static final int LOCKED = 13;   // placeholder page shared by the three shut entries
+    private static final int CREDITS = 14;
     // Toko internal step: Beli Upgrade opens this tab submenu (Ability / Stat / Lainnya /
     // Kembali) before the purchase page, so tab choice is a list pick instead of an L/R swipe.
-    private static final int SHOPTABS = 16;
+    private static final int SHOPTABS = 15;
     // Old CHARACTERS (2) and MODES (1) removed; flow now: Main -> CHOOSE_IDOL -> CHOOSE_MODE -> STAGES
     /**
      * Main menu rows, in draw order: Papan Peringkat, Pencapaian, Toko, Main, Holo House,
      * Pengaturan, Credits, Keluar. The start-up flow lives behind Main — Main to Mode to
      * Karakter to Stage — so characters and stages are no longer entries of their own. Keluar
-     * ends the game straight from the bar, and Pengaturan keeps its own Exit row as well.
+     * ends the game straight from the bar, and Pengaturan keeps its own Back row as well.
+     *
+     * <p>The labels stay in sentence case; it is the pages behind them that carry the upper-case
+     * headings.
      */
     private static final int MAIN_ITEM_COUNT = 8;
     private static final int MAIN_LEADERBOARD = 0;
@@ -59,6 +61,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     static final long SHOP_STARTING_CAPITAL = ShopStartingCapital.VALUE;
     /** Rows the shop draws per screen; the rest are reached by scrolling. */
     private static final int SHOP_PAGE_SIZE = 5;
+    /**
+     * Line pitch on the CREDITS page. Three centred blocks have to fit between the title band
+     * (ends at row 40) and the page edge (row 240), which is what fixes this rather than leaving
+     * it to taste. The last row lands on {@code 78 + 10 * CREDIT_LINE_GAP}, so 14 is the largest
+     * value that still clears the edge once the ~13px font height is added; 15 overflows by one
+     * pixel. UiStateMachineTest [7e] walks this arithmetic. See {@link #drawCredits}.
+     */
+    private static final int CREDIT_LINE_GAP = 14;
 
     /**
      * Gameplay key bindings.
@@ -164,6 +174,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int TITLE_LABEL_X = 200, TITLE_LABEL_Y = 206, TITLE_LABEL_W = 116;
     // The eight bar entries, in bar order, mirroring MAIN_* above. The bar reads left to right
     // like the reference, so this order is also the sweep order of Up/Down/Left/Right.
+    //
+    // These stay in sentence case. They are the bar's own labels, drawn in the gold box at the
+    // bottom right, and upper-casing them changed the look of the title screen itself. The
+    // upper-case headings live on the pages you open FROM here (PAPAN PERINGKAT, TOKO,
+    // PENGATURAN, ...), which is where the CHOOSE YOUR IDOL title style applies.
+    //
+    // The names are also baked as images (menu_text_*) by tools/prepare_title_menu_assets.py,
+    // which reads the same list from there, so changing a name means re-running that script.
     private static final String[] MAIN_ITEMS = { "Papan Peringkat", "Pencapaian", "Toko",
             "Main", "Holo House", "Pengaturan", "Credits", "Keluar" };
     // Pause menu. Two entries at the shared 22px list pitch span 44px, so 98 centres them on the
@@ -295,7 +313,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     public void keyPressed(int key) {
-        // Numeric action keys, declared as constants so the CONTROLS page, the in-game hint and
+        // Numeric action keys, declared as constants so the BANTUAN page, the in-game hint and
         // this dispatch cannot drift apart. Every binding here is a one-shot latch consumed by the
         // next update() on the game thread; keyPressed itself runs on the device event thread.
         if (key == KEY_ATTACK) {
@@ -393,22 +411,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else if (screen == STAGES) updateStages(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
         else if (screen == SETTINGS) updateSettings(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
         else if (screen == HELP) updateHelp(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
-        else if (screen == CONTROLS) handleControlsInput(leftEdge || rightEdge, fireEdge);
         else if (screen == PREP) updatePrep(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
         else if (screen == RESULTS) updateResults(upEdge, downEdge, fireEdge || leftEdge, rightEdge);
-    }
-
-    /**
-     * The controls page has nothing to navigate, so any of the three confirming inputs returns to
-     * settings. Split out of {@code update()} unchanged, for the same reason as
-     * {@link #handleRunEnd()}: the inline branch sat behind the MIDP {@code getKeyStates()} call
-     * and could not otherwise be executed off-device.
-     *
-     * @param back left or right pressed
-     * @param confirm fire pressed
-     */
-    private void handleControlsInput(boolean back, boolean confirm) {
-        if (back || confirm) screen = SETTINGS;
     }
 
     private void updateMain(boolean up, boolean down, boolean fire) {
@@ -644,11 +648,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             return;
         }
         refundConfirm = false;
-        if (def.buyKind == ContentCatalog.BUY_TOGGLE) {
-            buyConfirm = false;
-            save.setHardcore(!save.hardcore());
-            return;
-        }
         int level = save.upgradeLevel(upgradeIndex);
         long cost = ContentCatalog.upgradeCost(def, level);
         if (cost < 0) return;                            // already maxed: nothing to ask
@@ -691,8 +690,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void updateSettings(boolean up, boolean down, boolean fire, boolean left) {
-        // Audio, Controls, Help, Back. Hardcore moved to Shop (tab Lainnya).
-        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 4);
+        // Audio, Help, Back. The controls used to have their own page; they now live in Help,
+        // which already listed the same bindings in Indonesian.
+        if (up || down) menuIndex = wrap(menuIndex + (up ? -1 : 1), 3);
         if (left) { screen = MENU; menuIndex = MAIN_SETTINGS; return; }
         if (!fire) return;
         if (menuIndex == 0) {
@@ -704,8 +704,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             if (save != null) save.setAudioEnabled(on);
             bgm().setEnabled(on);
         }
-        else if (menuIndex == 1) screen = CONTROLS;
-        else if (menuIndex == 2) screen = HELP;
+        else if (menuIndex == 1) screen = HELP;
         else { screen = MENU; menuIndex = MAIN_SETTINGS; }
     }
 
@@ -834,7 +833,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else if (screen == STAGES) drawStages(g, x, y);
         else if (screen == SETTINGS) drawSettings(g, x, y);
         else if (screen == HELP) drawHelp(g, x, y);
-        else if (screen == CONTROLS) drawControls(g, x, y);
         else if (screen == PREP) drawPrep(g, x, y);
     }
 
@@ -1442,10 +1440,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
     }
 
-    /** Level a row displays: Hardcore reads the settings bit, actions have no level. */
+    /** Level a row displays: actions have no level, everything else reads the stored one. */
     private int shopRowLevel(ContentCatalog.UpgradeDef def, int upgradeIndex) {
         if (def == null) return 0;
-        if (def.buyKind == ContentCatalog.BUY_TOGGLE) return save.hardcore() ? 1 : 0;
         if (def.buyKind == ContentCatalog.BUY_ACTION) return 0;
         return save.upgradeLevel(upgradeIndex);
     }
@@ -1466,12 +1463,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (def.buyKind == ContentCatalog.BUY_ACTION) {
             ink(g);
             drawText(g, x + 12, rowY, label + "  (aksi)", style, Font.SIZE_SMALL);
-            return;
-        }
-        if (def.buyKind == ContentCatalog.BUY_TOGGLE) {
-            ink(g);
-            drawText(g, x + 12, rowY, label + ": " + (save.hardcore() ? "ON" : "OFF"),
-                    style, Font.SIZE_SMALL);
             return;
         }
         int level = save.upgradeLevel(upgradeIndex);
@@ -1526,36 +1517,92 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * Placeholder page for Papan Peringkat, Pencapaian and Holo House. The entry exists, the
      * screen exists and it renders its own title — it simply does not open yet, and says so
      * instead of failing silently.
+     *
+     * <p>Everything here is centred and laid out from the 240px page height rather than from
+     * hand-picked offsets, so the block reads as one composed panel and stays put if the heading
+     * grows a line. The word TERKUNCI is bare: no frame around it and no brackets, just the word
+     * in the locked colour. A box and {@code [ ]} made it look like a button; it is a status.
      */
     private void drawLocked(Graphics g, int x, int y) {
         title(g, x, y, lockedTitle);
+
+        int ty = y + 84;
         g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
-        drawText(g, x + 64, y + 96, "[ TERKUNCI ]", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        drawCentered(g, ty, "TERKUNCI", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        ty += 26;
+
         ink(g);
-        drawText(g, x + 34, y + 140, "Halaman ini sudah dibuat tapi belum dibuka.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 34, y + 160, "Datanya menyusul di update berikutnya.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 34, y + 204, "Kembali: FIRE / L / R", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawCentered(g, ty, "Halaman ini sudah dibuat", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += 16;
+        drawCentered(g, ty, "tetapi belum dibuka.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += 16;
+        drawCentered(g, ty, "Datanya menyusul di update berikutnya.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+
+        // A single accent rule under the block, centred, closes the composition without needing
+        // a "press anything to go back" line.
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        int ruleW = 96;
+        g.fillRect(x + (Viewport.MIN_W - ruleW) / 2, y + 214, ruleW, 1);
     }
 
-    /** Credits: static text, no state. Sources and thanks, then the same way back as the rest. */
+    /**
+     * Credits, laid out as three centred blocks: who made it, what it is based on, and who to
+     * thank.
+     *
+     * <p>Every line is centred from its measured width, so nothing has to be nudged by eye. The
+     * vertical budget is the whole constraint here. The title band ends at row 40 and the page
+     * ends at 240; the last row lands on {@code 78 + 10 * CREDIT_LINE_GAP} and the small font is
+     * about 13px tall, so the pitch is set by what is left over. That is also why the thanks are
+     * one line rather than two: an extra row pushes the pitch under the font height, and the rows
+     * stop reading as separate lines.
+     *
+     * <p>The blocks do not scroll. Adding a line means finding the room for it, not lowering the
+     * gap.
+     */
     private void drawCredits(Graphics g, int x, int y) {
         title(g, x, y, "CREDITS");
+
+        int ty = y + 40;
         ink(g);
-        String[] lines = {
-                "HOLOJAVA",
-                "Game Java ME bergaya HoloCure.",
-                "Inspirasi: HoloCure, fan game hololive",
-                "oleh kayfstarter.",
-                "Data karakter, senjata, item & harga:",
-                "holocure.wiki.gg (Update 0.7).",
-                "Kode, seni dan stage: proyek HoloJava.",
-                "Terima kasih untuk para Hololive member",
-                "dan komunitas penggemarnya."
-        };
-        for (int i = 0; i < lines.length; i++) {
-            drawText(g, x + 20, y + 54 + i * 17, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        }
-        drawText(g, x + 20, y + 214, "Kembali: FIRE / L / R", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawCentered(g, ty, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        ty += 18;
+        drawCentered(g, ty, "Game Java ME bergaya HoloCure", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += CREDIT_LINE_GAP;
+        drawCentered(g, ty, "by AntoMay", Font.STYLE_BOLD, Font.SIZE_SMALL);
+        ty += CREDIT_LINE_GAP;
+        drawCentered(g, ty, "facebook.com/epoy.saputra.73", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty = creditsRule(g, x, ty);
+
+        drawCentered(g, ty, "BERBASIS PADA", Font.STYLE_BOLD, Font.SIZE_SMALL);
+        ty += CREDIT_LINE_GAP;
+        drawCentered(g, ty, "HoloCure, fan game hololive", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += CREDIT_LINE_GAP;
+        drawCentered(g, ty, "oleh kayfstarter", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += CREDIT_LINE_GAP;
+        drawCentered(g, ty, "holocure.wiki.gg (Update 0.7)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty = creditsRule(g, x, ty);
+
+        drawCentered(g, ty, "TERIMA KASIH", Font.STYLE_BOLD, Font.SIZE_SMALL);
+        ty += CREDIT_LINE_GAP;
+        drawCentered(g, ty, "kepada Hololive member & penggemarnya",
+                Font.STYLE_PLAIN, Font.SIZE_SMALL);
+    }
+
+    /**
+     * A short centred accent rule closing a credits block; returns the y the next block starts at.
+     *
+     * <p>The rule is dropped a full line pitch below the last row rather than a few pixels under
+     * it. {@code y} here is the top of that row, and the small font renders about 13px tall, so a
+     * rule any closer lands inside the glyphs and strikes through them. A pitch of 17 leaves the
+     * row's descenders clear and still fits the page.
+     */
+    private int creditsRule(Graphics g, int x, int y) {
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        int ruleY = y + CREDIT_LINE_GAP + 2;
+        int ruleW = 72;
+        g.fillRect(x + (Viewport.MIN_W - ruleW) / 2, ruleY, ruleW, 1);
+        ink(g);
+        return ruleY + 8;
     }
 
     private void drawStages(Graphics g, int x, int y) {
@@ -1587,10 +1634,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private void drawSettings(Graphics g, int x, int y) {
         title(g, x, y, "PENGATURAN");
         String[] items = { "Audio: " + (save != null && save.audioEnabled() ? "ON" : "OFF"),
-                "Controls", "Help", "Back" };
+                "Help", "Back" };
         list(g, x, y + 65, items, menuIndex);
-        ink(g);
-        drawText(g, x + 20, y + 190, "Hardcore kini ada di Toko (tab Lainnya).", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void updateHelp(boolean up, boolean down, boolean fire, boolean left, boolean right) {
@@ -1599,44 +1644,42 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
     }
 
+    /**
+     * BANTUAN — the one place controls are explained.
+     *
+     * <p>This page absorbed the old separate CONTROLS screen, which Pengaturan used to link to.
+     * The bindings below are the union of both: the Indonesian menu/gameplay rows Help already
+     * had, plus the D-pad, movement and automatic-fire notes that only Controls carried. Keeping
+     * one page means a player who opens Help cannot miss the gameplay half.
+     */
     private void drawHelp(Graphics g, int x, int y) {
         title(g, x, y, "BANTUAN");
         ink(g);
-        int ty = y + 50;
-        int lh = 18;
-        drawText(g, x + 20, ty, "Navigasi Menu:", Font.STYLE_BOLD, Font.SIZE_SMALL);
+        int ty = y + 48;
+        int lh = 16;
+        drawText(g, x + 16, ty, "Navigasi Menu:", Font.STYLE_BOLD, Font.SIZE_SMALL);
         ty += lh;
-        drawText(g, x + 24, ty, "Atas/Bawah: pilih item", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty += lh;
-        drawText(g, x + 24, ty, "Kiri/Kanan: navigasi tab / kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, ty, "D-pad: pindah & pilih menu", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         ty += lh;
         drawText(g, x + 24, ty, "FIRE / 5: pilih / konfirmasi", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty += lh * 2;
-        drawText(g, x + 20, ty, "Dalam Gameplay:", Font.STYLE_BOLD, Font.SIZE_SMALL);
         ty += lh;
-        drawText(g, x + 24, ty, "1 / GAME A: Serang", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, ty, "Kiri/Kanan: pindah tab / kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh + 6;
+        drawText(g, x + 16, ty, "Dalam Gameplay:", Font.STYLE_BOLD, Font.SIZE_SMALL);
         ty += lh;
-        drawText(g, x + 24, ty, "5 / FIRE: Pause", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, ty, "D-pad: gerak", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "1 / GAME A: serang dasar", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         ty += lh;
         drawText(g, x + 24, ty, "9: Special (butuh upgrade)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         ty += lh;
-        drawText(g, x + 24, ty, "0: Pause alternatif", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty += lh * 2;
-        drawText(g, x + 20, ty, "Skill karakter aktif otomatis.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, ty, "5 / FIRE: pause   0: pause alternatif", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh + 6;
+        drawText(g, x + 16, ty, "Otomatis:", Font.STYLE_BOLD, Font.SIZE_SMALL);
         ty += lh;
-        drawText(g, x + 24, ty, "Orbiting/passive weapon otomatis.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-    }
-
-    private void drawControls(Graphics g, int x, int y) {
-        title(g, x, y, "CONTROLS");
-        ink(g);
-        drawText(g, x + 24, y + 60, "D-pad: move / menu navigation", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 82, "GAME A / 1: basic attack", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 104, "FIRE / 5: pause in gameplay", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 126, "0: pause (alt)   FIRE: select / confirm in menus", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 148, "9: special (butuh upgrade Special Attack)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 166, "Skill karakter aktif sendiri tiap 15 detik.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 24, y + 198, "Orbiting and passive weapons may fire autonomously.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawText(g, x + 24, ty, "Skill karakter aktif sendiri tiap 15 detik.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "Senjata orbiting & pasif menembak sendiri.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     private void drawPrep(Graphics g, int x, int y) {
@@ -1787,6 +1830,21 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private void drawText(Graphics g, int x, int y, String text, int style, int size) {
         g.setFont(Font.getFont(Font.FACE_SYSTEM, style, size));
         g.drawString(text, x, y, Graphics.TOP | Graphics.LEFT);
+    }
+
+    /**
+     * Draws a string horizontally centred on the 320px canvas.
+     *
+     * <p>The width comes from the font that is actually about to be used rather than from a
+     * hand-measured constant, so a line stays centred at any font size or style and cannot drift
+     * the way a fixed x offset does. Nothing in the panels behind these pages is a fixed-width
+     * column, so centring on the canvas is the same as centring on the visible content.
+     */
+    private void drawCentered(Graphics g, int y, String text, int style, int size) {
+        Font f = Font.getFont(Font.FACE_SYSTEM, style, size);
+        g.setFont(f);
+        g.drawString(text, (Viewport.MIN_W - f.stringWidth(text)) / 2, y,
+                Graphics.TOP | Graphics.LEFT);
     }
 
     /**
