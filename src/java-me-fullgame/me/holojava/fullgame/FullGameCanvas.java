@@ -74,16 +74,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int IDOL_COLS = 5;                    // 5 karakter = 5 kolom
     private static final int IDOL_ROWS = 1;
 
-    private static final int IDOL_BOX_W = 48;                  // dikecilkan untuk proporsi 320x240
-    private static final int IDOL_BOX_H = 56;                  // dikecilkan dari 72
-    private static final int IDOL_GRID_X = 4;                  // start x: (320 - (5*48 + 4*8)) / 2 = 4
-    private static final int IDOL_GRID_Y = 50;                 // start y (below header, 40+10 margin)
+    private static final int IDOL_BOX_W = 48;                  // 48px width
+    private static final int IDOL_BOX_H = 56;                  // 56px height
+    private static final int IDOL_GRID_X = 24;                 // start x: (320 - (5*48 + 4*8)) / 2 = 24
+    private static final int IDOL_GRID_Y = 41;                 // start y: centered in Y=30-108 area (30+11)
     private static final int IDOL_GAP = 8;                     // gap antar kotak
-    // Panel detail (di bawah grid, cukup tinggi untuk sprite + text)
-    private static final int IDOL_PANEL_X = 10;
-    private static final int IDOL_PANEL_Y = 115;               // di bawah grid (50+56+10 margin = 116)
-    private static final int IDOL_PANEL_W = 300;               // hampir full width
-    private static final int IDOL_PANEL_H = 110;               // lebih tinggi untuk sprite + text
+    // Panel detail (exact layout per spec)
+    private static final int IDOL_PANEL_X = 12;
+    private static final int IDOL_PANEL_Y = 114;               // divider at 114, panel starts at 114
+    private static final int IDOL_PANEL_W = 296;               // 320 - 2*12
+    private static final int IDOL_PANEL_H = 126;               // 240 - 114 = 126
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
@@ -996,7 +996,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * Idle sprite di pojok kiri bawah panel detail.
      */
     private void drawChooseIdol(Graphics g, int x, int y) {
+        // ===== HEADER: CHOOSE YOUR IDOL (Y=0-30, centered) =====
         titleCentered(g, x, y, "CHOOSE YOUR IDOL");
+
+        // ===== GRID: 5 karakter (Y=30-108, boxes at Y=41-97) =====
         int charCount = ContentCatalog.CHARACTERS.length; // 5
         int boxW = IDOL_BOX_W;
         int boxH = IDOL_BOX_H;
@@ -1034,56 +1037,62 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
         }
 
-        // Detail panel for selected
+        // ===== DIVIDER LINE: Y=108-114 =====
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.drawLine(x + 10, y + 108, x + 310, y + 108);
+        g.drawLine(x + 10, y + 113, x + 310, y + 113);
+
+        // ===== DETAIL PANEL: Y=114-240 =====
         ContentCatalog.CharacterDef sel = ContentCatalog.CHARACTERS[menuIndex];
-        int px = x + IDOL_PANEL_X;
-        int py = y + IDOL_PANEL_Y;
-        int pw = IDOL_PANEL_W;
-        int ph = IDOL_PANEL_H;
+        int px = x + IDOL_PANEL_X;      // 12
+        int py = y + IDOL_PANEL_Y;      // 114
+        int pw = IDOL_PANEL_W;          // 296
+        int ph = IDOL_PANEL_H;          // 126
 
         // Panel border only (light blue)
         g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.drawRect(px, py, pw - 1, ph - 1);
         g.drawRect(px + 1, py + 1, pw - 3, ph - 3);
 
-        // Draw idle sprite at left side, centered vertically in text area
+        // Draw idle sprite at left side, centered vertically in text area (py+8 to py+ph-8)
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
         int spriteW = 0;
         int spriteH = 0;
         if (idleSprite != null) {
             spriteW = idleSprite.getWidth();
             spriteH = idleSprite.getHeight();
-            int sx = x + px + 8;
-            // Center sprite vertically in the text area (py+18 to py+ph-8)
-            int textAreaTop = py + 18;
+            int sx = x + px + 8;  // 8px from panel left
+            // Center sprite vertically in the text area (py+8 to py+ph-8)
+            int textAreaTop = py + 8;
             int textAreaBottom = py + ph - 8;
             int textAreaCenterY = textAreaTop + (textAreaBottom - textAreaTop) / 2;
             int sy = y + textAreaCenterY - spriteH / 2;
             g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
         }
 
-        // Character name at top-right of sprite area (same line as sprite top)
+        // Character name at left, above sprite (Y = panel top + 8)
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        drawText(g, px + 8 + spriteW + 8, py + 10, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
+        int nameY = py + 8;
+        drawText(g, px + 8, nameY, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
-        // Text area starts after sprite (with gap)
+        // Text area for stats starts at right of sprite
         int textX = px + 8 + spriteW + 8;
         int textW = pw - 16 - spriteW - 8;
 
-        // Clip to panel interior for scrolling text (text area only)
-        g.clipRect(x + textX, y + py + 18, textW, ph - 18);
+        // Clip to panel interior for scrolling text (stats area)
+        g.clipRect(x + 8 + spriteW + 8, y + py + 8, pw - 16 - spriteW - 8, ph - 16);
 
         // Build detail lines
         String[] lines = buildIdolDetailLines(sel);
         int lineH = 14;
-        int detailStartY = py + 18 - idolDetailScroll * lineH;
-        int maxVisible = (ph - 18) / lineH;
+        int detailStartY = py + 8 - idolDetailScroll * lineH;
+        int maxVisible = (ph - 16) / lineH;
 
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         int visible = 0;
         for (int i = 0; i < lines.length && visible < maxVisible; i++) {
             int lineY = detailStartY + i * lineH;
-            if (lineY + lineH >= py + 18 && lineY <= py + ph - 8) {
+            if (lineY + lineH >= py + 8 && lineY <= py + ph - 8) {
                 drawText(g, textX, lineY, lines[i], Font.STYLE_PLAIN, Font.SIZE_SMALL);
                 visible++;
             }
