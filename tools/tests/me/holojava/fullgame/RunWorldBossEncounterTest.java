@@ -486,15 +486,17 @@ public final class RunWorldBossEncounterTest {
      * wiki data, and the file's own {@code coverage_note} states that those values are not on the
      * Enemy page. What is documented for a boss is its spawn time, and that is asserted elsewhere.
      *
-     * <p>So these are balance numbers, like the mob damage they were halved alongside. Pinning
-     * them is still worth doing: it makes a later change a deliberate edit here rather than a
-     * quiet drift, and the name now says what they actually are.
+     * <p>So these are balance numbers, like the mob damage. They were halved once and restored: the
+ * halving was a reaction to how punishing the numbers looked, but the real cause of that
+ * impression was a bug in how character ATK was applied, and once that was fixed the original
+ * values were correct. Pinning them is still worth doing, so a later change is a deliberate edit
+ * here rather than a quiet drift, and the name now says what they actually are.
      */
     private static void testStage1HardStatsAreVerified() throws Exception {
         System.out.println("[8] stage 1 hard boss stats match the pinned balance values");
-        expectBoss("fubuzilla", 15000, 10, 1500);
-        expectBoss("smol_ame", 12000, 9, 1500);
-        expectBoss("halloween_bae", 72000, 12, 6000);
+        expectBoss("fubuzilla", 15000, 22, 1500);
+        expectBoss("smol_ame", 12000, 20, 1500);
+        expectBoss("halloween_bae", 72000, 27, 6000);
     }
 
     private static void expectBoss(String id, int hp, int atk, int exp) {
