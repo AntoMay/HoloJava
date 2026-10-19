@@ -84,11 +84,31 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int IDOL_PANEL_Y = 114;               // panel starts below the grid
     private static final int IDOL_PANEL_W = 296;               // 320 - 2*12, so the right gap matches the left
     private static final int IDOL_PANEL_H = 114;               // 240 - 114 - 12: the bottom gap equals the side gaps
+    // Status list geometry inside the panel. The name row is 18px, 6px is kept clear of the
+    // bottom border, and the rest is the scrollable status list. A 12px line pitch is what lets
+    // the seven rows the list needs fit under the name without shrinking the panel.
+    private static final int IDOL_NAME_ROW_H = 18;
+    private static final int IDOL_BODY_PAD_BOTTOM = 6;
+    private static final int IDOL_LINE_H = 12;
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
     private int idolAnimTimer = 0;
     private int idolDetailScroll = 0; // scroll offset for detail panel
+
+    /** How many status rows the panel body shows at once. Shared by the draw code and the scroll
+     *  clamp so the two can never disagree about where the list ends. */
+    private static int idolVisibleLines() {
+        return (IDOL_PANEL_H - IDOL_NAME_ROW_H - IDOL_BODY_PAD_BOTTOM) / IDOL_LINE_H;
+    }
+
+    /** Largest scroll offset that still fills the window, i.e. the one whose last visible row is
+     *  the last row of the list ("(original art)"). Zero when everything already fits. */
+    private int idolMaxScroll() {
+        int lines = buildIdolDetailLines(ContentCatalog.CHARACTERS[menuIndex]).length;
+        int max = lines - idolVisibleLines();
+        return max > 0 ? max : 0;
+    }
 
     // Shared HoloJava UI palette. The page and the panel are both light, so every piece of menu
     // text is drawn in MENU_INK: white only reaches 1.66:1 on MENU_BG and 1.35:1 on MENU_PANEL,
@@ -430,13 +450,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             idolDetailScroll = 0;
             return;
         }
-        // Up/Down untuk scroll detail panel
+        // Up/Down scroll the status list, stopping at the top and at the row that puts
+        // "(original art)" last in the window, so the list never scrolls into blank space.
         if (up) {
             if (idolDetailScroll > 0) idolDetailScroll--;
             return;
         }
         if (down) {
-            idolDetailScroll++;
+            int max = idolMaxScroll();
+            if (idolDetailScroll < max) idolDetailScroll++;
             return;
         }
         if (!fire) return;
@@ -1056,7 +1078,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
         // The name gets its own full-width row across the top of the panel, so the status column
         // below it starts clear of it instead of overprinting it.
-        int nameRowH = 18;
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         drawText(g, px + 8, py + 6, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
@@ -1064,32 +1085,33 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         // The breathing room at the bottom comes from the panel's own margin to the screen
         // edge, so the body only needs a small internal pad to clear the border.
         int padSide = 8;
-        int padBottom = 6;
-        int bodyTop = py + nameRowH;
-        int bodyH = ph - nameRowH - padBottom;
+        int bodyTop = py + IDOL_NAME_ROW_H;
+        int bodyH = ph - IDOL_NAME_ROW_H - IDOL_BODY_PAD_BOTTOM;
 
-        // Idle sprite on the left of the body, centred vertically in it.
+        // Idle sprite on the left of the body, centred vertically in it. Untouched by the
+        // column spacing below: only its own size and the body centre matter here.
+        // px/py already carry the canvas origin, so they are used as-is here.
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
         if (idleSprite != null) {
             int spriteH = idleSprite.getHeight();
-            int sy = y + bodyTop + (bodyH - spriteH) / 2;
-            g.drawImage(idleSprite, x + px + padSide, sy, Graphics.TOP | Graphics.LEFT);
+            int sy = bodyTop + (bodyH - spriteH) / 2;
+            g.drawImage(idleSprite, px + padSide, sy, Graphics.TOP | Graphics.LEFT);
         }
 
         // Status column sits well clear of the sprite, and its right padding matches the left
         // one, so the block reads as balanced inside the frame. The column x is fixed, so only
         // the sprite animates and the text never shifts with the frame.
         int spriteZone = 40;
-        int textGap = 32;
+        int textGap = 40;
         int textX = px + padSide + spriteZone + textGap;
         int textW = pw - padSide - spriteZone - textGap - padSide;
-        g.clipRect(x + textX, y + bodyTop, textW, bodyH);
+        g.clipRect(textX, bodyTop, textW, bodyH);
 
         // Build detail lines
         String[] lines = buildIdolDetailLines(sel);
-        int lineH = 14;
+        int lineH = IDOL_LINE_H;
         int detailStartY = bodyTop - idolDetailScroll * lineH;
-        int maxVisible = bodyH / lineH;
+        int maxVisible = idolVisibleLines();
 
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         int visible = 0;
@@ -1102,7 +1124,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
         }
 
-        g.clipRect(0, 0, Viewport.MIN_W, Viewport.MIN_H); // reset clip
+        // MIDP clipRect intersects rather than replaces, so this widens the clip back to the
+        // whole panel instead of leaving the next frame stuck inside the text column.
+        g.clipRect(0, 0, Viewport.MIN_W, Viewport.MIN_H);
     }
     private String[] buildIdolDetailLines(ContentCatalog.CharacterDef c) {
         ContentCatalog.WeaponDef wp = ContentCatalog.weapon(c.mainWeapon);

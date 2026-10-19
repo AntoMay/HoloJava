@@ -280,6 +280,7 @@ public final class UiStateMachineTest {
         testChooseIdolSelectsAndPersists();
         testChooseIdolIndexWraps();
         testChooseIdolDetailScroll();
+        testChooseIdolScrollStopsAtLastRow();
         testStageScreenRefusesLockedStages();
         testStageScreenBackRestoresCharacter();
         testSettingsTogglesAndRoutes();
@@ -483,6 +484,35 @@ public final class UiStateMachineTest {
         chooseIdol(c, false, false, false, false, true);   // right
         expectEq(getInt(c, "menuIndex"), 3, "right moves the character cursor");
         expectEq(getInt(c, "idolDetailScroll"), 0, "and resets the scroll offset");
+    }
+
+    /**
+     * Scrolling stops where the list actually ends, so the final row ("(original art)") is the
+     * last one on screen and the panel never scrolls into empty space below it.
+     */
+    private static void testChooseIdolScrollStopsAtLastRow() throws Exception {
+        System.out.println("[7c] the status list stops scrolling at its last row");
+        Object c = canvas(CHOOSE_IDOL, 0);
+
+        Method visible = canvasClass().getDeclaredMethod("idolVisibleLines");
+        visible.setAccessible(true);
+        int visibleLines = ((Integer) visible.invoke(null)).intValue();
+
+        Method detail = canvasClass().getDeclaredMethod(
+                "buildIdolDetailLines", ContentCatalog.CharacterDef.class);
+        detail.setAccessible(true);
+        String[] lines = (String[]) detail.invoke(c, ContentCatalog.CHARACTERS[0]);
+        int maxScroll = lines.length - visibleLines;
+        expect(maxScroll > 0, "the list is taller than the window, so scrolling is meaningful");
+        expect(lines[lines.length - 1].startsWith("("),
+                "the last row is the art note (" + lines[lines.length - 1] + ")");
+
+        for (int i = 0; i < maxScroll; i++) chooseIdol(c, false, true, false, false, false);
+        expectEq(getInt(c, "idolDetailScroll"), maxScroll, "down reaches the last page");
+
+        for (int i = 0; i < 5; i++) chooseIdol(c, false, true, false, false, false);
+        expectEq(getInt(c, "idolDetailScroll"), maxScroll,
+                "further down presses stop at the last page instead of running into blank space");
     }
 
     /** A locked stage is refused outright: no selection, no transition. */
