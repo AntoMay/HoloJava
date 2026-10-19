@@ -77,7 +77,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int IDOL_BOX_W = 48;                  // 48px width
     private static final int IDOL_BOX_H = 56;                  // 56px height
     private static final int IDOL_GRID_X = 24;                 // start x: (320 - (5*48 + 4*8)) / 2 = 24
-    private static final int IDOL_GRID_Y = 42;                 // Y=42: 16px gap from title bottom (y+26) and 16px to panel (114-98)
+    private static final int IDOL_GRID_Y = 49;                 // 9px gap atas (dari header y=40) dan 9px gap bawah (ke panel y=114)
     private static final int IDOL_GAP = 8;                     // gap antar kotak
     // Panel detail (exact layout per spec)
     private static final int IDOL_PANEL_X = 12;
@@ -1059,15 +1059,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         drawText(g, px + 8, py + 8, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
-        // Draw idle sprite at left side, centered vertically in text area (py+18 to py+ph-8)
+        // Idle sprite on the left of the panel, centred vertically in the area under the name.
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
-        int spriteW = 0;
-        int spriteH = 0;
         if (idleSprite != null) {
-            spriteW = idleSprite.getWidth();
-            spriteH = idleSprite.getHeight();
-            int sx = x + px + 8;  // 8px from panel left
-            // Center sprite vertically in the text area (py+18 to py+ph-8)
+            int spriteH = idleSprite.getHeight();
             int textAreaTop = py + 18;
             int textAreaBottom = py + ph - 8;
             int textAreaCenterY = textAreaTop + (textAreaBottom - textAreaTop) / 2;
@@ -1075,16 +1070,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             g.drawImage(idleSprite, x + px + 8, sy, Graphics.TOP | Graphics.LEFT);
         }
 
-        // Character name at left top of panel (above sprite area)
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        drawText(g, px + 8, py + 8, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
-
-        // Stats area: FIXED position on the right, independent of sprite animation
-        int textX = px + 8 + 40 + 8; // fixed: 8px panel padding + 40px max sprite width + 8px gap
-        int textW = pw - 16 - 40 - 8;  // fixed width for stats
-
-        // Clip to panel interior for scrolling text (stats area only, fixed position)
-        g.clipRect(x + 8 + 40 + 8, y + py + 8, pw - 16 - 40 - 8, ph - 16);
+        // Status text fills the right of the same box. Its column is fixed, so only the sprite
+        // animates and the text never shifts with the frame.
+        g.clipRect(x + px + 8 + 40 + 8, y + py + 8, pw - 16 - 40 - 8, ph - 16);
 
         // Build detail lines
         String[] lines = buildIdolDetailLines(sel);
