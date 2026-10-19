@@ -87,6 +87,28 @@ public final class UiStateMachineTest {
         }
     }
 
+    /** Reads a private static final int layout constant off FullGameCanvas. */
+    private static int getStaticInt(Class<?> type, String field) {
+        try {
+            Field f = type.getDeclaredField(field);
+            f.setAccessible(true);
+            return f.getInt(null);
+        } catch (Exception e) {
+            throw new IllegalStateException("cannot read constant " + field, e);
+        }
+    }
+
+    /** Reads a private static final int[] layout constant off FullGameCanvas. */
+    private static int[] getStaticIntArray(Class<?> type, String field) {
+        try {
+            Field f = type.getDeclaredField(field);
+            f.setAccessible(true);
+            return (int[]) f.get(null);
+        } catch (Exception e) {
+            throw new IllegalStateException("cannot read constant " + field, e);
+        }
+    }
+
     private static int getInt(Object target, String field) {
         try {
             Field f = target.getClass().getDeclaredField(field);
@@ -281,6 +303,7 @@ public final class UiStateMachineTest {
         testChooseIdolIndexWraps();
         testChooseIdolDetailScroll();
         testChooseIdolScrollStopsAtLastRow();
+        testChooseIdolLayoutConstants();
         testStageScreenRefusesLockedStages();
         testStageScreenBackRestoresCharacter();
         testSettingsTogglesAndRoutes();
@@ -513,6 +536,48 @@ public final class UiStateMachineTest {
         for (int i = 0; i < 5; i++) chooseIdol(c, false, true, false, false, false);
         expectEq(getInt(c, "idolDetailScroll"), maxScroll,
                 "further down presses stop at the last page instead of running into blank space");
+    }
+
+    /**
+     * Locks the Choose Your Idol geometry that docs/CHOOSE_IDOL_LAYOUT.md documents, so the
+     * document and the compiled constants cannot drift apart unnoticed. The documented values are
+     * asserted here as the contract; if a deliberate layout change lands, this test and the
+     * document are updated together.
+     */
+    private static void testChooseIdolLayoutConstants() throws Exception {
+        System.out.println("[7d] the documented Choose Your Idol geometry");
+        Class<?> k = canvasClass();
+
+        // Grid: five 48x56 boxes starting at x=24, spaced by 56, top at y=49.
+        expectEq(getStaticInt(k, "IDOL_BOX_W"), 48, "box width");
+        expectEq(getStaticInt(k, "IDOL_BOX_H"), 56, "box height");
+        expectEq(getStaticInt(k, "IDOL_GRID_X"), 24, "grid left edge");
+        expectEq(getStaticInt(k, "IDOL_GRID_Y"), 49, "grid top edge");
+        expectEq(getStaticInt(k, "IDOL_GAP"), 8, "gap between boxes");
+        // Panel: 12px margins on left, right and bottom (240 - 114 - 12 = 114).
+        expectEq(getStaticInt(k, "IDOL_PANEL_X"), 12, "panel left edge");
+        expectEq(getStaticInt(k, "IDOL_PANEL_Y"), 114, "panel top edge");
+        expectEq(getStaticInt(k, "IDOL_PANEL_W"), 296, "panel width");
+        expectEq(getStaticInt(k, "IDOL_PANEL_H"), 114, "panel height");
+        expectEq(240 - getStaticInt(k, "IDOL_PANEL_Y") - getStaticInt(k, "IDOL_PANEL_H"), 12,
+                "the panel's bottom margin equals its side margins");
+        // Status column anchored to the S|E midpoint of the title (x=136); sprite at x=40;
+        // ground line on row 190; Calli alone pulled 12px left.
+        expectEq(getStaticInt(k, "IDOL_TEXT_X") + 12, 136, "status column left edge");
+        expectEq(getStaticInt(k, "IDOL_SPRITE_X") + 12, 40, "sprite left edge");
+        expectEq(getStaticInt(k, "IDOL_FEET_Y") + 114, 190, "sprite ground line");
+        int[] dx = getStaticIntArray(k, "IDOL_SPRITE_DX");
+        expectEq(dx.length, ContentCatalog.CHARACTERS.length, "one sprite nudge per character");
+        expectEq(dx[2], -12, "Calli is pulled left to line up with the rest of the cast");
+        for (int i = 0; i < dx.length; i++) {
+            if (i != 2) expectEq(dx[i], 0, "character " + i + " needs no horizontal correction");
+        }
+        // The status window the document quotes: 7 visible rows at 12px.
+        expectEq(getStaticInt(k, "IDOL_NAME_ROW_H"), 18, "name row height");
+        expectEq(getStaticInt(k, "IDOL_LINE_H"), 12, "status line pitch");
+        Method visible = k.getDeclaredMethod("idolVisibleLines");
+        visible.setAccessible(true);
+        expectEq(((Integer) visible.invoke(null)).intValue(), 7, "visible status rows");
     }
 
     /** A locked stage is refused outright: no selection, no transition. */

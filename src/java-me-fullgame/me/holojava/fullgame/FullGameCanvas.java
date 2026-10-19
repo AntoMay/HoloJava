@@ -1018,20 +1018,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * CHOOSE YOUR IDOL — grid 5 karakter + Back entry (6 items).
-     * Layout: 6 kotak horizontal (56x72 each), detail panel di bawah dengan scroll.
-     * Setiap kotak: hanya portrait + nama, border biru muda. Tidak ada dark panel.
-     * Detail panel: border biru muda, konten scroll (Atas/Bawah untuk scroll).
-     */
-
-    /**
-     * CHOOSE YOUR IDOL — grid 5 karakter (tanpa Back entry).
-     * Layout: 5 kotak horizontal (dikecilkan), detail panel di bawah dengan scroll.
-     * Setiap kotak: HANYA portrait (gambar karakter), border biru muda.
-     * Detail panel: border biru muda, nama karakter di atas, idle sprite kiri bawah,
-     *               stat di kanan sprite (scroll Atas/Bawah).
-     * Tombol "Kembali" di pojok kanan bawah layar.
-     * Idle sprite di pojok kiri bawah panel detail.
+     * CHOOSE YOUR IDOL — grid 5 karakter (tanpa tombol Kembali).
+     * Layout: 5 kotak horizontal (48x56), detail panel di bawah dengan scroll.
+     * Setiap kotak: HANYA portrait, border biru muda (dipilih = border lebih tebal).
+     * Detail panel: border 1px, nama karakter di baris penuh atas, idle sprite berdiri
+     *               di garis tanah bersama di kiri, kolom status di kanan (scroll Atas/Bawah).
+     * Semua konstanta layout ada di blok IDOL_* di atas file.
      */
     private void drawChooseIdol(Graphics g, int x, int y) {
         // ===== HEADER: CHOOSE YOUR IDOL (Y=0-40, centred in the blue band) =====
@@ -1085,7 +1077,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int px = x + IDOL_PANEL_X;      // 12
         int py = y + IDOL_PANEL_Y;      // 114
         int pw = IDOL_PANEL_W;          // 296
-        int ph = IDOL_PANEL_H;          // 126
+        int ph = IDOL_PANEL_H;          // 114
 
         // One 1px border, the same weight the character selection boxes use, so the two
         // read as the same kind of frame instead of the panel looking heavier.
@@ -1104,10 +1096,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int bodyTop = py + IDOL_NAME_ROW_H;
         int bodyH = ph - IDOL_NAME_ROW_H - IDOL_BODY_PAD_BOTTOM;
 
-        // Idle sprite on the left of the body, centred vertically in it. px/py already carry
-        // the canvas origin, so they are used as-is here. The centring measures the character's
-        // whole idle loop (its largest frame) rather than the frame being drawn, otherwise the
-        // 1px size differences between frames would nudge the sprite sideways every tick.
         // Idle sprite on the left of the body, standing on a shared ground line. px/py already carry
         // the canvas origin, so they are used as-is here.
         //
@@ -1124,9 +1112,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             g.drawImage(idleSprite, sx, sy, Graphics.TOP | Graphics.LEFT);
         }
 
-        // The status column starts in the gap between the E of CHOOSE and the Y of YOUR in the
-        // title above, measured off the rendered glyphs (E ends at 143.7, Y starts at 149.0), so
-        // the block reads as sitting directly under the middle of the heading.
+        // The status column starts at x=136, the midpoint between the S and the E of CHOOSE in
+        // the title above (S ends at 134.7, E starts at 137.0), so the block reads as sitting
+        // directly under the heading right where the word breaks.
         int textX = px + IDOL_TEXT_X;
         int textW = pw - IDOL_TEXT_X - padSide;
         g.clipRect(textX, bodyTop, textW, bodyH);

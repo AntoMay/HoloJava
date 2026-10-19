@@ -65,6 +65,7 @@ it counts against the reference content totals.
 - `docs/CONTENT_COVERAGE.md` is the primary source of truth for extracted media and runtime asset coverage.
 - `docs/ASSET_USAGE.md` is the primary source of truth for asset references, metadata, and licensing notes.
 - `docs/TEST_PLAN.md` is the primary source of truth for test strategy.
+- `docs/CHOOSE_IDOL_LAYOUT.md` is the primary source of truth for the Choose Your Idol screen layout.
 - `docs/PROJECT_STATUS.md` is the primary source of truth for current status and next action.
 
 ## 3. Initial Audit Summary
@@ -139,6 +140,8 @@ HoloJava/
     GAMEPLAY_DESIGN.md
     ASSET_USAGE.md
     TEST_PLAN.md
+    CHOOSE_IDOL_LAYOUT.md        # Choose Your Idol screen geometry (320x240)
+    CHOOSE_IDOL_LAYOUT_PARTS.md  # Generated layout part sheets
   reports/
   tools/
   src/                 # Added later in implementation phases
