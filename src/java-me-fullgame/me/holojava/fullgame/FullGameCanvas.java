@@ -96,6 +96,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // heading right where the word CHOOSE breaks.
     private static final int IDOL_TEXT_X = 124;                 // 12 + 124 = 136 absolute
     private static final int IDOL_SPRITE_X = 28;                // idle sprite left edge inside the panel
+    // Ground line the sprites stand on, measured down from the panel's top border. 85 puts Calli
+    // exactly where the panel used to draw her: bodyTop (18) + (90 - 47) / 2 + 46, i.e. her feet
+    // on row 199 of the panel. Every other character is then placed so their feet land there too.
+    private static final int IDOL_FEET_Y = 85;
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
@@ -1095,11 +1099,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int bodyH = ph - IDOL_NAME_ROW_H - IDOL_BODY_PAD_BOTTOM;
 
         // Idle sprite on the left of the body, centred vertically in it. px/py already carry
+        // the canvas origin, so they are used as-is here. The centring measures the character's
+        // whole idle loop (its largest frame) rather than the frame being drawn, otherwise the
+        // 1px size differences between frames would nudge the sprite sideways every tick.
+        // Idle sprite on the left of the body, standing on a shared ground line. px/py already carry
         // the canvas origin, so they are used as-is here.
+        //
+        // The five idle sheets are very different sizes -- Calli is 46px tall, Ame 30px -- and the
+        // frames within one loop differ too, so centring each sprite in the body left the whole
+        // cast standing at different heights and made characters shuffle every tick. Every sprite
+        // has its feet on the last row of its own canvas, so aligning the canvas bottom lines the
+        // feet up exactly while leaving each character its own height.
         Image idleSprite = assets.characterIdle(menuIndex, idolAnimFrame);
         if (idleSprite != null) {
-            int spriteH = idleSprite.getHeight();
-            int sy = bodyTop + (bodyH - spriteH) / 2;
+            int sy = py + IDOL_FEET_Y - (idleSprite.getHeight() - 1);
             g.drawImage(idleSprite, px + IDOL_SPRITE_X, sy, Graphics.TOP | Graphics.LEFT);
         }
 
