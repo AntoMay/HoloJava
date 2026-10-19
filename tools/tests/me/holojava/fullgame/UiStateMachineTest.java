@@ -240,6 +240,12 @@ public final class UiStateMachineTest {
                         Boolean.valueOf(back) });
     }
 
+    private static void credits(Object c, boolean up, boolean down, boolean back) throws Exception {
+        call(c, "updateCredits",
+                new Class<?>[] { boolean.class, boolean.class, boolean.class },
+                new Object[] { Boolean.valueOf(up), Boolean.valueOf(down), Boolean.valueOf(back) });
+    }
+
     private static void prep(Object c, boolean up, boolean down, boolean fire, boolean back)
             throws Exception {
         call(c, "updatePrep",
@@ -648,36 +654,63 @@ public final class UiStateMachineTest {
     }
 
     /**
-     * The CREDITS and [TERKUNCI] pages are fixed blocks of text, so they either fit the 240px
-     * page or run off the bottom -- there is no scroll to catch them. These walk the same layout
-     * arithmetic the draw methods use and assert the last row lands clear of the edge.
+     * The CREDITS page scrolls, and [TERKUNCI] is a fixed block, so both need their geometry
+     * checked: a scrolling list silently loses its last row if the clamp is wrong, and a fixed
+     * block either fits or runs off the bottom with nothing in between.
      */
     private static void testCreditsAndLockedFitThePage() throws Exception {
         System.out.println("[7e] the centred text pages fit the 240px page");
         Class<?> k = canvasClass();
         int gap = getStaticInt(k, "CREDIT_LINE_GAP");
+        int top = getStaticInt(k, "CREDIT_TOP");
+        int bottom = getStaticInt(k, "CREDIT_BOTTOM");
 
-        // drawCredits stepped through exactly as the draw method does, so this fails the same way the
-        // page would if a line were added or the pitch changed.
-        int ty = 40;
-        ty += 18;                       // HOLOJAVA heading, medium
-        ty += gap;                      // Game Java ME ...
-        ty += gap;                      // by AntoMay
-        ty += gap;                      // facebook link
-        ty = ty + (gap + 2) + 8;        // first rule: a pitch below the row, then the next row
-        ty += gap;                      // BERBASIS PADA
-        ty += gap;                      // HoloCure, fan game hololive
-        ty += gap;                      // oleh kayfstarter
-        ty += gap;                      // holocure.wiki.gg
-        ty = ty + (gap + 2) + 8;        // second rule
-        ty += gap;                      // TERIMA KASIH
-        int lastRow = ty;               // keeps Hololive member & penggemarnya
-        expect(lastRow + 13 < 240,
-            "the last credits row lands on " + lastRow + ", clear of the 240px edge");
+        Method visible = k.getDeclaredMethod("creditVisibleRows");
+        visible.setAccessible(true);
+        int visibleRows = ((Integer) visible.invoke(null)).intValue();
 
-        // The rule must clear the row above it: a small-font row is about 13px tall, so a rule any
-        // closer strikes through the glyphs.
-        expect(gap + 2 >= 13, "the block rule clears the row above it (gap " + gap + ")");
+        Object c = canvas(CREDITS, 0);
+        Method rows = k.getDeclaredMethod("buildCreditRows");
+        rows.setAccessible(true);
+        String[] credits = (String[]) rows.invoke(c);
+
+        // The window has to hold a useful amount of text, or the page is not worth scrolling.
+        expect(visibleRows >= 10, "the credits window shows at least 10 rows, saw " + visibleRows);
+        // And the list has to be longer than that window, which is the whole point of scrolling.
+        expect(credits.length > visibleRows,
+            "the credits list is taller than the window (" + credits.length + " vs "
+                + visibleRows + ")");
+
+        // The scroll window has to clear the title band and leave room for the marker.
+        expect(top >= 40, "the credits window starts below the title band, saw " + top);
+        expect(bottom < 240, "the credits window leaves room for the marker, saw " + bottom);
+        expect(gap >= 13, "the credits pitch clears the small font (" + gap + ")");
+
+        // Scrolling stops at the last full page, so the final credit is the last reachable row.
+        Method maxScroll = k.getDeclaredMethod("creditsMaxScroll");
+        maxScroll.setAccessible(true);
+        int max = ((Integer) maxScroll.invoke(c)).intValue();
+        expectEq(max, credits.length - visibleRows, "the last page shows the final credit");
+
+        // and it really stops there rather than running into blank space
+        set(c, "creditsScroll", Integer.valueOf(0));
+        call(c, "updateCredits", new Class<?>[] { boolean.class, boolean.class, boolean.class },
+                new Object[] { Boolean.FALSE, Boolean.TRUE, Boolean.FALSE });
+        for (int i = 0; i < max + 5; i++) {
+            call(c, "updateCredits", new Class<?>[] { boolean.class, boolean.class, boolean.class },
+                    new Object[] { Boolean.FALSE, Boolean.TRUE, Boolean.FALSE });
+        }
+        expectEq(getInt(c, "creditsScroll"), max, "Down stops at the last page");
+
+        // Up returns to the top, and neither end scrolls past its own bound.
+        for (int i = 0; i < max + 5; i++) {
+            call(c, "updateCredits", new Class<?>[] { boolean.class, boolean.class, boolean.class },
+                    new Object[] { Boolean.TRUE, Boolean.FALSE, Boolean.FALSE });
+        }
+        expectEq(getInt(c, "creditsScroll"), 0, "Up stops at the top");
+
+        // The last row drawn is genuinely the last credit, not a blank.
+        expect(credits[credits.length - 1].length() > 0, "the list does not end on a blank row");
 
         // drawLocked: the bare TERKUNCI word, then three rows, then the closing rule at 214.
         int lockedFirstRow = 84 + 26;
@@ -887,9 +920,9 @@ public final class UiStateMachineTest {
         expectEq(getInt(house, "menuIndex"), 4, "with the cursor still on Holo House");
 
         Object d = canvas(CREDITS, 6);
-        oneBool(d, "updateCredits", false);
+        credits(d, false, false, false);
         expectEq(getInt(d, "screen"), CREDITS, "no input leaves the credits up");
-        oneBool(d, "updateCredits", true);
+        credits(d, false, false, true);
         expectEq(getInt(d, "screen"), MENU, "the credits page returns to the menu");
         expectEq(getInt(d, "menuIndex"), 6, "with the cursor still on Credits");
     }

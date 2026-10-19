@@ -71,17 +71,16 @@ final class ContentCatalog {
      */
     static final int BUY_LEVEL = 0;
     /**
+     * A single flag the shop toggles rather than levels. Hardcore is the only one: buying it
+     * flips the same settings bit that Endless Mode reads, so the shop and the run can never
+     * disagree about whether hardcore is on.
+     */
+    static final int BUY_TOGGLE = 1;
+    /**
      * A one-shot action with no stored level. Refund All is the only one: it asks for
      * confirmation and then resets every purchase while crediting the full price back.
      */
     static final int BUY_ACTION = 2;
-    /*
-     * BUY_TOGGLE used to live between the two: Hardcore was the only toggle row, and it has been
-     * removed from the Lainnya tab. The mechanic itself is untouched — SaveStore still keeps the
-     * hardcore bit and RunWorld still reads it for Endless Mode — so existing saves stay
-     * readable and re-exposing the row later is a one-line catalog change. The buyKind numbering
-     * is left as-is rather than closed up, because it is persisted in save data.
-     */
 
     static final class CharacterDef {
         String id;
@@ -388,6 +387,8 @@ final class ContentCatalog {
                 GROUP_OTHERS, -1, 0, true, BUY_LEVEL, new long[] { 0 }),
         upgrade("g_rank_off", "G Rank Off", "Matikan bonus G Rank (terkunci)",
                 GROUP_OTHERS, -1, 0, true, BUY_LEVEL, new long[] { 0 }),
+        upgrade("hardcore", "Hardcore", "HP diatur ke 1 di Endless Mode",
+                GROUP_OTHERS, -1, 0, false, BUY_TOGGLE, new long[] { 0 }),
         upgrade("refund_all", "Refund All", "Kembalikan semua pembelian toko",
                 GROUP_OTHERS, -1, 0, false, BUY_ACTION, new long[] { 0 })
     };
@@ -588,7 +589,7 @@ final class ContentCatalog {
         int value;       // per level, in the same unit the effect is expressed in.
         int maxLevel;
         boolean locked;  // shown with its prices, but no purchase may ever land.
-        int buyKind;     // BUY_LEVEL / BUY_ACTION.
+        int buyKind;     // BUY_LEVEL / BUY_TOGGLE / BUY_ACTION.
         long[] prices;   // price of level 1..maxLevel, from the HoloCure wiki tables.
     }
 

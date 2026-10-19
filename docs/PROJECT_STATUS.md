@@ -91,22 +91,28 @@ bindings properly.
 so the bindings are still documented in one place; `CONTROLS` is no longer a screen and the
 constants after it were renumbered.
 
-**Hardcore** left the Lainnya tab. `BUY_TOGGLE` went with it, since it had no other user. The
-SaveStore bit and the Endless Mode check stay, deliberately — see "Pengaturan dan Toko" below for
-why removing the row is safe for existing saves.
+**Hardcore stays in the shop.** What Settings lost was its own row and the note pointing at
+Toko; the `Lainnya` row itself, `BUY_TOGGLE`, and the Endless Mode read all remain.
 
-**Credits** is now three centred blocks — the project and author, what it is based on, and the
-thanks — separated by short accent rules instead of blank lines, and carries the author's
-Facebook link. Every row is centred from its measured width via `drawCentered`, so nothing is
-positioned by eye. The vertical budget is tight: the last row lands on
-`78 + 10 * CREDIT_LINE_GAP` and the small font is about 13px tall, which is what fixes that
-constant at 14. `UiStateMachineTest` [7e] walks the same arithmetic so a fourth block or an
-extra line fails instead of silently running off the page.
+**Page headings were not actually centred.** `title()` drew at a fixed `x + 90` and `y + 18`,
+which only lined up by accident for headings of one particular length -- short ones sat visibly
+left of centre, long ones ran off the right. It now centres from the measured width and shares a
+`TITLE_TOP` constant with the CHOOSE YOUR IDOL heading, and `drawChooseIdol` draws its heading
+through that same helper, so the reference screen and the pages after it cannot drift apart. The
+`titleCentered()` variant that had patched over this for TOKO only is gone.
+
+**Credits** is now a scrolling list of centred rows. The text is longer than one screen, so it is
+data (`buildCreditRows()`) rather than a hand-stepped sequence of draw calls: adding a credit is a
+one-line edit that cannot break the layout. Up/Down scroll, Down stops at `creditsMaxScroll()` so
+the last credit is the last reachable row, opening the page resets the offset, and a marker bar
+under the list shows how much is left while there is any. `UiStateMachineTest` [7e] checks the
+window bounds, that the list is genuinely taller than the window, and that the clamp holds at
+both ends.
 
 **`TERKUNCI`** is centred and proportional: the word stands on its own in the locked colour with
-no frame around it and no `[ ]` brackets — a box and brackets made it read as a button when it is
-a status — the copy follows underneath, and a short accent rule closes the block in place of the
-old footer line.
+no frame around it and no `[ ]` brackets -- a box and brackets made it read like a button when it
+is a status -- the copy follows underneath, and a short accent rule closes the block in place of
+the old footer line.
 
 ### Build outputs
 
@@ -569,11 +575,9 @@ SIZE_SMALL string kept as the partial-build fallback. The bar gained its eighth 
 
 **2. Pengaturan.** The page is now Audio / Help / Back. Two rows left it: **Controls**, whose
 bindings were folded into Help so the two pages cannot disagree about what a key does, and the
-note pointing at the Hardcore shop row. Hardcore itself has also gone from Toko → Beli Upgrade →
-Lainnya, so the shop's only non-levelled row is Refund All again. The mechanic is deliberately
-*not* deleted: `SaveStore` still keeps the hardcore bit and `RunWorld` still reads it for
-Endless Mode, so existing saves stay readable and the row is a one-line catalog change to bring
-back. See "Pengaturan dan Toko" below.
+note that read "Hardcore kini ada di Toko (tab Lainnya)". Only the note went — the Hardcore row
+itself stays in Toko → Beli Upgrade → Lainnya and still toggles the bit `RunWorld` reads for
+Endless Mode.
 
 **3. Toko layout and flow.** The TOKO heading is centred and the coin balance moved to the
 top-right of the title band on every Toko-family page (`drawCoin`). Beli Upgrade's three tabs

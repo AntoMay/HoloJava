@@ -62,13 +62,18 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     /** Rows the shop draws per screen; the rest are reached by scrolling. */
     private static final int SHOP_PAGE_SIZE = 5;
     /**
-     * Line pitch on the CREDITS page. Three centred blocks have to fit between the title band
-     * (ends at row 40) and the page edge (row 240), which is what fixes this rather than leaving
-     * it to taste. The last row lands on {@code 78 + 10 * CREDIT_LINE_GAP}, so 14 is the largest
-     * value that still clears the edge once the ~13px font height is added; 15 overflows by one
-     * pixel. UiStateMachineTest [7e] walks this arithmetic. See {@link #drawCredits}.
+     * Line pitch on the CREDITS page, and the bounds of its scrolling window.
+     *
+     * <p>The page scrolls, so unlike the old single-screen version the pitch is free to be as
+     * comfortable as the small font allows rather than being squeezed by a fixed block count.
+     * {@link #CREDIT_TOP} clears the title band (40px) and {@link #CREDIT_BOTTOM} leaves room for
+     * the scroll marker; {@link #creditVisibleRows()} follows from the two.
      */
     private static final int CREDIT_LINE_GAP = 14;
+    private static final int CREDIT_TOP = 48;
+    private static final int CREDIT_BOTTOM = 222;
+    /** Row that draws as a divider rather than text. See {@link #buildCreditRows}. */
+    private static final String CREDIT_RULE = "--";
 
     /**
      * Gameplay key bindings.
@@ -119,6 +124,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // else even with the same left edge; -12 pulls her back in line. The rest of the art is
     // already centred on its canvas and needs no correction.
     private static final int[] IDOL_SPRITE_DX = { 0, 0, -12, 0, 0 };
+    /**
+     * Top of every page heading, measured from the top of the screen. Shared by the generic
+     * {@code title()} and by CHOOSE YOUR IDOL's own heading so the two cannot drift: the same
+     * word must not sit at two different heights depending on which screen drew it.
+     */
+    private static final int TITLE_TOP = 8;
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
@@ -222,6 +233,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private boolean buyConfirm;
     /** Heading of the currently open placeholder page (Papan Peringkat / Pencapaian / Holo House). */
     private String lockedTitle = "TERKUNCI";
+    /** Scroll offset of the CREDITS page, in rows. Reset whenever the page is opened. */
+    private int creditsScroll = 0;
     /**
      * Animation clock for the title screens. update(long) records the render loop's tick here
      * once per frame, so the draw code only ever reads it and never calls the clock itself; the
@@ -407,7 +420,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         else if (screen == UPGRADES) updateUpgrades(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == ARMORY) updateArmory(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
         else if (screen == LOCKED) updateLocked(fireEdge || leftEdge || rightEdge);
-        else if (screen == CREDITS) updateCredits(fireEdge || leftEdge || rightEdge);
+        else if (screen == CREDITS) updateCredits(upEdge, downEdge, fireEdge || leftEdge || rightEdge);
         else if (screen == STAGES) updateStages(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
         else if (screen == SETTINGS) updateSettings(upEdge, downEdge, fireEdge, leftEdge || rightEdge);
         else if (screen == HELP) updateHelp(upEdge, downEdge, fireEdge, leftEdge, rightEdge);
@@ -426,7 +439,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             case MAIN_PLAY: screen = CHOOSE_IDOL; menuIndex = characterIndex; idolAnimFrame = 0; idolAnimTimer = 0; break;
             case MAIN_HOLOHOUSE: openLocked("HOLO HOUSE"); break;
             case MAIN_SETTINGS: screen = SETTINGS; menuIndex = 0; break;
-            case MAIN_CREDITS: screen = CREDITS; break;
+            case MAIN_CREDITS: screen = CREDITS; creditsScroll = 0; break;
             case MAIN_EXIT:
                 exitRequested = true;
                 stopped = true;
@@ -613,8 +626,30 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (back) screen = MENU;
     }
 
-    private void updateCredits(boolean back) {
+    /**
+     * Credits navigation: Up/Down scroll the page, FIRE or L/R leaves it.
+     *
+     * <p>The scroll is clamped so the last row of the text is the last row reachable -- pressing
+     * Down at the bottom stops rather than running on into blank space below the list, the same
+     * rule the idol status list follows.
+     */
+    private void updateCredits(boolean up, boolean down, boolean back) {
+        if (up) {
+            if (creditsScroll > 0) creditsScroll--;
+            return;
+        }
+        if (down) {
+            if (creditsScroll < creditsMaxScroll()) creditsScroll++;
+            return;
+        }
         if (back) screen = MENU;
+    }
+
+    /** Largest scroll offset that still fills the window with text. */
+    private int creditsMaxScroll() {
+        int rows = buildCreditRows().length;
+        int max = rows - creditVisibleRows();
+        return max > 0 ? max : 0;
     }
 
     /** Keeps the highlighted row inside the visible window as a list of the given length scrolls. */
@@ -648,6 +683,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             return;
         }
         refundConfirm = false;
+        if (def.buyKind == ContentCatalog.BUY_TOGGLE) {
+            buyConfirm = false;
+            save.setHardcore(!save.hardcore());
+            return;
+        }
         int level = save.upgradeLevel(upgradeIndex);
         long cost = ContentCatalog.upgradeCost(def, level);
         if (cost < 0) return;                            // already maxed: nothing to ask
@@ -1028,12 +1068,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      */
     private void drawChooseIdol(Graphics g, int x, int y) {
         // ===== HEADER: CHOOSE YOUR IDOL (Y=0-40, centred in the blue band) =====
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_LARGE);
-        String titleText = "CHOOSE YOUR IDOL";
-        int titleX = x + (Viewport.MIN_W - f.stringWidth(titleText)) / 2;
-        g.setFont(f);
-        g.drawString(titleText, titleX, y + 8, Graphics.TOP | Graphics.LEFT);
+        // Drawn through the same helper and the same TITLE_TOP as every other page heading, so
+        // the reference heading and the pages that follow it cannot drift apart.
+        title(g, x, y, "CHOOSE YOUR IDOL");
 
         // ===== GRID: 5 karakter (Y=30-108, boxes at Y=41-97) =====
         int charCount = ContentCatalog.CHARACTERS.length; // 5
@@ -1326,7 +1363,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * "Shop" page is gone, and its Skill Pasif row with it, because the skill is free forever now.
      */
     private void drawShop(Graphics g, int x, int y) {
-        titleCentered(g, x, y, "TOKO");
+        title(g, x, y, "TOKO");
         drawCoin(g, x, y, save.coinBalance());
         String[] items = { "Beli Upgrade", "Armory", "Keluar" };
         list(g, x, y + 70, items, menuIndex);
@@ -1440,9 +1477,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
     }
 
-    /** Level a row displays: actions have no level, everything else reads the stored one. */
+    /** Level a row displays: Hardcore reads the settings bit, actions have no level. */
     private int shopRowLevel(ContentCatalog.UpgradeDef def, int upgradeIndex) {
         if (def == null) return 0;
+        if (def.buyKind == ContentCatalog.BUY_TOGGLE) return save.hardcore() ? 1 : 0;
         if (def.buyKind == ContentCatalog.BUY_ACTION) return 0;
         return save.upgradeLevel(upgradeIndex);
     }
@@ -1463,6 +1501,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (def.buyKind == ContentCatalog.BUY_ACTION) {
             ink(g);
             drawText(g, x + 12, rowY, label + "  (aksi)", style, Font.SIZE_SMALL);
+            return;
+        }
+        if (def.buyKind == ContentCatalog.BUY_TOGGLE) {
+            ink(g);
+            drawText(g, x + 12, rowY, label + ": " + (save.hardcore() ? "ON" : "OFF"),
+                    style, Font.SIZE_SMALL);
             return;
         }
         int level = save.upgradeLevel(upgradeIndex);
@@ -1546,63 +1590,109 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Credits, laid out as three centred blocks: who made it, what it is based on, and who to
-     * thank.
+     * Credits, as a scrolling list of centred rows.
      *
-     * <p>Every line is centred from its measured width, so nothing has to be nudged by eye. The
-     * vertical budget is the whole constraint here. The title band ends at row 40 and the page
-     * ends at 240; the last row lands on {@code 78 + 10 * CREDIT_LINE_GAP} and the small font is
-     * about 13px tall, so the pitch is set by what is left over. That is also why the thanks are
-     * one line rather than two: an extra row pushes the pitch under the font height, and the rows
-     * stop reading as separate lines.
+     * <p>The text is longer than one screen, so it is data rather than a hand-stepped sequence of
+     * draw calls: {@link #buildCreditRows()} returns one string per row and the page scrolls by
+     * rows. That means adding a credit is a one-line edit that cannot break the layout, where the
+     * earlier version had to have its coordinates re-counted.
      *
-     * <p>The blocks do not scroll. Adding a line means finding the room for it, not lowering the
-     * gap.
+     * <p>Every row is centred from its measured width, so nothing is positioned by eye. A row
+     * equal to {@link #CREDIT_RULE} draws as a short accent rule instead of text, which is how the
+     * blocks are separated. The window is {@link #creditVisibleRows()} rows tall; Down stops at
+     * {@link #creditsMaxScroll()} so the last credit is the last row reachable, and a position
+     * marker shows how much is left below.
      */
     private void drawCredits(Graphics g, int x, int y) {
         title(g, x, y, "CREDITS");
 
-        int ty = y + 40;
-        ink(g);
-        drawCentered(g, ty, "HOLOJAVA", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
-        ty += 18;
-        drawCentered(g, ty, "Game Java ME bergaya HoloCure", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty += CREDIT_LINE_GAP;
-        drawCentered(g, ty, "by AntoMay", Font.STYLE_BOLD, Font.SIZE_SMALL);
-        ty += CREDIT_LINE_GAP;
-        drawCentered(g, ty, "facebook.com/epoy.saputra.73", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty = creditsRule(g, x, ty);
+        String[] rows = buildCreditRows();
+        int visible = creditVisibleRows();
+        int first = creditsScroll;
+        if (first > rows.length - visible) first = rows.length - visible;
+        if (first < 0) first = 0;
 
-        drawCentered(g, ty, "BERBASIS PADA", Font.STYLE_BOLD, Font.SIZE_SMALL);
-        ty += CREDIT_LINE_GAP;
-        drawCentered(g, ty, "HoloCure, fan game hololive", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty += CREDIT_LINE_GAP;
-        drawCentered(g, ty, "oleh kayfstarter", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty += CREDIT_LINE_GAP;
-        drawCentered(g, ty, "holocure.wiki.gg (Update 0.7)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        ty = creditsRule(g, x, ty);
+        int ty = y + CREDIT_TOP;
+        for (int i = first; i < rows.length && i < first + visible; i++) {
+            String row = rows[i];
+            if (CREDIT_RULE.equals(row)) {
+                creditsRule(g, x, ty);
+            } else if (row.length() > 0) {
+                boolean heading = creditIsHeading(row);
+                ink(g);
+                drawCentered(g, ty, row, heading ? Font.STYLE_BOLD : Font.STYLE_PLAIN,
+                        Font.SIZE_SMALL);
+            }
+            ty += CREDIT_LINE_GAP;
+        }
 
-        drawCentered(g, ty, "TERIMA KASIH", Font.STYLE_BOLD, Font.SIZE_SMALL);
-        ty += CREDIT_LINE_GAP;
-        drawCentered(g, ty, "kepada Hololive member & penggemarnya",
-                Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        drawCreditsScrollMarker(g, x, y, first, rows.length, visible);
     }
 
     /**
-     * A short centred accent rule closing a credits block; returns the y the next block starts at.
+     * The credits text. One entry per row, in reading order.
      *
-     * <p>The rule is dropped a full line pitch below the last row rather than a few pixels under
-     * it. {@code y} here is the top of that row, and the small font renders about 13px tall, so a
-     * rule any closer lands inside the glyphs and strikes through them. A pitch of 17 leaves the
-     * row's descenders clear and still fits the page.
+     * <p>{@link #CREDIT_RULE} separates blocks and an empty string is a deliberate blank line;
+     * both are needed because the rules sit a row apart from the text they divide. Headings are
+     * recognised by {@link #creditIsHeading}, so a heading can be restyled without reformatting
+     * the text.
      */
-    private int creditsRule(Graphics g, int x, int y) {
+    private String[] buildCreditRows() {
+        return new String[] {
+            "HOLOJAVA", "Game Java ME bergaya HoloCure", CREDIT_RULE,
+            "PENULIS", "by AntoMay", "facebook.com/epoy.saputra.73", CREDIT_RULE,
+            "INSPIRASI", "HoloCure, fan game hololive", "oleh kayfstarter", CREDIT_RULE,
+            "SUMBER DATA", "holocure.wiki.gg (Update 0.7)",
+            "Data karakter, senjata, item,", "harga dan stage disusun dari sana.", CREDIT_RULE,
+            "TEKNOLOGI", "Java ME (MIDP 2.0) untuk HP", "MIDP 1.1 untuk perangkat lama",
+            "Bebas framework, tanpa aset curian.", CREDIT_RULE,
+            "PROYEK", "Kode, stage dan tata letak", "HoloJava oleh AntoMay", CREDIT_RULE,
+            "TERIMA KASIH", "kepada para Hololive member", "dan komunitas penggemarnya",
+            "", "Sampai jumpa di stage berikutnya."
+        };
+    }
+
+    /** Headings are the short upper-case rows; the rest are ordinary text. */
+    private static boolean creditIsHeading(String row) {
+        if (row.length() < 3) return false;
+        for (int i = 0; i < row.length(); i++) {
+            char c = row.charAt(i);
+            if (c >= 'a' && c <= 'z') return false;
+        }
+        return true;
+    }
+
+    /** How many credit rows fit between {@link #CREDIT_TOP} and the scroll marker. */
+    private static int creditVisibleRows() {
+        return (CREDIT_BOTTOM - CREDIT_TOP) / CREDIT_LINE_GAP;
+    }
+
+    /**
+     * A scroll marker under the list.
+     *
+     * <p>Credits used to fit on one screen, so nothing told the reader there was more. It only
+     * appears while there is more below, which is when it is useful; at the very bottom of the
+     * list it disappears rather than showing an empty track.
+     */
+    private void drawCreditsScrollMarker(Graphics g, int x, int y, int first, int total,
+            int visible) {
+        int more = total - (first + visible);
+        if (more <= 0) return;
+        int trackW = 96;
+        int trackX = x + (Viewport.MIN_W - trackW) / 2;
+        int trackY = y + CREDIT_BOTTOM + 4;
         g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-        int ruleY = y + CREDIT_LINE_GAP + 2;
+        g.fillRect(trackX, trackY, trackW, 2);
+        int thumbW = trackW * visible / total;
+        if (thumbW < 6) thumbW = 6;
+        g.fillRect(trackX, trackY, thumbW, 2);
+    }
+
+    /** A short centred accent rule between credit blocks. */
+    private void creditsRule(Graphics g, int x, int y) {
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         int ruleW = 72;
-        g.fillRect(x + (Viewport.MIN_W - ruleW) / 2, ruleY, ruleW, 1);
-        ink(g);
-        return ruleY + 8;
+        g.fillRect(x + (Viewport.MIN_W - ruleW) / 2, y + 5, ruleW, 1);
     }
 
     private void drawStages(Graphics g, int x, int y) {
@@ -1780,17 +1870,24 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         list(g, x, y + 185, items, resultIndex);
     }
 
+    /**
+     * Page heading, centred on the canvas and sitting at the same height as CHOOSE YOUR IDOL.
+     *
+     * <p>This used to draw at a fixed {@code x + 90}, which only lined up by accident for
+     * headings of one particular length — short ones sat visibly left of centre and long ones
+     * ran off the right. Centring from the measured width fixes both and makes every page agree
+     * with the Choose Your Idol heading, which is the reference the rest of the UI was laid out
+     * against.
+     *
+     * <p>{@code TITLE_TOP} is shared with {@code drawChooseIdol} on purpose: the two must not
+     * drift apart, or the same heading sits at two different heights depending on the screen.
+     */
     private void title(Graphics g, int x, int y, String text) {
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        drawText(g, x + 90, y + 18, text, Font.STYLE_BOLD, Font.SIZE_LARGE);
-    }
-
-    /** Centred variant of title(), for the short TOKO heading that sat visibly left at x+90. */
-    private void titleCentered(Graphics g, int x, int y, String text) {
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_LARGE);
-        drawText(g, x + (Viewport.MIN_W - f.stringWidth(text)) / 2, y + 18, text,
-                Font.STYLE_BOLD, Font.SIZE_LARGE);
+        g.setFont(f);
+        g.drawString(text, x + (Viewport.MIN_W - f.stringWidth(text)) / 2, y + TITLE_TOP,
+                Graphics.TOP | Graphics.LEFT);
     }
 
     /** Coin balance pinned to the top-right corner of every Toko-family page, in the title band. */
