@@ -77,7 +77,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int IDOL_BOX_W = 48;                  // 48px width
     private static final int IDOL_BOX_H = 56;                  // 56px height
     private static final int IDOL_GRID_X = 24;                 // start x: (320 - (5*48 + 4*8)) / 2 = 24
-    private static final int IDOL_GRID_Y = 41;                 // start y: centered in Y=30-108 area (30+11)
+    private static final int IDOL_GRID_Y = 42;                 // Y=42: 16px gap from title bottom (y+26) and 16px to panel (114-98)
     private static final int IDOL_GAP = 8;                     // gap antar kotak
     // Panel detail (exact layout per spec)
     private static final int IDOL_PANEL_X = 12;
@@ -1003,7 +1003,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         String titleText = "CHOOSE YOUR IDOL";
         int titleX = x + (Viewport.MIN_W - f.stringWidth(titleText)) / 2;
         g.setFont(f);
-        g.drawString(titleText, titleX, y + 10, Graphics.TOP | Graphics.LEFT);
+        g.drawString(titleText, titleX, y + 12, Graphics.TOP | Graphics.LEFT);
 
         // ===== GRID: 5 karakter (Y=30-108, boxes at Y=41-97) =====
         int charCount = ContentCatalog.CHARACTERS.length; // 5
