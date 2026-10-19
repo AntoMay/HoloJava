@@ -750,7 +750,9 @@ public final class CharacterShopTest {
         expectEq(getInt(w, "atkPercentBonus"),
             ContentCatalog.upgrade(atk).value * 3, "three ATK levels give three times the value");
         expectEq(getInt(w, "defensePercent"),
-            ContentCatalog.upgrade(def).value * 4, "defense is populated");
+                ContentCatalog.CHARACTERS[0].defensePercent
+                        + ContentCatalog.upgrade(def).value * 4,
+                "defense is the character's own reduction plus four levels of Defense Up");
         expectEq(getInt(w, "speedPercentBonus"),
             ContentCatalog.upgrade(spd).value * 4, "speed is populated");
         expectEq(getInt(w, "pickupPercentBonus"),

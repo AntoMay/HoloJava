@@ -195,6 +195,12 @@ final class RunWorld {
     private int expPercentBonus;
     private int defensePercent;
     /**
+     * Ceiling on the shop's own Defense Up contribution, matching the "-3% per level (maks 15%)"
+     * the row advertises. The character's built-in {@code defensePercent} is a separate stat and
+     * is not counted against this.
+     */
+    private static final int DEFENSE_UP_MAX_PCT = 15;
+    /**
      * Percent added to the coin VALUE of an enemy drop, from the shop's Money Gain Up row
      * (+20% per level, wiki cap +200%). The drop roll itself — {@code rand(def.coinChance) == 0} —
      * is never touched by the shop, so the bonus scales what a dropped coin is worth instead of
@@ -1586,7 +1592,10 @@ final class RunWorld {
 
     private void recomputeStats() {
         atkPercentBonus = 0; hastePercent = 0; speedPercentBonus = 0;
-        pickupPercentBonus = 0; critPercentBonus = 0; expPercentBonus = 0; defensePercent = 0;
+        pickupPercentBonus = 0; critPercentBonus = 0; expPercentBonus = 0;
+        // Reduction is rebuilt from the character's own stat plus the shop's clamped contribution
+        // further down, so nothing is carried over from a previous call.
+        int shopDefense = 0;
         coinDropBonus = 0; foodDropBonus = 0;
         int maxHp = baseMaxHp;
         for (int i = 0; i < itemCount; i++) {
@@ -1619,13 +1628,19 @@ final class RunWorld {
             else if (p.effect == ContentCatalog.EFFECT_CRIT_PCT) critPercentBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_EXP_PCT) expPercentBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_HASTE_PCT) hastePercent += v;
-            else if (p.effect == ContentCatalog.EFFECT_DEFENSE_PCT) defensePercent += v;
+            else if (p.effect == ContentCatalog.EFFECT_DEFENSE_PCT) shopDefense += v;
             else if (p.effect == ContentCatalog.EFFECT_PICKUP_PCT) pickupPercentBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_COIN_PCT) coinDropBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_FOOD_DROP) foodDropBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_REGEN) regenHeal += v;
         }
         regenHealPerTick = regenHeal;
+        // Defense Up advertises "-3% damage diterima per level (maks 15%)", so the shop's own
+        // contribution is clamped to that rather than to the character's total. Clamping the total
+        // instead would silently eat into a character's built-in reduction, which is a different
+        // number with a different owner.
+        if (shopDefense > DEFENSE_UP_MAX_PCT) shopDefense = DEFENSE_UP_MAX_PCT;
+        defensePercent = (character != null ? character.defensePercent : 0) + shopDefense;
         // Money Gain Up tops out at +200% per the wiki, and the coin VALUE is all it moves.
         if (coinDropBonus > 200) coinDropBonus = 200;
         // Hardcore pins Endless to 1 HP and is a deliberate rule, so it outranks a purchased upgrade.

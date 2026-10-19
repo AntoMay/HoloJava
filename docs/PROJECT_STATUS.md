@@ -129,6 +129,34 @@ the real input handler.
 so a long balance ran into the title. It is now at `y + 28` (`COIN_TOP`), which clears the heading
 and still lands inside the 40px title band.
 
+**Contact damage was gated on the inverse condition.** `nextAttack` is a "not ready until" stamp,
+and every other attack path — bomber, shooter, charger, orbit charger, boss — gates on
+`now >= e.nextAttack`. The contact branch had it the other way round, so a chaser could only bite
+while its cooldown was *pending*: it hurt you for the first second of its life and was harmless
+forever after. Stage 1 is built entirely from chasers (shrimp, dark shrimp) with no bomber, shooter
+or orbit charger to fall back on, so once an enemy survived its first second the stage had no
+working damage source and the HP readout never moved. Sawit and Fantasy Island felt normal because
+their mixes lean on paths that were never affected. It was never character-specific: one 24×24
+hitbox for all five characters, now `PLAYER_HIT_W`/`PLAYER_HIT_H`. Two tests had pinned the
+inverted behaviour as intended — `RunWorldEnemyAiTest` [3] said outright that a fresh spawn's
+future `nextAttack` "is what arms contact damage" — and are rewritten.
+
+**Damage reduction.** Characters had no defence stat at all: the wiki tables carry HP, ATK, SPD
+and CRT but no defence column, so every character took identical damage and the bigger ones were
+simply better. `CharacterDef.defensePercent` is our own balance stat, set so the larger characters
+trade some reduction for their larger pool rather than being strictly better — Gura 4% (smallest
+pool), Ame 6%, Calli 6%, Ina 6%, Kiara 10% (largest pool). It is our own number, not documented
+data. It stacks with the shop's Defense Up, which is clamped to the 15% the row advertises so that
+the two numbers have separate owners; `recomputeStats()` rebuilds reduction from the character's
+base rather than from zero, which is what stops a repeated call compounding it.
+
+**Shop wiring audit.** All 34 rows reach the run: 11 through an `EFFECT_*` that `recomputeStats()`
+folds in, and the rest through flags the run actually reads (`specialLocked`, `rerolls`, `holds`,
+`marketingLevel`, `weaponLimitLevel`, `itemLimitLevel`, `collabBan`, plus the Hardcore rule and the
+Refund All action). No row is a purchase that costs coins and changes nothing.
+`RunWorldDefenseTest` holds that as a test rather than as a one-off check, so a future row added
+without wiring fails instead of shipping.
+
 ### Build outputs
 
 `tools/build_all.sh` empties `dist/` and rebuilds everything. The layout is by target

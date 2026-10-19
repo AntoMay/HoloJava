@@ -539,10 +539,17 @@ public final class RunWorldLifecycleIntegrationTest {
         set(w, "shield", Integer.valueOf(10));
         set(w, "playerHp", Integer.valueOf(50));
         int before = w.playerHp();
+        int defense = getInt(w, "defensePercent");
+        int incoming = 6;
+        int expected = Math.max(1, incoming * (100 - defense) / 100);
         call(w, "damagePlayer", new Class<?>[] { int.class, long.class },
-                new Object[] { Integer.valueOf(6), Long.valueOf(now) });
+                new Object[] { Integer.valueOf(incoming), Long.valueOf(now) });
         expectEq(w.playerHp(), before, "health was untouched while the shield covered the hit");
-        expectEq(getInt(w, "shield"), 4, "and the shield paid the whole 6 points");
+        // The shield absorbs what actually reaches it, which is the hit after this character's
+        // own reduction -- the shield is not a way around Defense Up or the character's stat.
+        expectEq(getInt(w, "shield"), 10 - expected,
+                "the shield paid the " + expected + " points that survived a " + defense
+                        + "% reduction, not the raw " + incoming);
 
         // Invulnerability makes damage a no-op outright.
         set(w, "invulUntil", Long.valueOf(now + 5000L));

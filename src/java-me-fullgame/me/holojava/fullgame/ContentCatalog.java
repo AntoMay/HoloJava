@@ -89,6 +89,15 @@ final class ContentCatalog {
         int atkPercent;
         int spdPercent;
         int critPercent;
+        /**
+         * Flat damage reduction this character starts a run with, in percent, before any shop
+         * Defense Up is added. The wiki character tables carry HP, ATK, SPD and CRT but no defence
+         * column, so this is our own balance stat rather than documented data, and it is set so
+         * that the bigger, tougher characters trade a little damage reduction for their larger HP
+         * pool instead of simply being strictly better. It stacks additively with the shop's
+         * Defense Up, which is why it is a flat percent and not a multiplier.
+         */
+        int defensePercent;
         int size;
         String mainWeapon;
         String special;
@@ -233,11 +242,16 @@ final class ContentCatalog {
     // character indices 0-4 (AssetLibrary.groupIndex), and each entry's mainWeapon must
     // resolve against BASE_WEAPONS for validate() to pass.
     static final CharacterDef[] BASE_CHARACTERS = {
-        character("gura", "Gawr Gura", 65, 110, 140, 5, 1, "trident_thrust", "Shark Call", "Shark Bite", true, "Gura"),
-        character("ame", "Amelia Watson", 75, 130, 135, 10, 3, "pistol_shot", "Slow Time", "Hunter's Instinct", true, "Ame"),
-        character("calli", "Mori Calliope", 70, 115, 130, 10, 4, "scythe_swing", "The Reaper", "Undying", true, "Calli"),
-        character("kiara", "Takanashi Kiara", 90, 100, 140, 5, 3, "phoenix_sword", "Phoenix Fire", "Second Flame", true, "Kiara"),
-        character("ina", "Ninomae Inanis", 75, 90, 150, 1, 1, "summon_tentacle", "Spirit of the Oni", "The Ancient One", true, "Ina")
+        // Base damage reduction per character, in percent, before any shop Defense Up. The wiki tables
+        // carry no defence column, so this is our own balance stat: the larger the character, the
+        // more of each hit they shrug off, which keeps Kiara's 90 HP from making her strictly
+        // better than everyone else. Gura carries the least because she also has the smallest
+        // pool, and the gap between her and Kiara is deliberately narrow so no pick is wasted.
+        character("gura", "Gawr Gura", 65, 110, 140, 5, 1, "trident_thrust", "Shark Call", "Shark Bite", true, "Gura", false, 4),
+        character("ame", "Amelia Watson", 75, 130, 135, 10, 3, "pistol_shot", "Slow Time", "Hunter's Instinct", true, "Ame", false, 6),
+        character("calli", "Mori Calliope", 70, 115, 130, 10, 4, "scythe_swing", "The Reaper", "Undying", true, "Calli", false, 6),
+        character("kiara", "Takanashi Kiara", 90, 100, 140, 5, 3, "phoenix_sword", "Phoenix Fire", "Second Flame", true, "Kiara", false, 10),
+        character("ina", "Ninomae Inanis", 75, 90, 150, 1, 1, "summon_tentacle", "Spirit of the Oni", "The Ancient One", true, "Ina", false, 6)
     };
 
     static final CharacterDef[] CHARACTERS = WikiCatalogData.buildCharacters(BASE_CHARACTERS);
@@ -623,17 +637,26 @@ final class ContentCatalog {
 
     static CharacterDef character(String id, String name, int hp, int atk, int spd, int crit,
             int size, String weapon, String special, String skill, boolean playable, String group) {
-        return character(id, name, hp, atk, spd, crit, size, weapon, special, skill, playable, group, false);
+        return character(id, name, hp, atk, spd, crit, size, weapon, special, skill, playable, group,
+                false, 0);
     }
 
     static CharacterDef character(String id, String name, int hp, int atk, int spd, int crit,
             int size, String weapon, String special, String skill, boolean playable, String group,
             boolean fallbackArt) {
+        return character(id, name, hp, atk, spd, crit, size, weapon, special, skill, playable,
+                group, fallbackArt, 0);
+    }
+
+    static CharacterDef character(String id, String name, int hp, int atk, int spd, int crit,
+            int size, String weapon, String special, String skill, boolean playable, String group,
+            boolean fallbackArt, int defensePercent) {
         CharacterDef d = new CharacterDef();
         d.id = id; d.name = name; d.hp = hp; d.atkPercent = atk; d.spdPercent = spd;
         d.critPercent = crit; d.size = size; d.mainWeapon = weapon; d.special = special;
         d.skill = skill; d.playable = playable; d.assetGroup = group;
         d.fallbackArt = fallbackArt; d.gameplayApproximation = fallbackArt;
+        d.defensePercent = defensePercent;
         return d;
     }
 
