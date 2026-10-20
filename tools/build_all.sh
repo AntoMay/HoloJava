@@ -2,9 +2,9 @@
 # Builds every artifact into dist/, from a clean slate.
 #
 #   dist/DevBuild/mobile/HoloJavaFullGame.jar            dev, preverified for a phone
-#   dist/DevBuild/desktop/HoloJavaFullGame-desktop.jar   dev, FreeJ2ME-Plus
+#   dist/DevBuild/desktop/HoloJavaFullGame.jar           dev, FreeJ2ME-Plus
 #   dist/Public/mobile/HoloJavaFullGame.jar              public, preverified
-#   dist/Public/desktop/HoloJavaFullGame-desktop.jar     public, FreeJ2ME-Plus
+#   dist/Public/desktop/HoloJavaFullGame.jar             public, FreeJ2ME-Plus
 #
 # The two builds differ in exactly one thing: the compiled-in starting coin
 # capital. Development ships a large balance so the shop can be driven without
