@@ -40,6 +40,14 @@ wiki-sourced boss figure are untouched; rationale in the comment over `BASE_WEAP
 `RunWorldWeaponHitboxTest`'s fixture gained the pickup pool, because a covered enemy now dies and
 a kill drops EXP through the production path.
 
+**Done 2026-10-20 (title roster):** the Main Menu crowd now stands as the original's does — every
+playable talent exactly once, all 47 of them. The old collage's strict `spr_*_idle` pattern
+skipped Gura's capital-I `spr_Gura_Idle` (46 talents at most), it mixed in the seven Holo House
+critters, and its fill loop wrapped around the directory list so half the strip was duplicates.
+`tools/prepare_title_menu_assets.py` matches the pattern case-insensitively, excludes the
+critters, and spaces each row from its own sprites instead of wrapping; the rest of the title
+assets rebuilt byte-identical.
+
 **Known follow-ups from the same audit (not yet done):** per-frame allocation in the render
 path, `AssetLibrary.prepareStage` leaking `framesM`, no integrity check over the save record,
 duplicated helpers and dead classes, the legacy `src/java-me-{first-slice,phase3,diagnostic}`

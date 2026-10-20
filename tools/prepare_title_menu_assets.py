@@ -6,9 +6,10 @@ extraction tools use. MIDP 2.0 cannot scale images at runtime, so every output i
 already at its display size:
 
   ui/title_bg.png      320x240  stage backdrop (hud_new_title_BG, center-cropped)
-  ui/menu_cast.png     320x116  transparent collage of character idle sprites,
-                                laid out in four staggered rows like the game's
-                                roster crowd behind the logo
+  ui/menu_cast.png     320x116  transparent crowd of every playable talent's idle
+                                sprite, exactly once each (47 in the source build;
+                                the seven Holo House critters stay out), laid out in
+                                four staggered rows like the game's title roster
   ui/menu_icon_0..7    halved hud_title_icons (the eight bar entries we use,
                                 frame 7 the red X for the Keluar entry)
   ui/menu_label.png    116x20   the gold-bordered label box (menu_first frame 0),
@@ -67,8 +68,13 @@ def title_background(source: Path) -> Image.Image:
 
 
 def base_idle_dirs(source: Path):
-    """Base-costume idle sprite dirs: spr_<Name>_idle, without the O1+ outfit variants."""
-    pattern = re.compile(r"^spr_[A-Za-z0-9]+_idle$")
+    """Base-costume idle sprite dirs: spr_<Name>_idle, without the O1+ outfit variants.
+
+    Case-insensitive on purpose: the only base dir spelled with a capital I is
+    Gura's ``spr_Gura_Idle``, and the strict match silently dropped her from the
+    roster -- 46 talents instead of the game's 47.
+    """
+    pattern = re.compile(r"^spr_[A-Za-z0-9]+_idle$", re.IGNORECASE)
     sprites = source / "sprites"
     return sorted(d for d in sprites.iterdir() if d.is_dir() and pattern.match(d.name))
 
@@ -79,37 +85,70 @@ def load_trimmed(path: Path) -> Image.Image:
     return im.crop(bbox) if bbox else im
 
 
+# The seven Holo House critter ids (bug-catch / fishing mascots). They match the
+# base-idle shape above but they are not hololive talents, and the original's
+# title crowd is the talent roster itself -- the wiki describes the 0.5+
+# title screen as "all of the hololive members featured in a group" -- so these
+# never stand in it.
+CRITTER_IDS = frozenset({
+    "spr_Beetle_idle", "spr_Bunny_idle", "spr_Cat_idle", "spr_Dog_idle",
+    "spr_Goriela_idle", "spr_Monkey_idle", "spr_Penguin_idle",
+})
+
+
 def character_collage(source: Path) -> Image.Image:
-    """Four staggered rows of chibis, front rows slightly larger, over transparency.
+    """Four staggered rows holding every talent exactly once, over transparency.
+
+    The crowd is the roster: the seven Holo House critters are left out and no
+    talent repeats to fill space. The old version wrapped around the directory
+    list once it ran past ~53 entries, so half the strip was duplicates of a
+    roster that was itself missing Gura; instead each row now derives its
+    spacing from its own sprites and spans the strip however they pack.
 
     Deterministic: the same seed always rebuilds the same crowd, so the asset only
     changes when the script or the source art does.
     """
     rng = random.Random(20261018)
-    dirs = base_idle_dirs(source)
+    dirs = [d for d in base_idle_dirs(source) if d.name not in CRITTER_IDS]
     if not dirs:
-        raise SystemExit("no base idle sprite dirs found under %s/sprites" % source)
+        raise SystemExit("no talent idle sprite dirs found under %s/sprites" % source)
     rng.shuffle(dirs)
 
     canvas = Image.new("RGBA", (CAST_W, CAST_H), (0, 0, 0, 0))
     # Row tops and heights: back rows smaller and higher, front rows bigger.
     rows = [(2, 24), (28, 26), (56, 28), (84, 30)]
+    # Split the roster across the rows in proportion to row height (largest
+    # remainder), so the taller front rows hold slightly fewer, wider chibis.
+    total_height = float(sum(height for _, height in rows))
+    shares = [len(dirs) * height / total_height for _, height in rows]
+    counts = [int(share) for share in shares]
+    for i in sorted(range(len(rows)),
+                    key=lambda i: shares[i] - counts[i],
+                    reverse=True)[:len(dirs) - sum(counts)]:
+        counts[i] += 1
+
     cursor = 0
-    for row_index, (top, height) in enumerate(rows):
-        x = -rng.randint(0, 12) - row_index * 7   # stagger the row starts per row
-        while x < CAST_W:
-            if cursor >= len(dirs):
-                rng.shuffle(dirs)
-                cursor = 0
-            frame = load_trimmed(dirs[cursor] / (dirs[cursor].name + "_0.png"))
+    for row_index, ((top, height), count) in enumerate(zip(rows, counts)):
+        frames = []
+        for d in dirs[cursor:cursor + count]:
             cursor += 1
+            frame = load_trimmed(d / (d.name + "_0.png"))
             if frame.height < 4 or frame.width < 4:
                 continue
             scale = height / frame.height
             width = max(2, int(frame.width * scale))
-            frame = frame.resize((width, height), Image.BOX)
-            canvas.alpha_composite(frame, (x, top + rng.randint(0, 2)))
-            x += max(10, int(width * 0.72))       # dense overlap, like the roster crowd
+            frames.append(frame.resize((width, height), Image.BOX))
+        if not frames:
+            continue
+        start = -rng.randint(0, 10) - row_index * 7   # stagger the row starts per row
+        # One gap for the whole row: negative means overlap (a packed crowd),
+        # and the row still ends at CAST_W however wide the sprites came out.
+        gap = ((CAST_W - start - sum(f.width for f in frames)) / (len(frames) - 1)
+               if len(frames) > 1 else 0)
+        x = float(start)
+        for frame in frames:
+            canvas.alpha_composite(frame, (int(x), top + rng.randint(0, 2)))
+            x += frame.width + gap
     return canvas
 
 

@@ -169,7 +169,7 @@ assets/fullgame/ui/pickup_icon.png,sprites/hud_pickupicon/,PNG,16,16,RGBA,yes,HU
 assets/fullgame/ui/holocure_logo.png,sprites/spr_HoloCureTitle_full/,PNG,300,126,RGBA,yes,menu identity,high,HoloCure wordmark logo; pre-scaled 615x259 to 300x126 offline; aspect kept; 256 colours
 assets/fullgame/ui/holocure_logo_menu.png,sprites/spr_HoloCureTitle_full/,PNG,176,74,RGBA,yes,menu identity,high,HoloCure wordmark for the Main Menu column; pre-scaled 615x259 to 176x74 offline; aspect kept; 256 colours
 assets/fullgame/ui/holocure_icon.png,HoloCure/HoloCure.exe RT_ICON (id 4),PNG,32,32,RGBA,yes,MIDlet icon,high,32x32 frame extracted from the HoloCure PE icon group; ICO to PNG via PIL; alpha preserved
-assets/fullgame/ui/menu_cast.png,sprites/spr_*_idle/ (roster),PNG,320,116,RGBA,yes,title roster collage,high,Four staggered rows of base-costume idle sprites composed offline; drawn between the backdrop and the logo
+assets/fullgame/ui/menu_cast.png,sprites/spr_*_idle/ (roster),PNG,320,116,RGBA,yes,title roster collage,high,Four staggered rows of every playable talent's base-costume idle, exactly once each (47 in the source build, Holo House critters excluded), composed offline; drawn between the backdrop and the logo
 assets/fullgame/ui/menu_icon_0.png,sprites/hud_title_icons/,PNG,15,13,RGBA,yes,title bar icon,high,Papan Peringkat podium icon; pre-scaled 30x26 offline
 assets/fullgame/ui/menu_icon_1.png,sprites/hud_title_icons/,PNG,12,10,RGBA,yes,title bar icon,high,Pencapaian trophy icon; pre-scaled 24x21 offline
 assets/fullgame/ui/menu_icon_2.png,sprites/hud_title_icons/,PNG,11,12,RGBA,yes,title bar icon,high,Toko bag icon; pre-scaled 22x24 offline
