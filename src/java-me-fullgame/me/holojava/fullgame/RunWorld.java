@@ -2675,27 +2675,54 @@ final class RunWorld {
         }
         g.setColor(255, 255, 255);
 
-        // Run timer, top-centre like the original game, in white like the rest of the gameplay
-        // HUD (timeString cached per second).
+        // Run timer, top-centre like the original game, using yellow digit sprites.
         if (cachedTimeString == null || now - lastTimeStringUpdate >= 1000) {
             cachedTimeString = timeString();
             lastTimeStringUpdate = now;
         }
-        Font medium = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
-        g.setFont(medium);
-        g.drawString(cachedTimeString, offX + viewWidth / 2, offY + STATUS_LV_Y, Graphics.TOP | Graphics.HCENTER);
+        // Draw timer with yellow digit sprites (centered)
+        Image[] yellowDigits = assets.digitsYellow();
+        if (yellowDigits != null && yellowDigits.length >= 10) {
+            // Parse time components for sprite rendering
+            long s = elapsedSeconds(); long m = s / 60L; long h = m / 60L; m %= 60L; s %= 60L;
+            int timerX = offX + viewWidth / 2;
+            // Draw hours if > 0
+            if (h > 0) {
+                timerX = drawDigitsRightAlign(g, timerX, offY + STATUS_LV_Y, (int)h, assets.digitsYellow());
+                // Draw colon
+                g.setColor(255, 255, 255);
+                g.drawString(":", timerX + 1, offY + STATUS_LV_Y, Graphics.TOP | Graphics.LEFT);
+                timerX += 5;
+            }
+            // Draw minutes (always 2 digits)
+            int mInt = (int)m;
+            int startX = timerX;
+            drawDigitsRightAlign(g, startX + 14, offY + STATUS_LV_Y, mInt / 10, assets.digitsYellow());
+            drawDigitsRightAlign(g, startX, offY + STATUS_LV_Y, mInt % 10, assets.digitsYellow());
+            // Draw colon
+            g.setColor(255, 255, 255);
+            g.drawString(":", startX + 16, offY + STATUS_LV_Y, Graphics.TOP | Graphics.LEFT);
+            // Draw seconds (always 2 digits)
+            int sInt = (int)s;
+            drawDigitsRightAlign(g, startX + 30, offY + STATUS_LV_Y, sInt / 10, assets.digitsYellow());
+            drawDigitsRightAlign(g, startX + 16, offY + STATUS_LV_Y, sInt % 10, assets.digitsYellow());
+        } else {
+            // Fallback to string
+            Font medium = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+            g.setFont(medium);
+            g.drawString(cachedTimeString, offX + viewWidth / 2, offY + STATUS_LV_Y, Graphics.TOP | Graphics.HCENTER);
+        }
         g.setFont(small);
 
-        // Status run block, top-right, in run-card order: Lv with its EXP bar, the Status run
-        // label, Coins/Kill, and the wave counter. Graphics.RIGHT anchors each line to the
-        // right edge of the visible playfield, so the block tracks the viewport rather than
-        // the world: a world wider than the view would otherwise push it off screen.
+        // Status run block, top-right: Level with white digits
         int statusX = offX + viewWidth - STATUS_MARGIN;
         if (cachedLvString == null || playerLevel != lastPlayerLevel) {
             cachedLvString = "Lv " + playerLevel;
             lastPlayerLevel = playerLevel;
         }
-        g.drawString(cachedLvString, statusX, offY + STATUS_LV_Y, Graphics.TOP | Graphics.RIGHT);
+        g.setColor(255, 255, 255);
+        g.drawString("Lv ", statusX - assets.digitsWhite()[0].getWidth() * 3, offY + STATUS_LV_Y, Graphics.TOP | Graphics.RIGHT);
+        drawDigitsRightAlign(g, statusX, offY + STATUS_LV_Y, playerLevel, assets.digitsWhite());
 
         // EXP bar: animated frames from asset (90 frames at 76x3)
         Image[] expAnim = assets.expbarAnim();
@@ -2737,29 +2764,47 @@ final class RunWorld {
         g.setColor(255, 255, 255);
         g.drawString("Status run", statusX, offY + STATUS_LABEL_Y, Graphics.TOP | Graphics.RIGHT);
 
-        // Coins & Kill on one line (both counters cached together)
+        // Coins: "Coins " + yellow digits
         if (cachedCoinsKillString == null || coins != lastCoins || kills != lastKills) {
             cachedCoinsKillString = "Coins " + coins + "  Kill " + kills;
             lastCoins = coins;
             lastKills = kills;
         }
-        g.drawString(cachedCoinsKillString, statusX, offY + STATUS_COINS_Y, Graphics.TOP | Graphics.RIGHT);
+        // Draw "Coins " text then yellow digits for coins
+        int coinsX = statusX - g.getFont().stringWidth("Coins ");
+        g.drawString("Coins ", coinsX, offY + STATUS_COINS_Y, Graphics.TOP | Graphics.RIGHT);
+        drawDigitsRightAlign(g, coinsX - 2, offY + STATUS_COINS_Y, coins, assets.digitsYellow());
 
-        // Wave counter: timed wave groups fired this run, | the stage number.
+        // Kills: "  Kill " + yellow digits
+        int killsLabelX = coinsX - g.getFont().stringWidth("  Kill ");
+        g.drawString("  Kill ", killsLabelX, offY + STATUS_COINS_Y, Graphics.TOP | Graphics.RIGHT);
+        drawDigitsRightAlign(g, killsLabelX - 2, offY + STATUS_COINS_Y, kills, assets.digitsYellow());
+
+        // Wave counter: "W " + yellow digits + " | " + white digits for stage
         int currentWave = waveNumber();
         if (cachedWaveString == null || currentWave != lastWaveNumber) {
             cachedWaveString = "W " + currentWave + " | " + (stageIndex + 1);
             lastWaveNumber = currentWave;
         }
-        g.drawString(cachedWaveString, statusX, offY + STATUS_WAVE_Y, Graphics.TOP | Graphics.RIGHT);
+        int waveX = statusX;
+        g.drawString("W ", waveX - g.getFont().stringWidth("W "), offY + STATUS_WAVE_Y, Graphics.TOP | Graphics.RIGHT);
+        drawDigitsRightAlign(g, waveX - 2, offY + STATUS_WAVE_Y, currentWave, assets.digitsYellow());
+        // Stage number in white
+        g.drawString(" | ", waveX - g.getFont().stringWidth(" | " + (stageIndex + 1)), offY + STATUS_WAVE_Y, Graphics.TOP | Graphics.RIGHT);
+        drawDigitsRightAlign(g, waveX - g.getFont().stringWidth(" | " + (stageIndex + 1)) - 2, offY + STATUS_WAVE_Y, stageIndex + 1, assets.digitsWhite());
 
-        // Fans line (Time Mode only), parked below the wave line so the two never overlap.
+        // Fans line (Time Mode only)
         if (mode.completion == ContentCatalog.COMPLETE_KILL_TARGET) {
             if (cachedFansString == null || kills != lastFansKills) {
                 cachedFansString = "Fans " + kills + "/" + mode.targetKills;
                 lastFansKills = kills;
             }
-            g.drawString(cachedFansString, statusX, offY + STATUS_FANS_Y, Graphics.TOP | Graphics.RIGHT);
+            // "Fans " + yellow digits + "/" + yellow digits
+            int fansLabelX = statusX - g.getFont().stringWidth("Fans ");
+            g.drawString("Fans ", fansLabelX, offY + STATUS_FANS_Y, Graphics.TOP | Graphics.RIGHT);
+            drawDigitsRightAlign(g, fansLabelX - 2, offY + STATUS_FANS_Y, kills, assets.digitsYellow());
+            g.drawString("/", fansLabelX - g.getFont().stringWidth("/") - assets.digitsYellow()[0].getWidth() * 4, offY + STATUS_FANS_Y, Graphics.TOP | Graphics.RIGHT);
+            drawDigitsRightAlign(g, fansLabelX - g.getFont().stringWidth("/") - 2, offY + STATUS_FANS_Y, mode.targetKills, assets.digitsYellow());
         }
 
         // Boss HP bar and name. The bar is centred on the visible playfield, the same axis as the
@@ -2772,11 +2817,12 @@ final class RunWorld {
                     (int) ((BOSS_BAR_W - 2 * BOSS_BAR_INSET) * MathUtil.clamp((double) boss.hp / (double) boss.maxHp, 0.0, 1.0)),
                     BOSS_BAR_H - 2 * BOSS_BAR_INSET);
             g.setColor(255, 255, 255);
-            if (cachedBossName == null || !bossName().equals(lastBossName)) {
-                cachedBossName = bossName();
-                lastBossName = cachedBossName;
-            }
-            g.drawString(cachedBossName, offX + viewWidth / 2, offY + 96, Graphics.TOP | Graphics.HCENTER);
+            g.drawString(cachedBossName, offX + viewWidth / 2, offY + 90, Graphics.TOP | Graphics.HCENTER);
+            // Boss HP numbers with white digits
+            int hpX = offX + viewWidth / 2;
+            drawDigitsRightAlign(g, hpX + BOSS_BAR_W / 2 - 4, offY + 92, boss.hp, assets.digitsWhite());
+            g.drawString("/", hpX + BOSS_BAR_W / 2 + 4, offY + 92, Graphics.TOP | Graphics.LEFT);
+            drawDigitsRightAlign(g, hpX + BOSS_BAR_W / 2 + 10, offY + 92, boss.maxHp, assets.digitsWhite());
         }
     }
 
@@ -2838,6 +2884,33 @@ final class RunWorld {
             if (d >= 0 && d < 10 && digits[d] != null) {
                 g.drawImage(digits[d], x, y, Graphics.TOP | Graphics.LEFT);
                 x += digits[d].getWidth() + 1; // 1px spacing
+            }
+        }
+        return x;
+    }
+
+    /**
+     * Draws a non-negative integer right-aligned using digit images.
+     * Returns the x coordinate of the leftmost digit drawn.
+     */
+    private int drawDigitsRightAlign(Graphics g, int rightX, int y, int value, Image[] digits) {
+        if (digits == null || digits.length < 10) return rightX;
+        String s = String.valueOf(value);
+        // Calculate total width
+        int totalW = 0;
+        for (int i = 0; i < s.length(); i++) {
+            int d = s.charAt(i) - '0';
+            if (d >= 0 && d < 10 && digits[d] != null) {
+                totalW += digits[d].getWidth() + 1;
+            }
+        }
+        if (totalW > 0) totalW -= 1; // last digit doesn't need trailing space
+        int x = rightX - totalW;
+        for (int i = 0; i < s.length(); i++) {
+            int d = s.charAt(i) - '0';
+            if (d >= 0 && d < 10 && digits[d] != null) {
+                g.drawImage(digits[d], x, y, Graphics.TOP | Graphics.LEFT);
+                x += digits[d].getWidth() + 1;
             }
         }
         return x;
