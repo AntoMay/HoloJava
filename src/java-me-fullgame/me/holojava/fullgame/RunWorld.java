@@ -2664,14 +2664,14 @@ final class RunWorld {
                 int wi = weaponSlots[i];
                 if (wi >= 0 && wi < ContentCatalog.WEAPONS.length && ContentCatalog.WEAPONS[wi] != null) owned = true;
             }
-            drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + WEAPON_SLOT_Y, owned);
+            drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + WEAPON_SLOT_Y, owned, i);
         }
 
         // Item row: the same six-cell tray under the weapons, holding the passive skills (the
         // items) picked up during the run. Items always fill the first free cells in pickup
         // order, so a plain prefix test marks the acquired ones.
         for (int i = 0; i < SLOT_COLS; i++) {
-            drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + ITEM_SLOT_Y, i < itemCount);
+            drawHudSlot(g, offX + HP_BAR_X + i * SLOT_W, offY + ITEM_SLOT_Y, i < itemCount, i);
         }
         g.setColor(255, 255, 255);
 
@@ -2832,7 +2832,7 @@ final class RunWorld {
      * generic projectile shared by several weapons or too large for the 9px interior, and MIDP
      * cannot scale images. Level data stays in weaponLevels and is not faked on screen.
      */
-    private void drawHudSlot(Graphics g, int sx, int sy, boolean owned) {
+    private void drawHudSlot(Graphics g, int sx, int sy, boolean owned, int slotIndex) {
         g.setColor(owned ? SLOT_FILL : SLOT_FILL_EMPTY);
         g.fillRect(sx, sy, SLOT_W, SLOT_H);
         g.setColor(SLOT_BORDER);
@@ -2840,6 +2840,20 @@ final class RunWorld {
         if (!owned) return;
         g.setColor(SLOT_MARK, SLOT_MARK_G, SLOT_MARK_B);
         g.fillRect(sx + SLOT_INSET, sy + SLOT_INSET, SLOT_W - 2 * SLOT_INSET, SLOT_H - 2 * SLOT_INSET);
+
+        // Draw weapon level icon if this slot has a weapon with level > 1
+        if (slotIndex < weaponCount && slotIndex < weaponLevels.length) {
+            int level = weaponLevels[slotIndex];
+            if (level > 1 && level <= 5) {
+                Image[] wLevels = assets.weaponCaseLevels();
+                if (wLevels != null && level - 1 < wLevels.length && wLevels[level - 1] != null) {
+                    Image lvlIcon = wLevels[level - 1];
+                    int iconX = sx + (SLOT_W - lvlIcon.getWidth()) / 2;
+                    int iconY = sy + SLOT_H - lvlIcon.getHeight() - 1;
+                    g.drawImage(lvlIcon, iconX, iconY, Graphics.TOP | Graphics.LEFT);
+                }
+            }
+        }
     }
 
     /** Superseded by FullGameCanvas.drawLevelUp, which already draws this overlay in screen space.
