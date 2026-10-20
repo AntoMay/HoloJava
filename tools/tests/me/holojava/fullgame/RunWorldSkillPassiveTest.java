@@ -149,7 +149,7 @@ public final class RunWorldSkillPassiveTest {
         set(w, "state", Integer.valueOf(0));
         set(w, "skillAcquired", Boolean.valueOf(skill));
         set(w, "skillReadyAt", Long.valueOf(0L));
-        set(w, "specialUsed", Boolean.FALSE);
+        set(w, "specialCharge", Integer.valueOf(RunWorld.SPECIAL_CHARGE_MAX));
         set(w, "slowEnemiesUntil", Long.valueOf(0L));
         set(w, "lifestealUntil", Long.valueOf(0L));
         set(w, "invulUntil", Long.valueOf(0L));

@@ -14,7 +14,7 @@ import java.util.Random;
  * <ul>
  *   <li>the skill fires by itself once Skill Pasif has granted it ({@code skillAcquired}),
  *       and the 15 s cooldown gates repeat activations;</li>
- *   <li>special works once ({@code specialUsed}) and never re-fires;</li>
+ *   <li>special fires on a full meter ({@code specialCharge}), empties, and refires when refilled;</li>
  *   <li>each character's effect touches only its own mechanic (radius damage,
  *       slow, shield, lifesteal window, heal, invulnerability, shot clear);</li>
  *   <li>timed effects expire (invulnerability, slow);</li>
@@ -147,7 +147,7 @@ public final class RunWorldCharacterSkillsTest {
         set(w, "lifestealUntil", Long.valueOf(0L));
         set(w, "skillAcquired", Boolean.FALSE);
         set(w, "skillReadyAt", Long.valueOf(0L));
-        set(w, "specialUsed", Boolean.FALSE);
+        set(w, "specialCharge", Integer.valueOf(RunWorld.SPECIAL_CHARGE_MAX));
         set(w, "enemies", filled("me.holojava.fullgame.RunWorld$Enemy", 48));
         set(w, "shots", filled("me.holojava.fullgame.RunWorld$Shot", 128));
         set(w, "pickups", filled("me.holojava.fullgame.RunWorld$Pickup", 96));
@@ -192,7 +192,7 @@ public final class RunWorldCharacterSkillsTest {
         testCalliSkill();
         testKiaraSkill();
         testInaSkill();
-        testSpecialsOnce();
+        testSpecialsFireOnAFullMeter();
         testSpecialEffects();
         testExpiry();
 
@@ -275,16 +275,19 @@ public final class RunWorldCharacterSkillsTest {
         expect(enemyHp(w, 0) < 100, "ina skill damaged the enemy");
     }
 
-    private static void testSpecialsOnce() throws Exception {
-        System.out.println("[8] specials fire exactly once");
+    private static void testSpecialsFireOnAFullMeter() throws Exception {
+        System.out.println("[8] specials fire on a full meter and refill for reuse");
         for (int c = 0; c < 5; c++) {
-            Object w = world(c);
-            updatePlayer(w, true, 50000L);
-            expect(getBool(w, "specialUsed"), "char " + c + " special consumed on use");
+            Object w = world(c);                 // the fixture grants a full meter
             placeEnemy(w, 0, 1000);
-            int before = enemyHp(w, 0);
+            updatePlayer(w, true, 50000L);
+            expectEq(getInt(w, "specialCharge"), 0, "char " + c + " fires and empties the meter");
+            int afterFirst = enemyHp(w, 0);
             updatePlayer(w, true, 50001L);
-            expectEq(enemyHp(w, 0), before, "char " + c + " second press is inert");
+            expectEq(enemyHp(w, 0), afterFirst, "char " + c + " empty-meter press is inert");
+            set(w, "specialCharge", Integer.valueOf(RunWorld.SPECIAL_CHARGE_MAX));
+            updatePlayer(w, true, 50002L);
+            expectEq(getInt(w, "specialCharge"), 0, "char " + c + " refires on a refilled meter");
         }
     }
 

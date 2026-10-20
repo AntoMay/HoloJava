@@ -81,7 +81,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * <p>Basic attack lives on GAME_A and 1. FIRE and 5 are pause in gameplay.
      * Menu confirm uses FIRE, L, R. Level-up confirm uses FIRE.
      * 9 is special, 0 is alternate pause. There is no skill key: every character's skill fires
-     * on its own during the run, and the special needs the Special Attack upgrade to respond.
+     * on its own during the run, and the special needs the Special Attack upgrade and a full
+     * meter (charged by SPECIAL orb drops) to respond.
      */
     private static final int KEY_ATTACK = '5';       // pause in gameplay (also attack alt in old scheme)
     private static final int KEY_ATTACK_ALT = '1';   // basic attack

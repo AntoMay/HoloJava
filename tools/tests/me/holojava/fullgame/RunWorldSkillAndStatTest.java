@@ -10,7 +10,7 @@ import java.util.Random;
  *
  * <ul>
  *   <li><b>HOLD-02</b> — the full behaviour of {@code skillAcquired}, {@code skillReadyAt} and
- *       {@code specialUsed}.</li>
+ *       {@code specialCharge} (the refillable special meter since 2026-10-20).</li>
  *   <li><b>HOLD-03</b> — the {@code statOfferCounts} boundary, which the backlog flagged as a
  *       possible {@code int} overflow at very high levels.</li>
  * </ul>
@@ -186,7 +186,7 @@ public final class RunWorldSkillAndStatTest {
     public static void main(String[] args) throws Exception {
         testSkillIsInertUntilTheShopGrantsIt();
         testSkillOpensAFifteenSecondCooldown();
-        testSpecialIsAvailableExactlyOncePerRun();
+        testSpecialMeterFillsFiresAndRefills();
         testStatOfferIndexAlwaysStaysInRange();
 
         System.out.println("checks=" + checks + " failures=" + failures);
@@ -263,23 +263,58 @@ public final class RunWorldSkillAndStatTest {
             "and refreshes its effect");
     }
 
-    /** One special per run, and it stays used even across many presses. */
-    private static void testSpecialIsAvailableExactlyOncePerRun() throws Exception {
-        System.out.println("[3] the special is available exactly once");
+    /** The special meter fills from SPECIAL orbs, gates the press, empties on fire, and refills. */
+    private static void testSpecialMeterFillsFiresAndRefills() throws Exception {
+        System.out.println("[3] the special meter fills, fires, and refills");
         Object w = world(1);                       // Slow Time: sets slowEnemiesUntil
-        expect(!getBool(w, "specialUsed"), "the special is unused at the start of a run");
+        expectEq(getInt(w, "specialCharge"), 0, "the meter starts empty");
 
+        // A press on an empty meter is swallowed through the real gate: no effect at all.
         long t = 500000L;
         tick(w, true, t);
-        expect(getBool(w, "specialUsed"), "using it marks it spent");
-        expectEq(getLong(w, "slowEnemiesUntil"), t + 6000L, "and applied its effect");
+        expectEq(getLong(w, "slowEnemiesUntil"), 0L, "an empty meter swallows the press");
 
-        // Pressing again through the real gate must do nothing.
-        long later = t + 60000L;
-        tick(w, true, later);
-        expect(getBool(w, "specialUsed"), "it stays spent");
-        expectEq(getLong(w, "slowEnemiesUntil"), t + 6000L,
-            "and the effect was not applied a second time");
+        // Real SPECIAL orbs bank the meter full, one orb at a time...
+        int orbsPerMeter = RunWorld.SPECIAL_CHARGE_MAX / RunWorld.SPECIAL_ORB_VALUE;
+        for (int i = 0; i < orbsPerMeter; i++) collectOrbAtPlayer(w);
+        expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX,
+            "collected SPECIAL orbs fill the meter");
+
+        // ...and an orb over a full meter clamps instead of overflowing.
+        collectOrbAtPlayer(w);
+        expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX,
+            "an extra orb clamps at the maximum");
+
+        // A full meter fires on the next press and empties behind it.
+        long t2 = t + 2000L;
+        tick(w, true, t2);
+        expectEq(getInt(w, "specialCharge"), 0, "firing empties the meter");
+        expectEq(getLong(w, "slowEnemiesUntil"), t2 + 6000L, "and applied its effect");
+
+        // The press is inert again until the next cycle fills the meter.
+        tick(w, true, t2 + 60000L);
+        expectEq(getLong(w, "slowEnemiesUntil"), t2 + 6000L,
+            "an empty meter swallows the next press too");
+
+        // A second orb cycle refires the same special inside the same run.
+        for (int i = 0; i < orbsPerMeter; i++) collectOrbAtPlayer(w);
+        long t3 = t2 + 120000L;
+        tick(w, true, t3);
+        expectEq(getInt(w, "specialCharge"), 0, "a refilled meter refires the special");
+        expectEq(getLong(w, "slowEnemiesUntil"), t3 + 6000L, "with its effect again");
+    }
+
+    /** Drops a real SPECIAL orb on the player's feet and collects it through updatePickups. */
+    private static void collectOrbAtPlayer(Object w) throws Exception {
+        int px = getInt(w, "px"), py = getInt(w, "py");
+        Method drop = worldClass().getDeclaredMethod("dropPickup", int.class, int.class,
+            int.class, int.class, long.class);
+        drop.setAccessible(true);
+        drop.invoke(w, Integer.valueOf(px + 12), Integer.valueOf(py + 12), Integer.valueOf(5),
+            Integer.valueOf(RunWorld.SPECIAL_ORB_VALUE), Long.valueOf(100L));
+        Method update = worldClass().getDeclaredMethod("updatePickups", long.class);
+        update.setAccessible(true);
+        update.invoke(w, Long.valueOf(100L));
     }
 
     /**

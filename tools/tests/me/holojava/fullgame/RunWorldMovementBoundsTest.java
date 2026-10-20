@@ -127,7 +127,7 @@ public final class RunWorldMovementBoundsTest {
         set(w, "characterIndex", Integer.valueOf(0));
         set(w, "state", Integer.valueOf(0));
         set(w, "skillAcquired", Boolean.FALSE);
-        set(w, "specialUsed", Boolean.FALSE);
+        set(w, "specialCharge", Integer.valueOf(RunWorld.SPECIAL_CHARGE_MAX));
         set(w, "skillReadyAt", Long.valueOf(0L));
         set(w, "slowEnemiesUntil", Long.valueOf(0L));
         set(w, "shield", Integer.valueOf(0));

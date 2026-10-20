@@ -291,7 +291,7 @@ public final class RunWorldLifecycleIntegrationTest {
         expectEq(w.itemCount(), 0, "no items");
 
         expect(w.skillAcquired(), "the skill is always held: Skill Pasif left the shop");
-        expect(!w.specialUsed(), "the special is unused");
+        expectEq(w.specialCharge(), 0, "the special meter starts empty");
         expectEq(getLong(w, "skillReadyAt"), 0L, "no skill cooldown running yet");
         expectEq(getInt(w, "shield"), 0, "no shield");
         expectEq(getLong(w, "shieldReadyAt"), 0L, "no shield recharge armed");
@@ -431,7 +431,7 @@ public final class RunWorldLifecycleIntegrationTest {
 
     // ---------------------------------------------------------------- 5. special matrix
 
-    /** The special is offered once per run by the character itself and is single-use. */
+    /** The special fires on a full meter, empties behind it, and refires once drops refill it. */
     private static void testSpecialEffectMatrix() throws Exception {
         System.out.println("[5] special effect matrix, one run per character");
         for (int ci = 0; ci < ContentCatalog.CHARACTERS.length; ci++) {
@@ -439,9 +439,10 @@ public final class RunWorldLifecycleIntegrationTest {
             grantSpecialAttack();
             RunWorld w = start(ci, 0, 0);
             long now = System.currentTimeMillis() + 1000L;
-            // The special is gated on the Special Attack purchase (granted above) and on being
-            // unused; the skill offer plays no part in it either way.
+            // The special is gated on the Special Attack purchase (granted above) and a full
+            // meter; the skill offer plays no part in it either way.
             set(w, "invulUntil", Long.valueOf(0L));
+            set(w, "specialCharge", Integer.valueOf(RunWorld.SPECIAL_CHARGE_MAX));
 
             // The radius is measured from px/py, so an offset of d lands the enemy d+12 away:
             // 90 gives 102, inside Shark Call's 110 and clear of the player's 24-wide box, so
@@ -458,7 +459,8 @@ public final class RunWorldLifecycleIntegrationTest {
             }
             tick(w, now + 100L, true);
 
-            expect(w.specialUsed(), ContentCatalog.CHARACTERS[ci].name + ": the special is now spent");
+            expectEq(w.specialCharge(), 0,
+                    ContentCatalog.CHARACTERS[ci].name + ": the special emptied the meter");
             switch (ci) {
                 case 0:
                     expect(enemy != null && getInt(enemy, "hp") < hpBefore,
@@ -502,13 +504,19 @@ public final class RunWorldLifecycleIntegrationTest {
                 }
             }
 
-            // Single use: a second press must do nothing at all.
+            // An empty meter swallows the next press...
             if (enemy != null && (ci == 0 || ci == 3)) {
                 int hpAfterFirst = getInt(enemy, "hp");
                 tick(w, now + 300L, true);
                 expectEq(getInt(enemy, "hp"), hpAfterFirst,
-                        ContentCatalog.CHARACTERS[ci].name + ": a spent special cannot fire again");
+                        ContentCatalog.CHARACTERS[ci].name + ": an empty meter cannot fire again");
             }
+
+            // ...and once drops refill it, the same special fires again in the same run.
+            set(w, "specialCharge", Integer.valueOf(RunWorld.SPECIAL_CHARGE_MAX));
+            tick(w, now + 400L, true);
+            expectEq(w.specialCharge(), 0,
+                    ContentCatalog.CHARACTERS[ci].name + ": refires once the meter is refilled");
         }
     }
 
@@ -866,7 +874,7 @@ public final class RunWorldLifecycleIntegrationTest {
         expectEq(second.state(), RunWorld.STATE_RUNNING, "the second run starts running");
         expect(second.skillAcquired(),
             "the skill is held again: it is permanent, like the coin balance");
-        expect(!second.specialUsed(), "the special is unspent again");
+        expectEq(second.specialCharge(), 0, "the special meter is empty again");
         expectEq(getLong(second, "skillReadyAt"), 0L, "no skill cooldown carried over");
         expectEq(getInt(second, "shield"), 0, "no shield carried over");
         expectEq(getLong(second, "shieldReadyAt"), 0L, "no shield recharge carried over");
@@ -948,7 +956,7 @@ public final class RunWorldLifecycleIntegrationTest {
         call(w, "reset", new Class<?>[] { SaveStore.class }, new Object[] { save });
 
         expect(w.skillAcquired(), "reset granted the skill, which every run now starts with");
-        expect(!w.specialUsed(), "reset unspent the special");
+        expectEq(w.specialCharge(), 0, "reset emptied the special meter");
         expectEq(getLong(w, "skillReadyAt"), 0L, "reset cleared the skill cooldown");
         expectEq(getInt(w, "shield"), 0, "reset cleared the shield");
         expectEq(getLong(w, "shieldReadyAt"), 0L, "reset disarmed the shield recharge");

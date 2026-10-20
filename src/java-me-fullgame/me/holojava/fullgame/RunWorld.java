@@ -289,7 +289,21 @@ final class RunWorld {
      */
     private boolean skillAcquired;
     private long skillReadyAt;
-    private boolean specialUsed;
+
+    /**
+     * Charge of the special meter, 0..{@link #SPECIAL_CHARGE_MAX}. SPECIAL orb drops (pickup
+     * type 5) bank {@link #SPECIAL_ORB_VALUE} points each; a full meter lets the special key
+     * fire, which empties it again. Since 2026-10-20 the special is no longer once per run —
+     * the meter is. Charge banks silently while the Special Attack upgrade is still locked;
+     * the upgrade only keeps the key live, so buying it mid-run with a full meter is an
+     * instant special.
+     */
+    private int specialCharge;
+
+    /** Full special meter, in charge points. */
+    static final int SPECIAL_CHARGE_MAX = 100;
+    /** Charge one SPECIAL orb pickup banks. Four orbs fill a meter. */
+    static final int SPECIAL_ORB_VALUE = 25;
 
     private int rerolls;
     private int holds;
@@ -381,7 +395,7 @@ final class RunWorld {
         // first tick with no purchase behind it. Reroll and Tahan (Hold) are the mirror image:
         // they used to come free (10 and 5 charges) and are now bought one charge at a time,
         // so a fresh run starts with none until the shop rows are levelled.
-        skillAcquired = true; skillReadyAt = 0; specialUsed = false;
+        skillAcquired = true; skillReadyAt = 0; specialCharge = 0;
         rerolls = 0;
         holds = 0;
         offerCount = 0; selectedOffer = 0; heldOffer = null; lastUpgradeSlot = 0;
@@ -490,7 +504,7 @@ final class RunWorld {
     int weaponCount() { return weaponCount; }
     int itemCount() { return itemCount; }
     boolean skillAcquired() { return skillAcquired; }
-    boolean specialUsed() { return specialUsed; }
+    int specialCharge() { return specialCharge; }
     int bossIndex() { return boss.defIndex; }
     int bossHp() { return boss.hp; }
     int bossMaxHp() { return boss.maxHp; }
@@ -655,9 +669,9 @@ final class RunWorld {
         if (py > worldHeight - 24) py = worldHeight - 24;
         // The skill is a permanent ability now: it fires on its own whenever the cooldown is clear.
         if (skillAcquired && now >= skillReadyAt) activateSkill(now);
-        // The special is gated on the Special Attack upgrade: without the purchase the key is
-        // read and ignored, same as an already-spent special.
-        if (specialPressed && !specialUsed && !specialLocked) activateSpecial(now);
+        // The special is gated on the Special Attack upgrade AND a full meter: without the
+        // purchase the key is read and ignored, and a half-charged meter swallows it too.
+        if (specialPressed && !specialLocked && specialCharge >= SPECIAL_CHARGE_MAX) activateSpecial(now);
     }
 
     /**
@@ -689,13 +703,14 @@ final class RunWorld {
     }
 
     /**
-     * Spends the run's one special on the character's effect.
+     * Empties the meter and spends the special on the character's effect.
      *
      * <p>Called only from the gated site in {@code updatePlayer}: the Special Attack upgrade must
-     * be owned or the key never reaches here, and the special is single-use per run either way.
+     * be owned and the meter full, or the key never reaches here. The meter — not the run — is
+     * what is spent: SPECIAL orb drops refill it, so every full meter buys another cast.
      */
     private void activateSpecial(long now) {
-        specialUsed = true;
+        specialCharge = 0;
         // Growth applies to special attacks too: flat bonus per player level per rank.
         int growthBonus = growthLevel * playerLevel;
         if (characterIndex == 0) { // Shark Call
@@ -1487,6 +1502,9 @@ final class RunWorld {
                     break;
                 }
             }
+        } else if (p.type == 5) {
+            // SPECIAL orb: banks charge into the special meter, clamped at the maximum.
+            specialCharge = Math.min(SPECIAL_CHARGE_MAX, specialCharge + p.value);
         }
     }
 
@@ -1549,6 +1567,11 @@ final class RunWorld {
         if (rand(Math.max(40, 200 * 100 / (100 + foodDropBonus))) == 0) dropPickup(enemy.x, enemy.y, 2, 1, now);
         if (rand(1301) == 0) dropPickup(enemy.x, enemy.y, 4, 1, now);
         if (rand(3000) == 0) dropPickup(enemy.x, enemy.y, 3, 0, now);
+        // SPECIAL orb: the only charge source for the special meter. 1-in-50 per kill banks 25 of
+        // the 100-point meter, so roughly 200 kills buy one special on drops alone; the roll sits
+        // between food (1-in-40..200) and the rare utility drops, and like every roll here it is
+        // independent of the shop. Charge banks even while Special Attack is still locked.
+        if (rand(50) == 0) dropPickup(enemy.x, enemy.y, 5, SPECIAL_ORB_VALUE, now);
         if (now < lifestealUntil) playerHp = Math.min(playerMaxHp, playerHp + 1);
     }
 
@@ -2371,6 +2394,12 @@ final class RunWorld {
                 else { g.setColor(255, 100, 100); g.fillRect(x + 3, y + 2, 8, 8); }
             } else if (p.type == 3) {
                 g.setColor(255, 255, 255); g.fillRect(x + 3, y + 3, 6, 6);
+            } else if (p.type == 5) {
+                // SPECIAL orb: violet to match the special bar. No dedicated sprite exists in
+                // the extraction, so it is drawn plainly like the other utility pickups; art can
+                // replace it the same way food uses Okayu's onigiri.
+                g.setColor(170, 90, 255); g.fillRect(x + 1, y + 1, 10, 10);
+                g.setColor(240, 220, 255); g.fillRect(x + 4, y + 4, 4, 4);
             } else {
                 g.setColor(180, 180, 200); g.fillRect(x + 1, y + 4, 10, 6);
             }
@@ -2545,10 +2574,13 @@ final class RunWorld {
         g.fillRect(offX + HP_BAR_X + HP_BAR_INSET, offY + HP_BAR_Y + HP_BAR_INSET, hpFillW, HP_BAR_H - 2 * HP_BAR_INSET);
         g.setColor(0, 0, 0);
 
-        // Special bar: directly under the HP bar. Full violet while the bought special is still
-        // held; an empty dark track when the Special Attack upgrade is locked or the special has
-        // already been spent this run.
-        int specialFillW = (!specialLocked && !specialUsed) ? SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET : 0;
+        // Special bar: directly under the HP bar, filled in proportion to the meter — it charges
+        // from SPECIAL orb drops and empties the moment the special fires. An empty dark track
+        // while the Special Attack upgrade is still locked: charge banks silently and the track
+        // only ever shows what the key could actually spend.
+        int specialFillW = (!specialLocked && specialCharge > 0)
+                ? ((SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET) * specialCharge) / SPECIAL_CHARGE_MAX
+                : 0;
         g.setColor(20, 20, 20);
         g.fillRect(offX + SPECIAL_BAR_X, offY + SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H);
         g.setColor(SPECIAL_TRACK_R, SPECIAL_TRACK_G, SPECIAL_TRACK_B);
