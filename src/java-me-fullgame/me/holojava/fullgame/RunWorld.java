@@ -71,7 +71,7 @@ final class RunWorld {
     // pair (green/red) or the new light-blue EXP fill, on any stage backdrop.
     private static final int SPECIAL_BAR_X = HP_BAR_X;
     private static final int SPECIAL_BAR_Y = HP_BAR_Y + HP_BAR_H + 2; // 30
-    private static final int SPECIAL_BAR_W = 76; // == EXP_BAR_W (declared below)
+    private static final int SPECIAL_BAR_W = HP_BAR_W; // match HP bar width (66)
     private static final int SPECIAL_BAR_H = 6;
     private static final int SPECIAL_BAR_INSET = 1;
     private static final int SPECIAL_READY_R = 255, SPECIAL_READY_G = 206, SPECIAL_READY_B = 74;  // #FFCE4A
@@ -109,7 +109,7 @@ final class RunWorld {
     private static final int EXP_BAR_W = 76;
     private static final int EXP_BAR_H = 8;
     private static final int EXP_FILL_R = 94, EXP_FILL_G = 221, EXP_FILL_B = 238; // #5EDDEE
-    private static final int STATUS_EXP_Y = STATUS_LV_Y + 10;   // 14
+    private static final int STATUS_EXP_Y = HP_BAR_Y; // 18, aligned with HP bar
     private static final int STATUS_LABEL_Y = STATUS_EXP_Y + EXP_BAR_H + 3; // 25
     private static final int STATUS_ROW_H = 13;
     private static final int STATUS_COINS_Y = STATUS_LABEL_Y + STATUS_ROW_H;  // 38
@@ -186,6 +186,8 @@ final class RunWorld {
 
     // Derived stats.
     private int atkPercentBonus;
+    private int growthLevel;
+    private int skillUpLevel;
     private int hastePercent;
     private int speedPercentBonus;
     private int pickupPercentBonus;
@@ -345,6 +347,8 @@ final class RunWorld {
         playerLevel = 1; experience = 0; expNeed = requiredForLevel(1);
         coins = 0; kills = 0; defeatCount = 0;
         invulUntil = 0; slowEnemiesUntil = 0; lifestealUntil = 0;
+        growthLevel = 0;
+        skillUpLevel = 0;
         regenTickAt = startTime + REGEN_TICK_MS; shieldReadyAt = 0; shield = 0;
         weaponCount = 0; itemCount = 0;
         for (int i = 0; i < 6; i++) {
@@ -642,8 +646,10 @@ final class RunWorld {
      */
     private void activateSkill(long now) {
         skillReadyAt = now + SKILL_COOLDOWN_MS;
+        // Skill Up: +4% damage per level, additive up to the 10-level cap (max 40%).
+        int skillMul = 100 + Math.min(skillUpLevel * 4, 40);
         if (characterIndex == 0) { // Shark Bite
-            damageEnemiesInRadius(70, 6, true);
+            damageEnemiesInRadius((70 * skillMul) / 100, 6, true);
         } else if (characterIndex == 1) { // Hunter's Instinct
             slowEnemiesUntil = now + 3500L;
             for (int i = 0; i < enemies.length; i++) if (enemies[i].active) enemies[i].nextAttack = now + 1200L;
@@ -654,7 +660,7 @@ final class RunWorld {
             lifestealUntil = now + 8000L;
         } else { // The Ancient One
             invulUntil = now + 2500L;
-            damageEnemiesInRadius(45, 4, false);
+            damageEnemiesInRadius((45 * skillMul) / 100, 4, false);
         }
     }
 
@@ -666,15 +672,17 @@ final class RunWorld {
      */
     private void activateSpecial(long now) {
         specialUsed = true;
+        // Growth applies to special attacks too: flat bonus per player level per rank.
+        int growthBonus = growthLevel * playerLevel;
         if (characterIndex == 0) { // Shark Call
-            damageEnemiesInRadius(110, 18, true);
+            damageEnemiesInRadius(110 + growthBonus, 18, true);
         } else if (characterIndex == 1) { // Slow Time
             slowEnemiesUntil = now + 6000L;
         } else if (characterIndex == 2) { // The Reaper
             playerHp = Math.min(playerMaxHp, playerHp + Math.max(8, playerMaxHp / 4));
             lifestealUntil = now + 10000L;
         } else if (characterIndex == 3) { // Phoenix Fire
-            damageEnemiesInRadius(130, 24, true);
+            damageEnemiesInRadius(130 + growthBonus, 24, true);
         } else { // Spirit of the Oni
             shield = 30;
             shieldReadyAt = now + 10000L;
@@ -1074,6 +1082,11 @@ final class RunWorld {
         int slot = bossEncounterIndex;
         bossEncounterIndex = -1;
         if (slot >= 0 && slot < encounterDefeated.length) encounterDefeated[slot] = true;
+        // A defeated boss is a defeated enemy: the wiki counts bosses and mini-bosses among the
+        // enemies defeated (they feed the score and the clear reward's defeatCount/4 term), so
+        // both counters move here exactly as damageEnemy does for a regular fan.
+        kills++;
+        defeatCount++;
         ContentCatalog.BossDef def = ContentCatalog.BOSSES[boss.defIndex];
         dropPickup(boss.x + bossWidth() / 2, boss.y + bossHeight() / 2, 0, def.exp, System.currentTimeMillis());
         for (int i = 0; i < 5; i++) dropPickup(boss.x + bossWidth() / 2, boss.y + bossHeight() / 2, 1, 10, System.currentTimeMillis());
@@ -1121,6 +1134,9 @@ final class RunWorld {
         // character hit for roughly double what the table says. atkPercentBonus is the shop's
         // "+6% damage per level" and is additive on the same multiplier, so a level of it moves
         // 110 to 116 rather than being added to a base that was already counted twice.
+        // Growth: flat damage bonus per player level per rank (0.1 -> 0.3 per level at rank 3),
+        // added before the ATK multiplier so it scales with the character stat.
+        if (growthLevel > 0 && character != null) damage += growthLevel * playerLevel;
         damage = (damage * (character.atkPercent + atkPercentBonus)) / 100;
         boolean crit = rand(100) < MathUtil.clampInt(character.critPercent + critPercentBonus, 0, 75);
         if (crit) damage *= 2; // critical multiplier is a documented-mechanic approximation.
@@ -1638,6 +1654,8 @@ final class RunWorld {
 
     private void recomputeStats() {
         atkPercentBonus = 0; hastePercent = 0; speedPercentBonus = 0;
+        growthLevel = 0;
+        skillUpLevel = 0;
         pickupPercentBonus = 0; critPercentBonus = 0; expPercentBonus = 0;
         // Reduction is rebuilt from the character's own stat plus the shop's clamped contribution
         // further down, so nothing is carried over from a previous call.
@@ -1649,6 +1667,7 @@ final class RunWorld {
             if (d == null) continue;
             int v = d.value * itemLevels[i];
             if (d.effect == ContentCatalog.EFFECT_DAMAGE_PCT) atkPercentBonus += v;
+            else if (d.effect == ContentCatalog.EFFECT_GROWTH) growthLevel += v;
             if (d.effect == ContentCatalog.EFFECT_HASTE_PCT) hastePercent += v;
             if (d.effect == ContentCatalog.EFFECT_SPEED_PCT) speedPercentBonus += v;
             if (d.effect == ContentCatalog.EFFECT_MAX_HP) maxHp += v;
@@ -1670,6 +1689,8 @@ final class RunWorld {
             int v = p.value * level;
             if (p.effect == ContentCatalog.EFFECT_MAX_HP) maxHp += characterBaseMaxHp * v / 100;
             else if (p.effect == ContentCatalog.EFFECT_DAMAGE_PCT) atkPercentBonus += v;
+            else if (p.effect == ContentCatalog.EFFECT_GROWTH) growthLevel += v;
+            else if (p.effect == ContentCatalog.EFFECT_SKILL_UP) skillUpLevel += v;
             else if (p.effect == ContentCatalog.EFFECT_SPEED_PCT) speedPercentBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_CRIT_PCT) critPercentBonus += v;
             else if (p.effect == ContentCatalog.EFFECT_EXP_PCT) expPercentBonus += v;

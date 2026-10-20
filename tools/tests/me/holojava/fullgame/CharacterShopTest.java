@@ -274,7 +274,7 @@ public final class CharacterShopTest {
         expectEq(ContentCatalog.upgradeGroupStart(ContentCatalog.GROUP_OTHERS), 26,
             "Lainnya starts at index 26");
 
-        boolean[] seenEffect = new boolean[ContentCatalog.EFFECT_COIN_PCT + 1];
+        boolean[] seenEffect = new boolean[ContentCatalog.EFFECT_SKILL_UP + 1];
         int lockedCount = 0;
         for (int i = 0; i < ContentCatalog.UPGRADES.length; i++) {
             ContentCatalog.UpgradeDef d = ContentCatalog.upgrade(i);
@@ -297,7 +297,7 @@ public final class CharacterShopTest {
             if (d.effect == -1) {
                 expect(d.value == 0, "row '" + d.id + "' carries no value without an effect");
             } else {
-                expect(d.effect >= 0 && d.effect <= ContentCatalog.EFFECT_COIN_PCT,
+                expect(d.effect >= 0 && d.effect <= ContentCatalog.EFFECT_SKILL_UP,
                     "row '" + d.id + "' uses a known effect id");
                 expect(d.value > 0, "row '" + d.id + "' has a per-level value");
                 seenEffect[d.effect] = true;
@@ -315,8 +315,8 @@ public final class CharacterShopTest {
                     "row '" + d.id + "' is locked, so it has no purchasable price");
             }
         }
-        expectEq(lockedCount, 14,
-            "the 14 rows without gameplay yet are marked locked");
+        expectEq(lockedCount, 12,
+            "the 12 rows without gameplay yet are marked locked");
         // The effects the shop must actually move the run's stats with:
         expect(seenEffect[ContentCatalog.EFFECT_MAX_HP], "a row raises max HP");
         expect(seenEffect[ContentCatalog.EFFECT_DAMAGE_PCT], "a row raises damage");
@@ -435,7 +435,7 @@ public final class CharacterShopTest {
             "one past the cap is refused and the stored level is untouched");
 
         // Rows that are not for sale or not levelled never write a nibble at all.
-        int growth = ContentCatalog.upgradeIndex("growth");
+        int growth = ContentCatalog.upgradeIndex("special_cdr");
         save.setUpgradeLevel(growth, 1);
         expectEq(save.upgradeLevel(growth), 0, "a locked row never stores a level");
         expectEq(save.upgradeLevel(growth - 1), 0,
@@ -639,7 +639,7 @@ public final class CharacterShopTest {
             expectEq(save.upgradeLevel(i), 0, "locked row '" + def.id + "' stayed at level 0");
             expectEq(save.coinBalance(), before, "locked row '" + def.id + "' charged nothing");
         }
-        expectEq(checked, 14, "every one of the 14 locked rows was exercised");
+        expectEq(checked, 12, "every one of the 12 locked rows was exercised");
     }
 
     /** Hardcore toggles the shared settings flag; Refund All needs two deliberate presses. */

@@ -56,6 +56,8 @@ final class ContentCatalog {
     // item coin rate was never modelled; it drives the enemy coin-drop roll instead.
     static final int EFFECT_DEFENSE_PCT = 11;
     static final int EFFECT_COIN_PCT = 12;
+    static final int EFFECT_GROWTH = 13;
+    static final int EFFECT_SKILL_UP = 14;
 
     // ---- upgrade shop groups and purchase kinds ------------------------------------
     // The shop sells three tabs of upgrades, in the same grouping the HoloCure wiki uses:
@@ -333,7 +335,7 @@ final class ContentCatalog {
         upgrade("special_attack", "Special Attack", "Buka Special Attack untuk semua karakter",
                 GROUP_ABILITY, -1, 0, false, BUY_LEVEL, new long[] { 500 }),
         upgrade("growth", "Growth", "+1% damage senjata utama & special per level (terkunci)",
-                GROUP_ABILITY, -1, 0, true, BUY_LEVEL, new long[] { 500, 10000, 50000 }),
+                GROUP_ABILITY, EFFECT_GROWTH, 1, false, BUY_LEVEL, new long[] { 500, 10000, 50000 }),
         upgrade("reroll", "Reroll", "+1 Reroll tiap level up per level",
                 GROUP_ABILITY, -1, 0, false, BUY_LEVEL,
                 new long[] { 2500, 5000, 7500, 10000, 12500, 15000, 17500, 20000, 22500, 25000 }),
@@ -387,7 +389,7 @@ final class ContentCatalog {
                 GROUP_STAT, -1, 0, true, BUY_LEVEL,
                 new long[] { 500, 1250, 3000, 6900, 15000 }),
         upgrade("skill_up", "Skill Up", "+4% damage skill per level (terkunci)",
-                GROUP_STAT, -1, 0, true, BUY_LEVEL,
+                GROUP_STAT, EFFECT_SKILL_UP, 4, false, BUY_LEVEL,
                 new long[] { 500, 1250, 3000, 6900, 15000, 20000, 30000, 40000, 50000, 60000 }),
         upgrade("exp_up", "EXP Gain Up", "+4% EXP per level (maks 20%)",
                 GROUP_STAT, EFFECT_EXP_PCT, 4, false, BUY_LEVEL,
@@ -561,10 +563,10 @@ final class ContentCatalog {
         // AssetLibrary.bossDirs and RunWorldBossArtTest, which pins the two
         // together), so the hitbox covers the sprite instead of one fixed
         // 42x42 corner of it.
-        boss("fubuzilla", "Fubuzilla", 15000, 22, AI_SHOOTER, 1400, 1500, "fubuzilla", false, 64, 55),
-        boss("smol_ame", "Smol Ame", 12000, 20, AI_CHASER, 1000, 1500, "AchanBoss", true, 61, 84),
+        boss("fubuzilla", "Fubuzilla", 8000, 22, AI_SHOOTER, 1400, 1500, "fubuzilla", false, 64, 55),
+        boss("smol_ame", "Smol Ame", 25000, 20, AI_CHASER, 1000, 1500, "AchanBoss", true, 61, 84),
         boss("mikodanye", "Mikodanye", 2200, 24, AI_SHOOTER, 1300, 65, "Mikodanye", false, 51, 67),
-        boss("achan", "A-chan", 2000, 22, AI_CHARGER, 850, 60, "AchanBoss", false, 24, 29),
+        boss("achan", "A-chan", 45000, 20, AI_CHARGER, 850, 60, "AchanBoss", false, 24, 29),
         boss("shubangelion", "Shubangelion", 3200, 28, AI_CHARGER, 1200, 85, "Shubangelion_walk", false, 68, 101),
         boss("spiderchama", "Spiderchama", 3600, 30, AI_SHOOTER, 1000, 90, "Pekodam", true, 128, 69),
         boss("udin", "Udin", 4200, 34, AI_SHOOTER, 1100, 110, "Udin_walk", false, 43, 53),
@@ -572,9 +574,9 @@ final class ContentCatalog {
         boss("nanora", "Nanora", 5000, 38, AI_CHASER, 900, 130, "Moonafic2", true, 25, 28),
         boss("pekodam", "Pekodam", 6000, 42, AI_SHOOTER, 850, 160, "Pekodam", false, 99, 116),
         boss("halloween_bae", "Halloween Bae", 72000, 27, AI_BOMBER, 1000, 6000, "Pekodam", true, 78, 70),
-        boss("nodoka", "Harusaki Nodoka", 5000, 40, AI_SHOOTER, 950, 140, "Mikodanye", true, 22, 33),
+        boss("nodoka", "Harusaki Nodoka", 90000, 30, AI_SHOOTER, 950, 140, "Mikodanye", true, 22, 33),
         boss("halloween_myth", "Halloween Myth", 6000, 44, AI_CHARGER, 1000, 160, "Pekodam", true, 66, 79),
-        boss("goriela", "Goriela", 6500, 46, AI_SHOOTER, 900, 180, "Pekodam", true, 98, 75),
+        boss("goriela", "Goriela", 180000, 47, AI_SHOOTER, 900, 180, "Pekodam", true, 98, 75),
         // Original design: WoWo, guardian of the burnt palm grove. Keeps its distance
         // and fires a widening radial seed burst, so the fight is about dodging
         // rings rather than chasing a single bullet. Tuned above Pekodam, the final

@@ -494,8 +494,8 @@ public final class RunWorldBossEncounterTest {
      */
     private static void testStage1HardStatsAreVerified() throws Exception {
         System.out.println("[8] stage 1 hard boss stats match the pinned balance values");
-        expectBoss("fubuzilla", 15000, 22, 1500);
-        expectBoss("smol_ame", 12000, 20, 1500);
+        expectBoss("fubuzilla", 8000, 22, 1500);
+        expectBoss("smol_ame", 25000, 20, 1500);
         expectBoss("halloween_bae", 72000, 27, 6000);
     }
 

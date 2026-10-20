@@ -190,7 +190,8 @@ public final class RunWorldDefenseTest {
         // effect but moves nothing shows up as a failure rather than as silence.
         String[] tracked = { "atkPercentBonus", "hastePercent", "speedPercentBonus",
                 "pickupPercentBonus", "critPercentBonus", "expPercentBonus", "defensePercent",
-                "coinDropBonus", "foodDropBonus", "playerMaxHp", "regenHealPerTick" };
+                "coinDropBonus", "foodDropBonus", "playerMaxHp", "regenHealPerTick",
+                "growthLevel", "skillUpLevel" };
 
         for (int i = 0; i < ContentCatalog.UPGRADES.length; i++) {
             ContentCatalog.UpgradeDef def = ContentCatalog.UPGRADES[i];
