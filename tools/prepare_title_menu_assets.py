@@ -202,11 +202,6 @@ def character_collage(source: Path) -> Image.Image:
                 graduated_positions.append((fname, px + frame.width // 2, py))
             x += frame.width + overlap
 
-    # Save graduated positions to a sidecar file for runtime use
-    import json
-    pos_data = {fname: {"x": x, "y": y} for fname, x, y in graduated_positions}
-    (UI / "menu_cast_sparkles.json").write_text(json.dumps(pos_data))
-
     return canvas
 
 
