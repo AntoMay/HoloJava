@@ -10,6 +10,14 @@ rebuild-*/
 # public source bundle before (build_public.sh copies src/ verbatim), so they
 # are ignored outright rather than trusted to be deleted by hand.
 *.bak
+# Regenerable research outputs. The three files below totalled ~33 MB of machine-generated
+# data (extraction manifest, symbol classification); they are rebuilt by
+# tools/build_asset_manifest.py and tools/classify_symbols.py instead of being committed.
+# The game's own inventory, reports/fullgame_asset_manifest.csv, stays tracked —
+# tools/verify_fullgame_build.py reads it on every build.
+reports/asset_manifest.json
+reports/asset_manifest.csv
+reports/symbol_classification.csv
 # FreeJ2ME-Plus runtime state: per-app config and the emulator's own log, both
 # generated when the desktop emulator is run and not project sources.
 freej2me_system/
