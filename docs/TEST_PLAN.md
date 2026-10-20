@@ -2,38 +2,56 @@
 
 Source of truth: test strategy, cases, and validation evidence.
 
-See also `docs/GAMEPLAY_DESIGN.md` for required vertical-slice behavior.
+The original table in this file (T-001..T-016, every row "Planned", dated
+2026-10-13) described a vertical slice that was never built that way, while the
+real tests grew up elsewhere. It has been retired: tests are code now, under
+`tools/tests/me/holojava/fullgame/`, and this file records how they are
+organised and what they must guarantee.
+
+See also `docs/GAMEPLAY_DESIGN.md` for the behavior those tests express.
 
 ## Testing Layers
 
-1. Static/file validation.
-2. Unit tests.
-3. Component smoke tests.
-4. Integration smoke tests.
-5. Behavioral comparison tests against HoloCure reference observations.
+1. **Catalog and data validation.** `ContentCatalog.validate()` runs at MIDlet
+   startup (`FullGameMIDlet`), and suites pin the data itself:
+   `BossStatsWikiTest` (every boss row against the wiki figures),
+   `WikiCatalogDataTest` and `CollabCsvPackagedTest` (the packaged CSVs),
+   `CharacterShopTest` and `CoinBalanceTest` (economy tables).
+2. **Behavior suites.** One system per suite, driven through reflection on the
+   real classes — no test doubles of our own code. The 28 `RunWorld*` suites
+   cover scheduling, combat, pickups, offers, skills, HUD wiring, audio, and
+   lifecycle; the three `SaveStore*` suites cover persistence including refused
+   writes and legacy saves; `UiStateMachineTest` covers menu flow.
+3. **Asset contract.** `RunWorldBossArtTest` pins catalog entries to the actual
+   PNG dimensions on disk, so art cannot drift away from its hitbox unnoticed.
+4. **Build gates.** Not suites — they run inside every build and test
+   invocation. After each production compile, `tools/verify_cldc_classes.sh`
+   rewrites `StringBuilder` and checks every `java.*`/`javax.*` reference
+   against the pinned CLDC/MIDP stubs (`tools/check_cldc_compliance.py`); the
+   test runner compiles a deliberately violating fixture every run to prove the
+   gate still rejects; ProGuard is the second gate over the shipped JAR.
 
-## Planned Tests
+## Running
 
-| ID | Layer | Case | Status |
-|---|---|---|---|
-| T-001 | Static | Internal dimensions equal 320×240 | Planned |
-| T-002 | Unit | Fixed timestep accumulates consistently | Planned |
-| T-003 | Unit | Coordinate transform correctness | Planned |
-| T-004 | Unit | Collision detection and resolution | Planned |
-| T-005 | Unit | Damage application and death state | Planned |
-| T-006 | Unit | Object lifetime and cleanup | Planned |
-| T-007 | Unit | XP thresholds and level transitions | Planned |
-| T-008 | Unit | Spawn timer accumulation | Planned |
-| T-009 | Component | Asset loader reports missing assets | Planned |
-| T-010 | Component | Audio triggers do not block simulation | Planned |
-| T-011 | Integration | Application starts from packaged jar | Planned |
-| T-012 | Behavioral | Movement observed against independent design criteria | Planned |
+```sh
+sh tools/run_fullgame_tests.sh                 # every suite
+sh tools/run_fullgame_tests.sh SuiteName ...   # selected suites
+```
 
-## Asset Test Notes
+At the time of writing: 41 suites, ~4,300 checks. Every commit is expected to
+leave them green together with `sh tools/build_all.sh`.
 
-- Candidate asset metadata from `ASSET_USAGE.md` must be verified before field mapping to rendering components.
-- Missing assets must fail gracefully.
+## Rules
 
-## Current Testing Reality
+- Suites must be deterministic and device-free: no sleeps (rewind the clock
+  instead), no network, no writes outside the run's own scratch area.
+- A pin test states what it pins and why in its javadoc, so a future change
+  must edit the pin deliberately rather than let the value drift silently.
+- A fixed defect ships with a regression test that fails before the fix.
 
-No build, no Java toolchain, and no gameplay are present yet. Test execution cannot begin until Phase 3.
+## Historical
+
+The retired T-001..T-016 table survives in git history. Its categories —
+fixed timestep, coordinate transforms, collision, damage, XP thresholds, spawn
+timers, loader failure reporting, non-blocking audio — are each covered by one
+of the current suites above.

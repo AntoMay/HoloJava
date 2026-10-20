@@ -62,7 +62,7 @@ Phased prioritization based on source code audit from baseline commit `b1239e546
 | P7.1 | CLDC 1.1 / MIDP 2.0 API compatibility | `deps/java-me/cldcapi11-2.0.4.jar`, `midpapi20-2.0.4.jar` | Library dependency Java ME | Tinggi | Semua import javax.microedition.* digunakan tanpa error compile | Inspeksi import di source file, pastikan tidak ada API melebihi MIDP 2.0 | verified |
 | P7.2 | ClassFormatError dari class definitions terdahulu | Laporan diagnosis runtime sebelumnya | tools/verify_fullgame_build.py | Tinggi | Tidak ada ClassFormatError di build yang baru | Jalankan verify_fullgame_build.py terhadap build output | suspected |
 | P7.3 | Asset loading validation (ContentCatalog.validate()) | `FullGameMIDlet.java:17-19` `ContentCatalog.validate()` | ContentCatalog validate() method | Tinggi | Validasi menampilkan error atau null | Start MIDlet, lihat validation error di layar | suspected |
-| P7.4 | Asset gap coverage monitoring | `CONTENT_COVERAGE.md` dan `RECONSTRUCTION_SCOPE.md` | Dokumen coverage | Menengah | Dokumentasi kesenjangan konten terupdate | Review laporan coverage vs asset yang sebenarnya di repo | unverified |
+| P7.4 | Asset gap coverage monitoring | `reports/fullgame_asset_manifest.csv` dan `RECONSTRUCTION_SCOPE.md` | Dokumen coverage | Menengah | Dokumentasi kesenjangan konten terupdate | Review laporan coverage vs asset yang sebenarnya di repo | unverified |
 | P7.5 | Diagnosis ulang build setelah perubahan | `tools/verify_fullgame_build.py` | Tools build verification | Menengah | Hasil verifikasi konsisten setelah ditambah file baru | Jalankan ulang tool verifikasi setelah staging file baru | unverified |
 
 ## Phase 8: Optimasi Performa dan Memori

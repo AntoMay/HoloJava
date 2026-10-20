@@ -1,3 +1,12 @@
+> **Archived 2026-10-20.** Extraction inventory and coverage status from
+> 2026-10-13, superseded twice over: the game packages its own asset set (420
+> files, inventoried in `reports/fullgame_asset_manifest.csv` and re-checked on
+> every build by `tools/verify_fullgame_build.py`), and the extraction
+> manifests counted below are regenerable research outputs
+> (`tools/build_asset_manifest.py`) that are no longer committed to git. The
+> counts remain a valid historical baseline of the *extraction*, not of the
+> game's coverage.
+
 # Content Coverage
 
 Source of truth: extracted media inventory and HoloJava coverage status. This document summarizes coverage rather than duplicating the complete manifest.

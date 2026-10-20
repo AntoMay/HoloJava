@@ -1,35 +1,49 @@
 # Game Mechanics
 
-Source of truth: validated gameplay behavior.
+Source of truth: which gameplay behavior is documented as original-game fact,
+and which is this project's own design.
 
 Status values:
 
-- `Verified`: evidence exists.
-- `Inferred`: reasonable but unvalidated.
-- `Unknown`: not established.
-- `Tested`: validated through reproducible execution or comparison.
-- `Temporary`: unvalidated placeholder.
+- `Verified`: evidence exists and is cited here or in code (a wiki page, an
+  unpacked file), ideally with a test that pins the value.
+- `Designed`: independently designed for HoloJava; explicitly **not** a claim
+  about HoloCure (strategic pivot, `Roadmap.md` §0 — the original logic sits in
+  a compiled YYC build and is not recoverable).
+- `Approximated`: numbers chosen without a citable source, flagged honestly in
+  code.
 
 ## Current State
 
-No gameplay mechanics have been reconstructed or validated in this project.
-
-After the strategic pivot, full reverse engineering of HoloCure is no longer a prerequisite. This document tracks only verified original-game behavior. New HoloJava mechanics belong in `GAMEPLAY_DESIGN.md`.
+Everything below is implemented and tested: 41 suites under `tools/tests/`
+describe the actual rules (see `docs/TEST_PLAN.md`). What this document adds
+is provenance — where a number came from. No row claims behavioral parity with
+HoloCure.
 
 | Mechanic | Status | Evidence | Notes |
 |---|---|---|---|
-| Movement | Unknown | None | Not implemented |
-| Primary attack | Unknown | None | Not implemented |
-| Weapon evolution | Unknown | None | Not implemented |
-| Collision | Unknown | None | Not implemented |
-| Damage rule | Unknown | None | Not implemented |
-| Enemy AI | Unknown | None | Not implemented |
-| XP/level-up | Unknown | None | Not implemented |
-| Spawn system | Unknown | None | Not implemented |
-| Boss phases | Unknown | None | Not implemented |
-| Save system | Unknown | None | Not implemented |
+| Boss HP / ATK / EXP | Verified | Wiki stage pages, "Enemy Composition" tables, read 2026-10-20 | Every row flagged `documentedBaseStats = true` in `ContentCatalog.BOSSES`; bosses spawning on both a Normal and a Hard page have one row per appearance (`*_hard`); group bosses carry the mean of the members the wiki lists |
+| Stage and boss schedule | Verified | Same stage pages (`documentedSource` per stage row) | 10:00 opener and 20:00 final gates; Stage 1 (Hard) also runs a second boss at 10:00 |
+| Stage clear-coin bonuses | Verified | Wiki Stage article, recorded in `data/wiki/modes.csv` | `StageDef.coinClear` (3000..50000) matches the documented `clearAmount` list |
+| Shop upgrade prices | Verified | Wiki per-level price tables | `UpgradeDef.prices`; pinned by `CharacterShopTest` |
+| EXP: level 1→2 threshold | Verified | Wiki Level Up page ("79 EXP") | Pinned in `RunWorld.requiredForLevel` |
+| EXP curve beyond level 2 | Designed | — | The `power(4*level, 2.1)` shape in `requiredForLevel` is ours |
+| Regular-enemy HP / ATK / EXP | Approximated | None — the wiki's Enemy page has no such columns | Flagged `documentedBaseStats = false`; see the comment above `ContentCatalog.ENEMIES` |
+| Character stats (HP / ATK / speed / crit) | Designed | None | Flagged as ours; per-character defence is deliberately 0 because the original has no such stat — the evidence is spelled out in the `BASE_CHARACTERS` comment |
+| Weapon / collab / item identity | Verified | `data/wiki/weapons.csv`, `collabs.csv`, `items.csv` — each row carries its `source_url` | Names, types, collab ingredients (weapon_a/weapon_b), descriptions |
+| Weapon / collab / item numeric effects | Designed | — | Balancing lives in `ContentCatalog`; no parity claim |
+| Movement, collision, AI, damage math | Designed | Independent design per `Roadmap.md` §0 | Hitboxes pinned to art by `RunWorldBossArtTest` |
+| Mode objectives and completion rules | Verified | `data/wiki/modes.csv` (each row carries its `source_url`) | Objective text and completion rules are quoted from the Stage article |
+| Stage 6 "Arena Hutan Sawit" and its cast | Designed | None — original content | WoWo/FufuFafa/Biji Sawit are ours; recorded in `docs/PROJECT_STATUS.md` |
 
-## Placeholder Rule
+## Rules
 
-Any future code containing estimated values must mark those values as temporary in this document and in code comments.
-EOF
+1. `Verified` requires a citation and, where feasible, a test that pins the
+   value. Editing a pinned value means editing the pin deliberately —
+   `BossStatsWikiTest` is the model.
+2. `Designed` values must not be presented as recovered facts, in docs or in
+   commit messages.
+3. Values without a source keep `documentedBaseStats = false`; the flag may
+   only flip together with the evidence.
+4. New original content is labelled as original where it is defined (catalog
+   comment) and where it is recorded (`docs/PROJECT_STATUS.md`).

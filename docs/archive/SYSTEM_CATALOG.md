@@ -1,3 +1,12 @@
+> **Archived 2026-10-20.** This is an extraction-research document from
+> 2026-10-13. Its own premise — "no system is Implemented or Tested because no
+> gameplay implementation, Java project, or tests exist yet" — has been false
+> since the full-game rebuild under `src/java-me-fullgame`. Status of record is
+> now `docs/PROJECT_STATUS.md` plus the suites under `tools/tests/`; the
+> evidence trees this file cites (`binary_logic/`, `index/`) live outside this
+> repository. Kept for those references and for the phase record. New documents
+> should cite `docs/PROJECT_STATUS.md` or `README.md` instead.
+
 # System Catalog
 
 Source of truth: identifiable HoloCure systems, evidence references, implementation status, and design assumptions.

@@ -19,7 +19,7 @@ HoloJava separates scope into the following layers:
 
 ## Included Areas
 
-The following areas are in scope unless explicitly deferred in `docs/SYSTEM_CATALOG.md`:
+The following areas are in scope unless explicitly deferred in `docs/archive/SYSTEM_CATALOG.md` (the archived extraction-phase deferral list):
 
 - Desktop 2D survival run behavior based on the official HoloJava design.
 - 320×240 internal resolution rendering.
@@ -48,7 +48,7 @@ The following are not automatic scope commitments:
 ## Evidence Policy
 
 - Presence in the extraction is not proof of implementation in HoloJava.
-- A system listed in `SYSTEM_CATALOG.md` is not production code unless it has status `Implemented`.
+- A system listed in `docs/archive/SYSTEM_CATALOG.md` is not production code — that catalog never marked anything `Implemented`, and current status lives in `docs/PROJECT_STATUS.md` and the test suites.
 - A system is not validated unless it has status `Tested`.
 - Original HoloCure behavior may only be recorded in `GAME_MECHANICS.md` when evidence exists.
 - Anything unverified should be marked `Deferred` or `Unresolved`, not described as reconstructed.
@@ -64,8 +64,8 @@ The following are not automatic scope commitments:
 Any scope change must update:
 
 - This file, if the boundary or inclusion changes.
-- `docs/SYSTEM_CATALOG.md` if system statuses are affected.
-- `docs/CONTENT_COVERAGE.md` if coverage targets or selected assets change.
+- `docs/archive/SYSTEM_CATALOG.md` if extraction-phase system statuses are affected.
+- `docs/archive/CONTENT_COVERAGE.md` if extraction-era coverage targets change; game asset coverage is recorded in `reports/fullgame_asset_manifest.csv`.
 - `Roadmap.md` if the milestones or timeline are affected.
 - `docs/PROJECT_STATUS.md` if immediate work changes.
 

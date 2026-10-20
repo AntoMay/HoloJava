@@ -2,7 +2,7 @@
 
 Version: `0.2`  
 Created: `2026-10-13`  
-Status: Phase 2 complete; Phase 3 clean full-game rebuild implemented; runtime validation pending  
+Status: refreshed 2026-10-20 — Phases 0-6 complete (Phase 6 retired into the recurring audit cycle), Phase 7 active, Phase 8 not started  
 Source of truth for scope, phase order, priorities, and project status.
 
 ---
@@ -48,8 +48,9 @@ Added 2026-10-17 as original content rather than reconstruction. `stage6` carrie
 (`AI_CHARGER`) and boss WoWo (`AI_SHOOTER`), uses a generated `palm_forest` tile, and unlocks on
 clearing Fantasy Island. Its enemy, boss, tile, and all combat values are this project's own
 design and are recorded in `docs/PROJECT_STATUS.md`. No part of it is evidence about the original
-game, and none of its numbers are presented as verified. See `docs/CONTENT_COVERAGE.md` for how
-it counts against the reference content totals.
+game, and none of its numbers are presented as verified. Its generated art is inventoried like
+any packaged asset in `reports/fullgame_asset_manifest.csv` (the extraction-era coverage notes
+are archived at `docs/archive/CONTENT_COVERAGE.md`).
 
 ## 2. Document Authority
 
@@ -58,13 +59,14 @@ it counts against the reference content totals.
 - `docs/JAVA_ME_COMPATIBILITY.md` is the primary source of truth for Java ME/J2ME compatibility constraints.
 - `docs/TOOLCHAIN_READINESS.md` is the primary source of truth for build-environment and toolchain status.
 - `docs/REVERSE_ENGINEERING_MAP.md` is the primary source of truth for extracted evidence.
-- `docs/GAME_MECHANICS.md` is the primary source of truth for validated original-game behavior.
+- `docs/GAME_MECHANICS.md` is the primary source of truth for which gameplay figures are source-verified and which are this project's design.
 - `docs/GAMEPLAY_DESIGN.md` is the primary source of truth for our independent design.
 - `docs/RECONSTRUCTION_SCOPE.md` is the primary source of truth for included and excluded reconstruction scope.
-- `docs/SYSTEM_CATALOG.md` is the primary source of truth for system lifecycle, evidence, and coverage status.
-- `docs/CONTENT_COVERAGE.md` is the primary source of truth for extracted media and runtime asset coverage.
+- `docs/archive/SYSTEM_CATALOG.md` (archived 2026-10-20) keeps the extraction-phase evidence inventory; current system status lives in `docs/PROJECT_STATUS.md`.
+- `reports/fullgame_asset_manifest.csv` is the inventory of packaged assets, re-checked on every build; extraction-phase coverage notes are archived at `docs/archive/CONTENT_COVERAGE.md`.
 - `docs/ASSET_USAGE.md` is the primary source of truth for asset references, metadata, and licensing notes.
 - `docs/TEST_PLAN.md` is the primary source of truth for test strategy.
+- `README.md` is the entry point for building, testing, and playing.
 - `docs/CHOOSE_IDOL_LAYOUT.md` is the primary source of truth for the Choose Your Idol screen layout.
 - `docs/PROJECT_STATUS.md` is the primary source of truth for current status and next action.
 
@@ -149,7 +151,7 @@ HoloJava/
   dist/                # Created during packaging
 ```
 
-`src/` and build configuration are intentionally not created until implementation gates are reached.
+Planning-era sketch (2026-10-13). `src/` and build configuration were intentionally not created until the implementation gates were reached; those gates have since passed, and the tree as built (with `data/`, `deps/`, `docs/archive/` and more) is documented in `README.md` § Layout.
 
 ## 6. Revised Phase Roadmap
 
@@ -262,7 +264,7 @@ Phase 2 diagnostic toolchain validation is complete. Verified scope is limited t
 
 ### Phase 3 — First Playable Vertical Slice
 
-Status: not started. Implementation requires explicit approval.
+Status: complete. Implemented 2026-10-13 as the clean full-game rebuild under `src/java-me-fullgame`; the acceptance criteria below are exercised daily by the test suites. The Gradle/libGDX entry assumption was superseded by the Java ME / CLDC pivot (§10, TD-003).
 
 Entry condition:
 
@@ -294,7 +296,7 @@ Acceptance criteria:
 
 ### Phase 4 — Core Gameplay Expansion
 
-Status: not started.
+Status: complete. Weapons and collabs, items, skills and specials, the character shop's passives, difficulty progression and the upgrade pool all exist, each with suites under `tools/tests/`.
 
 Entry condition:
 
@@ -320,7 +322,7 @@ Acceptance criteria:
 
 ### Phase 5 — Broad Content and Asset Integration
 
-Status: not started.
+Status: complete. The five reference stages and their four Hard variants, time attack and the original stage are wired to packaged art, per-stage BGM, UI and fallbacks; `reports/fullgame_asset_manifest.csv` inventories the set.
 
 Entry condition:
 
@@ -336,7 +338,7 @@ Deliverables:
 
 Acceptance criteria:
 
-- Asset selection is recorded in `docs/CONTENT_COVERAGE.md`.
+- Asset selection is recorded in `reports/fullgame_asset_manifest.csv`.
 - Missing or unresolved assets are not treated as successfully loaded gameplay assets.
 - Assets remain referenced locally until redistribution is reviewed.
 - No unverified animation semantics are documented as recovered.
@@ -344,7 +346,7 @@ Acceptance criteria:
 
 ### Phase 6 — Content and System Coverage Audit
 
-Status: not started.
+Status: complete, in a different shape than planned. Coverage settled into a recurring audit cycle (`reports/`), the `SYSTEM_CATALOG.md`/`CONTENT_COVERAGE.md` deliverables were archived on 2026-10-20 (see §12), and the status-plus-denominator job is done by `reports/fullgame_asset_manifest.csv` and the test suites.
 
 Entry condition:
 
@@ -368,7 +370,7 @@ Acceptance criteria:
 
 ### Phase 7 — Testing, Balancing, and Polish
 
-Status: not started.
+Status: active. 41 suites (~4,300 checks) run green on every commit along with the CLDC bytecode gate; balancing and polish continue through audit passes (latest 2026-10-20). The deliverables below are largely in place except device-side testing, which no suite covers.
 
 Entry condition:
 
@@ -510,11 +512,17 @@ Assumptions:
 | 2026-10-17 | Arena Hutan Sawit background is now the reference scene | `StageDef` gained `mapCols`/`mapRows`; a composed 4x4 grid of 80x60 parts is drawn at fixed positions instead of one repeating tile, because the reference is a single composed picture and cannot tile |
 | 2026-10-17 | Fixed the RMS write path: fall back to `addRecord` when `setRecord` reports an unknown id | `setRecord` only replaces a record whose id the store issued, so on a fresh install every save failed. Nothing the game stored had ever been stored: balances, stage unlocks, the selected character and shop passives |
 | 2026-10-17 | Added a character shop with eight permanent passives (0..10 levels each, per character), and made skills stackable to 5 | The skill was a one-shot boolean, so taking the skill slot again was a wasted level. Passives fill `defensePercent`, which `damagePlayer` read but nothing set, and add the game's only coin-rate source |
+| 2026-10-18 | Menu, HUD and BGM stream: HoloCure-style main-menu flow, per-stage MIDI BGM, gameplay HUD rebuild, FufuFafa and 19 Kucing added, public build ships zero starting coins | Play-test feedback; the day is recorded in `docs/PROJECT_STATUS.md` |
+| 2026-10-19 | Combat correctness and Choose-Your-Idol rebuild: character ATK double-application fixed and damage values restored, weapon hitboxes follow the sprite, idol screen rebuilt; `dist/` split into DevBuild/Public | Play-test findings; detail lives in the git log |
+| 2026-10-20 | Full-project audit; fixes 1-6 (CLDC-only collab parsing, Hold offer charge, Growth/Skill Up wiring, one-shot scripts dropped, CLDC bytecode gate proven per build, music/coin write throttling) | Audit order agreed with the project owner; each commit body carries the detail |
+| 2026-10-20 | Boss HP/ATK/EXP replaced with the wiki's per-stage figures; `*_hard` rows added for the Hard-page appearances; boss-HP ceiling raised to 400000 | The old table had EXP misread into HP and stages stepping backwards; provenance now recorded in `docs/GAME_MECHANICS.md` |
+| 2026-10-20 | README added; `TEST_PLAN.md`/`GAME_MECHANICS.md` rewritten; `SYSTEM_CATALOG.md`/`CONTENT_COVERAGE.md` archived to `docs/archive/`; phase statuses in this file caught up | The status documents still described the 2026-10-13 research phase, not the implemented game |
+| 2026-10-20 | Research manifests (`asset_manifest.json`, `asset_manifest.csv`, `symbol_classification.csv`) untracked as regenerable outputs | ~33 MB of machine-generated data in git; regenerate with `tools/build_asset_manifest.py` and `tools/classify_symbols.py` |
 
 ## 13. Current Status and Next Step
 
-Phase 2 diagnostic validation is complete as of 2026-10-13. The clean Phase 3 full-game rebuild now exists under `src/java-me-fullgame` and packages as `dist/DevBuild/mobile/HoloJavaFullGame.jar`. Static compilation, ProGuard preverification, resource-path, catalog, manifest, and JAD checks pass. J2ME Loader gameplay testing for the rebuilt JAR is still pending.
+Refreshed 2026-10-20. The game is playable: `sh tools/build_all.sh` produces the DevBuild and Public jars, the desktop jar runs in FreeJ2ME-Plus (the build prints the exact command), and the mobile jar sideloads for J2ME Loader or a phone. 41 suites (~4,300 checks) plus the CLDC bytecode gate run green on every commit. Content in place: the five reference stages and their four Hard variants, time attack, the original stage6, five idols, weapons/collabs/items with wiki-sourced identity and shop prices, wiki-sourced boss figures, save, shop, and per-stage BGM.
 
 Recommended next action:
 
-Launch the rebuilt JAR and JAD together in J2ME Loader, exercise menus, character/stage selection, movement, combat, EXP/level-up, one boss schedule, pause, and results, then record runtime defects before expanding content coverage.
+Work the follow-up list recorded in `docs/PROJECT_STATUS.md` (frame-allocation churn, the `AssetLibrary` frame-cache leak, save integrity, the debug overlay, dead code and legacy `src/` modules), then runtime validation on a real J2ME target — the one thing no suite covers. The Phase 8 asset-redistribution review remains the release gate.

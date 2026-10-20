@@ -3,7 +3,42 @@
 Source of truth: current phase, blockers, progress, and immediate next action.  
 Current roadmap version: `0.2`.
 
-## State on 2026-10-13
+## State on 2026-10-20
+
+- Phases 0-2: complete (the 2026-10-13 record below is retained as history).
+- Phases 3-5: complete — the rebuild ships menus, the five reference stages with their four Hard
+  variants, time attack, the original stage6, five idols, weapons/collabs/items, shop, save and
+  per-stage BGM. `Roadmap.md`'s phase table was caught up on this date.
+- Phase 6: retired into the recurring audit cycle (`reports/`); coverage of record is
+  `reports/fullgame_asset_manifest.csv` plus the test suites. `SYSTEM_CATALOG.md` and
+  `CONTENT_COVERAGE.md` moved to `docs/archive/` on this date.
+- Phase 7: active — 41 suites / ~4,300 checks green on every commit, plus the CLDC bytecode gate
+  after every compile.
+- Phase 8: not started; the asset-redistribution review remains the release gate.
+
+**Done 2026-10-19** (detail in the git log): character ATK was being applied as a bonus and
+doubled every character's damage — fixed and the original damage values restored; weapon
+hitboxes now follow the sprite; Choose Your Idol was rebuilt; `dist/` split into DevBuild
+(rich starting coins) and Public (zero).
+
+**Done 2026-10-20 (audit items 1-9):** collab catalog parsed with CLDC-only APIs; the Hold
+offer stashed nothing and cost a charge anyway; Growth and Skill Up wired into the run's
+damage; one-shot patch scripts removed; the CLDC bytecode gate now proves emitted bytecode on
+every build; music retries and coin writes throttled; boss HP/ATK/EXP replaced with the wiki's
+per-stage figures (provenance in `docs/GAME_MECHANICS.md`, pinned by `BossStatsWikiTest`; the
+boss-HP ceiling note under Boss Combat Fixes below was updated with it); `README.md` added;
+the stale status documents refreshed.
+
+**Known follow-ups from the same audit (not yet done):** per-frame allocation in the render
+path, `AssetLibrary.prepareStage` leaking `framesM`, no integrity check over the save record,
+the debug hitbox overlay left enabled in `RunWorld`, duplicated helpers and dead classes, the
+legacy `src/java-me-{first-slice,phase3,diagnostic}` modules, and a ProGuard keep-rule naming
+a nonexistent `MIDLET_VERSION`.
+
+**Immediate next action:** work that follow-up list, then runtime validation on a real J2ME
+target — no suite covers device behavior. Phase 8 licensing review stays the release gate.
+
+## State on 2026-10-13 (superseded by the block above)
 
 - Phase 0: complete.
 - Phase 1: complete for the existing asset and symbol evidence inventory.
@@ -31,7 +66,10 @@ recovered from the original game; every value is this project's own design decis
   sight at 7 px/tick; nerfed on both axes and given the circling wind-up on request, so a swarm
   reads as a milling crowd rather than a wall of simultaneous charges. The circling rates are
   driven by a fractional-pixel accumulator because `step()` floors every catalog speed to 1 px.
-- Boss: **WoWo**, `AI_SHOOTER`, 9000 HP / 44 ATK / 1000 ms cooldown / 300 EXP. It holds distance
+- Boss: **WoWo**, `AI_SHOOTER`, 110000 HP / 44 ATK / 1000 ms cooldown / 3000 EXP (retuned
+  2026-10-20 when Pekodam gained its wiki 100000/35 — it was 9000/300 — so the two-axis step-up
+  still holds; the EXP is the original 300/400 pair scaled into the wiki's boss-EXP range).
+  It holds distance
   and fires a radial seed burst that widens with elapsed time (5 shots, up to 11 late in a run),
   so the fight is about reading and stepping out of rings rather than tracking one bullet.
   Deliberately above Pekodam, the final boss of the stage this one unlocks behind, on both axes.
@@ -63,7 +101,7 @@ unvalidated placeholders, not balanced values.
 
 - New source set: `src/java-me-fullgame`.
 - New build artifacts: `build/java-me-fullgame/` and `dist/DevBuild/`.
-- Implemented data-driven runtime: menus, Stage/Endless/Time modes, five verified playable Myth characters, ten stage definitions, enemy director, boss schedule, weapons, items, skills, specials, EXP, level-up, collab prerequisites, pause, results, and optional RMS persistence.
+- Implemented data-driven runtime: menus, Stage/Endless/Time modes, five verified playable Myth characters, eleven stage definitions (the five reference stages, their four Hard variants, time attack, and the original stage6), enemy director, boss schedule, weapons, items, skills, specials, EXP, level-up, collab prerequisites, pause, results, and optional RMS persistence.
 - Evidence-based coverage: `docs/rebuild/COVERAGE.md`.
 - Asset mapping: `docs/rebuild/ASSET_MAPPING.md` and `reports/fullgame_asset_manifest.csv`.
 - The prior diagnostic, first-slice, and Phase 3 prototype artifacts remain preserved as regression evidence.
@@ -316,11 +354,13 @@ around regular enemies.
 but then clamped it with `min(20000, ...)`. Since any catalog boss above roughly 1000 HP reaches that
 cap by the 10:00 gate, every boss in the game had exactly 20000 HP — Halloween Bae's verified 72000
 was crushed to 20000, and Fubuzilla's 15000 was inflated to match. The clamp is now
-`scaledBossHp()`, the same power formula under the same 100000 ceiling as `scaledEnemyHp`. At the
+`scaledBossHp()`, the same power formula under a boss-specific ceiling that has been 400000 since
+2026-10-20 (it first shared `scaledEnemyHp`'s 100000, but the wiki figures — Goriela's 180000,
+WoWo's 110000 — outrank that cap and would have been clamped flat; enemies keep 100000). At the
 normal 10:00/20:00 gates the scaling factors are still zero, so documented bosses surface their
 catalog values; the ceiling only shapes long Endless repeats. Pinned by
 `RunWorldBossEncounterTest.testBossHpIsNotPinnedByACap` (a 72000 boss survives spawn above 20000)
-and `RunWorldScalingTest[6]` (clamped to 100000, exact formula below the cap).
+and `RunWorldScalingTest[6]` (clamped to 400000, exact formula below the cap).
 
 **2. Hitbox follows the sprite.** Every boss shared a fixed 42x42 box regardless of art, while
 actual frame sizes run from 22x33 (Nodoka) to 128x69 (Spiderchama/EldrichHaachama) and 99x116
@@ -592,7 +632,8 @@ became TITLE_DEEP.
 `menu_cast`, `menu_label` (116x20) and the seven `menu_icon_*` sprites.
 
 **4. Arena Hutan Sawit roster.** Boss art WoWo was redrawn (64x64, 4 frames), a second boss
-FufuFafa joined the stage (46x56, 4 frames, collision box 46x56, AI_SHOOTER, HP 12000, ATK 48,
+FufuFafa joined the stage (46x56, 4 frames, collision box 46x56, AI_SHOOTER, HP 12000 — retuned
+2026-10-20 to 125000 with the wiki boss figures, ATK 48,
 spawning 1200 s into the run, 600 s after WoWo), and the new enemy 19 Kucing patrols the palm
 forest (14x32, 3 frames, hitbox 12x28, AI_CHASER, HP 40). `tools/prepare_hutan_sawit_cast.py` now
 tight-crops every sprite through `getbbox()`; FufuFafa needed its own threshold (98, 30) because
@@ -878,8 +919,8 @@ without any dim layer, and the run levelled through several popup cycles with no
 1. Updated `Roadmap.md` for the Phase 0–8 trajectory.
 2. Reconciled broad reconstruction as the long-term goal without claiming parity with HoloCure.
 3. Created `docs/RECONSTRUCTION_SCOPE.md`.
-4. Created `docs/SYSTEM_CATALOG.md`.
-5. Created `docs/CONTENT_COVERAGE.md`.
+4. Created `docs/SYSTEM_CATALOG.md` (archived 2026-10-20 at `docs/archive/SYSTEM_CATALOG.md`).
+5. Created `docs/CONTENT_COVERAGE.md` (archived 2026-10-20 at `docs/archive/CONTENT_COVERAGE.md`).
 6. Reaffirmed independent Java gameplay design and 320×240 internal resolution.
 7. Recorded asset licensing and redistribution as a release gate.
 8. Preserved existing architecture, asset-loader, and test planning documents.
@@ -897,17 +938,22 @@ No Java, Gradle, libGDX, build file, source code, test code, or executable asset
 
 ## Blockers
 
-1. Candidate assets are unverified for redistribution.
-2. No original-game formulas have been recovered.
+1. Candidate assets are unverified for redistribution — still the Phase 8 release gate.
+2. No original-game formulas have been recovered (by design since the strategic pivot: YYC decompilation is deferred, not pending).
 3. Original room renders were not exported.
-4. Runtime compatibility beyond the verified J2ME Loader diagnostic remains untested: audio behavior, pointer/touch behavior, Nokia and other physical-device behavior, physical-screen scaling policy, and long-term runtime stability are not yet established.
-5. Asset redistribution review and explicitly approved gameplay implementation scope remain gates before Phase 3.
+4. Physical-device runtime behavior remains untested. The desktop emulator (FreeJ2ME-Plus) now exercises menus, combat, audio and saves in play sessions, but pointer/touch, Nokia and other device APIs, physical-screen scaling, and long-term device stability are not established.
+5. Gameplay implementation itself is no longer a gate — it was explicitly approved and shipped. What remains before any public distribution is the asset redistribution review.
 
 ## Licensing and Asset Risk
 
 Selected assets are candidate paths only. Their textures, sounds, and other original game files may be protected by copyright or separately licensed. They should remain local unless redistribution permission is documented. Any final public build must pass the licensing review defined for Phase 8.
 
 ## Simplified Phase 2 and Toolchain Direction
+
+> Historical (2026-10-13): the three blockers listed below have since been cleared — OpenJDK 21
+> installed, CLDC 1.1 / MIDP 2.0 stubs pinned in `deps/java-me/`, ProGuard 6.2.2 confirmed — and
+> Phase 3+ followed. The compatibility assumptions (Canvas-only rendering, key-first input, no
+> Nokia vendor APIs) still govern the code. Kept as the record of that decision.
 
 Phase 2 remains documentation and readiness only. The active simplified target is J2ME Loader on Android, with Nokia support as a secondary goal.
 
