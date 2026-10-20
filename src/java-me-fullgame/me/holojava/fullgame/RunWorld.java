@@ -295,7 +295,18 @@ final class RunWorld {
     private int holds;
     private int offerCount;
     private int selectedOffer;
-    private int heldOffer = -1;
+    /**
+     * The last of the four upgrade slots the cursor rested on, 0..3. Tahan (Hold) stashes this
+     * one for the next level-up, so it has to remember which offer the player was looking at
+     * before they moved down onto the Hold row itself. It is not the Hold row's own index.
+     */
+    private int lastUpgradeSlot;
+    /**
+     * The stashed offer, waiting to reappear at the next level-up. This is the offer itself, not
+     * an index: the four slots are re-rolled from scratch each time, so an index would point at
+     * whatever fresh offer happened to land there. Null when nothing is stashed.
+     */
+    private Offer heldOffer;
     private boolean won;
 
     // HUD string cache fields for allocation optimization
@@ -373,7 +384,7 @@ final class RunWorld {
         skillAcquired = true; skillReadyAt = 0; specialUsed = false;
         rerolls = 0;
         holds = 0;
-        offerCount = 0; selectedOffer = 0; heldOffer = -1;
+        offerCount = 0; selectedOffer = 0; heldOffer = null; lastUpgradeSlot = 0;
 
         // Reset HUD string cache
         cachedHpString = null;
@@ -498,6 +509,9 @@ final class RunWorld {
     void moveOffer(int delta) {
         if (offerCount == 0) return;
         selectedOffer = (selectedOffer + delta + offerCount) % offerCount;
+        // Remember the last upgrade slot the cursor was on. Tahan stashes that one, and the
+        // cursor has to be able to sit on the Hold row itself without losing the pick.
+        if (selectedOffer < 4) lastUpgradeSlot = selectedOffer;
     }
     String offerLabel(int index) {
         if (index < 0 || index >= offerCount) return "";
@@ -548,9 +562,19 @@ final class RunWorld {
             }
             if (offers[index].type == OFFER_HOLD && holds > 0) {
                 holds--;
-                heldOffer = selectedOffer < 4 ? selectedOffer : heldOffer;
-                generateOffers();
-                selectedOffer = 0;
+                // Stash a copy of the last upgrade the cursor rested on. The old line read
+                // `heldOffer = selectedOffer < 4 ? selectedOffer : heldOffer`, which always
+                // took the else branch: selectedOffer IS the Hold row, so it is never below 4,
+                // and the charge was spent on nothing. It also kept an index into a list that
+                // was about to be re-rolled. Store the offer itself instead.
+                if (lastUpgradeSlot >= 0 && lastUpgradeSlot < 4
+                        && offers[lastUpgradeSlot].type >= 0) {
+                    heldOffer = new Offer();
+                    copyOffer(heldOffer, offers[lastUpgradeSlot]);
+                }
+                // Rebuild only the Reroll/Hold rows. The four upgrades stay put so this
+                // level-up still has something to choose from, as it did before.
+                rebuildMetaRows();
                 return;
             }
             return;
@@ -1723,17 +1747,36 @@ final class RunWorld {
     private void generateOffers() {
         for (int i = 0; i < offers.length; i++) offers[i].clear();
         for (int i = 0; i < offerUsed.length; i++) offerUsed[i] = false;
+        // A stashed offer is re-inserted as the top row. Reserve its identity first so the
+        // fresh roll cannot offer the same weapon/item a second time alongside it.
+        Offer stash = heldOffer;
+        heldOffer = null;
+        if (stash != null && stash.type >= 0) markOfferUsed(stash);
         for (int slot = 0; slot < 4; slot++) {
             int type = chooseOfferType(slot);
             if (!fillOffer(slot, type)) {
                 if (!fillOffer(slot, OFFER_WEAPON)) fillOffer(slot, OFFER_ITEM);
             }
         }
-        if (heldOffer >= 0 && heldOffer < 4 && offers[heldOffer].type >= 0) {
-            Offer copy = offers[heldOffer];
-            for (int i = 3; i > 0; i--) offers[i] = offers[i - 1];
-            offers[0] = copy;
+        if (stash != null && stash.type >= 0) {
+            // Shift the fresh roll down one row and put the stashed offer at the top, where
+            // the player can see it. The offer pushed off slot 3 is the one sacrificed, which
+            // is the price of carrying one forward.
+            for (int i = 3; i > 0; i--) copyOffer(offers[i], offers[i - 1]);
+            copyOffer(offers[0], stash);
         }
+        rebuildMetaRows();
+    }
+
+    /**
+     * Rebuilds the Reroll and Hold rows from the current charge counts and clamps the cursor.
+     *
+     * <p>This used to be the tail of generateOffers, which meant pressing Hold re-rolled all
+     * four upgrades the player was choosing between. Holding saves one offer for the *next*
+     * level-up; it must not touch the one on screen, so the meta rows are rebuilt on their own.
+     */
+    private void rebuildMetaRows() {
+        for (int i = 4; i < offers.length; i++) offers[i].clear();
         // Reroll and Tahan occupy as many of the two meta slots as the player has charges for.
         // Both start at zero now — the free 10/5 bonuses are gone — so a fresh run shows the
         // plain four upgrade offers only, and the rows appear as the shop rows are levelled.
@@ -1748,6 +1791,31 @@ final class RunWorld {
             slots++;
         }
         offerCount = slots;
+        // Spending the last Hold charge removes the row the cursor was sitting on, so pull the
+        // cursor back into the list rather than leaving it pointing at a row that is gone.
+        if (selectedOffer >= offerCount) selectedOffer = offerCount - 1;
+        if (selectedOffer < 0) selectedOffer = 0;
+        if (selectedOffer < 4) lastUpgradeSlot = selectedOffer;
+    }
+
+    /** Copies one offer's payload into another. The offer objects are pooled, never reallocated. */
+    private static void copyOffer(Offer to, Offer from) {
+        to.type = from.type;
+        to.value = from.value;
+        to.existing = from.existing;
+        to.newItem = from.newItem;
+        to.collab = from.collab;
+    }
+
+    /** Reserves a stashed offer's identity so the fresh roll cannot duplicate it. */
+    private void markOfferUsed(Offer o) {
+        String id = null;
+        if (o.type == OFFER_WEAPON && o.value >= 0 && o.value < ContentCatalog.WEAPONS.length) {
+            id = ContentCatalog.WEAPONS[o.value].id;
+        } else if (o.type == OFFER_ITEM && o.value >= 0 && o.value < ContentCatalog.ITEMS.length) {
+            id = ContentCatalog.ITEMS[o.value].id;
+        }
+        if (id != null) offerUsed[id.hashCode() & 63] = true;
     }
 
     /**

@@ -26,6 +26,7 @@ public final class RunWorldOfferOnceTest {
     private static final int OFFER_STAT = 3;
     private static final int OFFER_COINS = 5;
     private static final int OFFER_REROLL = 6;
+    private static final int OFFER_HOLD = 7;
     private static final int STATE_RUNNING = 0;
     private static final int STATE_PAUSED = 1;
     private static final int STATE_LEVEL_UP = 2;
@@ -138,7 +139,7 @@ public final class RunWorldOfferOnceTest {
         set(w, "selectedOffer", Integer.valueOf(0));
         set(w, "rerolls", Integer.valueOf(3));
         set(w, "holds", Integer.valueOf(1));
-        set(w, "heldOffer", Integer.valueOf(-1));
+        set(w, "heldOffer", null);
         set(w, "coins", Integer.valueOf(0));
         set(w, "statOfferCounts", new int[16]);
         set(w, "offers", filled(offerClass(), 6));
@@ -190,6 +191,39 @@ public final class RunWorldOfferOnceTest {
         m.invoke(w);
     }
 
+    private static void moveOffer(Object w, int delta) throws Exception {
+        Method m = worldClass().getDeclaredMethod("moveOffer", int.class);
+        m.setAccessible(true);
+        m.invoke(w, Integer.valueOf(delta));
+    }
+
+    private static void generateOffers(Object w) throws Exception {
+        Method m = worldClass().getDeclaredMethod("generateOffers");
+        m.setAccessible(true);
+        m.invoke(w);
+    }
+
+    private static Object offerAt(Object w, int slot) throws Exception {
+        Field f = worldClass().getDeclaredField("offers");
+        f.setAccessible(true);
+        return Array.get((Object[]) f.get(w), slot);
+    }
+
+    private static int offerTypeAt(Object w, int slot) throws Exception {
+        return getInt(offerAt(w, slot), "type");
+    }
+
+    private static int offerValueAt(Object w, int slot) throws Exception {
+        return getInt(offerAt(w, slot), "value");
+    }
+
+    /** The stashed offer, or null when nothing is held. */
+    private static Object heldOffer(Object w) throws Exception {
+        Field f = worldClass().getDeclaredField("heldOffer");
+        f.setAccessible(true);
+        return f.get(w);
+    }
+
     private static int[] statCounts(Object w) throws Exception {
         Field f = worldClass().getDeclaredField("statOfferCounts");
         f.setAccessible(true);
@@ -206,6 +240,10 @@ public final class RunWorldOfferOnceTest {
         testSelectOfferIsInertOutsideTheLevelUpState();
         testExpPickupGrantsExactlyOneLevel();
         testRerollConsumesWithoutApplying();
+        testHoldStashesTheLastViewedOffer();
+        testHoldLeavesTheCurrentOffersAlone();
+        testHoldRowDisappearsAndCursorClamps();
+        testTheStashedOfferReturnsAtTheTop();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -376,6 +414,133 @@ public final class RunWorldOfferOnceTest {
         expectEq(getInt(w, "state"), STATE_LEVEL_UP, "the player is still choosing");
         expectEq(statCounts(w)[0], 0, "no offer was applied by the reroll");
         expectEq(getInt(w, "coins"), 0, "and no coins were granted");
+    }
+
+    /**
+     * The bug this suite was added for. Hold spent a charge and stashed nothing: the old line read
+     * {@code heldOffer = selectedOffer < 4 ? selectedOffer : heldOffer} from inside the
+     * {@code index >= 4} branch, so the condition could never be true and the else kept the stale
+     * value. Hold has to stash the offer the cursor last rested on among the four upgrades.
+     *
+     * <p>The cursor is walked with the real {@code moveOffer} rather than set directly, because
+     * remembering that slot is the half of the feature that was never wired up.
+     */
+    private static void testHoldStashesTheLastViewedOffer() throws Exception {
+        System.out.println("[8] Hold stashes the offer the cursor last rested on");
+        Object w = world();
+        set(w, "rerolls", Integer.valueOf(0));
+        set(w, "holds", Integer.valueOf(1));
+        putOffer(w, 0, OFFER_STAT, 0, -1);
+        putOffer(w, 1, OFFER_STAT, 1, -1);
+        putOffer(w, 2, OFFER_STAT, 2, -1);
+        putOffer(w, 3, OFFER_COINS, 100, -1);
+        putOffer(w, 4, OFFER_HOLD, 0, -1);
+        set(w, "offerCount", Integer.valueOf(5));
+        set(w, "state", Integer.valueOf(STATE_LEVEL_UP));
+
+        set(w, "selectedOffer", Integer.valueOf(0));
+        moveOffer(w, 1);   // 1
+        moveOffer(w, 1);   // 2
+        moveOffer(w, 1);   // 3
+        moveOffer(w, 1);   // 4, the Hold row
+        expectEq(getInt(w, "selectedOffer"), 4, "the cursor reached the Hold row");
+        expect(heldOffer(w) == null, "nothing is stashed before the press");
+
+        selectOffer(w);
+
+        Object held = heldOffer(w);
+        expect(held != null, "Hold stashed an offer instead of spending the charge on nothing");
+        if (held != null) {
+            expectEq(getInt(held, "type"), OFFER_COINS,
+                "the stashed offer is the last one the cursor rested on");
+            expectEq(getInt(held, "value"), 100, "and it kept its payload");
+        }
+        expectEq(getInt(w, "holds"), 0, "the charge was spent");
+        expectEq(getInt(w, "state"), STATE_LEVEL_UP, "the player is still choosing");
+        expectEq(statCounts(w)[0], 0, "and holding applied no offer");
+    }
+
+    /**
+     * Holding saves one offer for the <em>next</em> level-up, so it must not touch the four on
+     * screen. The old code called generateOffers() straight away, which re-rolled all of them
+     * while the player was still choosing.
+     */
+    private static void testHoldLeavesTheCurrentOffersAlone() throws Exception {
+        System.out.println("[9] Hold leaves the current four offers in place");
+        Object w = world();
+        set(w, "rerolls", Integer.valueOf(0));
+        set(w, "holds", Integer.valueOf(1));
+        putOffer(w, 0, OFFER_STAT, 0, -1);
+        putOffer(w, 1, OFFER_STAT, 1, -1);
+        putOffer(w, 2, OFFER_STAT, 2, -1);
+        putOffer(w, 3, OFFER_STAT, 3, -1);
+        putOffer(w, 4, OFFER_HOLD, 0, -1);
+        set(w, "offerCount", Integer.valueOf(5));
+        set(w, "state", Integer.valueOf(STATE_LEVEL_UP));
+        set(w, "selectedOffer", Integer.valueOf(4));
+        set(w, "lastUpgradeSlot", Integer.valueOf(1));
+
+        selectOffer(w);
+
+        for (int slot = 0; slot < 4; slot++) {
+            expectEq(offerTypeAt(w, slot), OFFER_STAT, "slot " + slot + " kept its offer type");
+            expectEq(offerValueAt(w, slot), slot, "slot " + slot + " kept its offer value");
+        }
+    }
+
+    /** Spending the last charge removes the row the cursor was sitting on, so it must be clamped. */
+    private static void testHoldRowDisappearsAndCursorClamps() throws Exception {
+        System.out.println("[10] the last Hold charge drops the row and clamps the cursor");
+        Object w = world();
+        set(w, "rerolls", Integer.valueOf(1));
+        set(w, "holds", Integer.valueOf(1));
+        putOffer(w, 0, OFFER_STAT, 0, -1);
+        putOffer(w, 1, OFFER_STAT, 1, -1);
+        putOffer(w, 2, OFFER_STAT, 2, -1);
+        putOffer(w, 3, OFFER_STAT, 3, -1);
+        putOffer(w, 4, OFFER_REROLL, 1, -1);
+        putOffer(w, 5, OFFER_HOLD, 0, -1);
+        set(w, "offerCount", Integer.valueOf(6));
+        set(w, "state", Integer.valueOf(STATE_LEVEL_UP));
+        set(w, "selectedOffer", Integer.valueOf(5));
+        set(w, "lastUpgradeSlot", Integer.valueOf(0));
+
+        selectOffer(w);
+
+        expectEq(getInt(w, "offerCount"), 5, "the Hold row is gone, leaving 4 offers plus Reroll");
+        expectEq(offerTypeAt(w, 4), OFFER_REROLL, "the Reroll row moved up into the freed slot");
+        expect(getInt(w, "selectedOffer") < getInt(w, "offerCount"),
+            "the cursor was pulled back inside the list");
+    }
+
+    /**
+     * The second half of the defect: the old restore read {@code offers[heldOffer]} after the list
+     * had already been re-rolled, so it lifted whatever fresh offer happened to land at that index
+     * rather than the one that was saved. The stash is the offer itself, so it comes back intact.
+     */
+    private static void testTheStashedOfferReturnsAtTheTop() throws Exception {
+        System.out.println("[11] the stashed offer returns at the top of the next level-up");
+        Object w = world();
+        set(w, "rerolls", Integer.valueOf(0));
+        set(w, "holds", Integer.valueOf(1));
+        putOffer(w, 0, OFFER_STAT, 0, -1);
+        putOffer(w, 1, OFFER_STAT, 1, -1);
+        putOffer(w, 2, OFFER_STAT, 2, -1);
+        putOffer(w, 3, OFFER_COINS, 100, -1);
+        putOffer(w, 4, OFFER_HOLD, 0, -1);
+        set(w, "offerCount", Integer.valueOf(5));
+        set(w, "state", Integer.valueOf(STATE_LEVEL_UP));
+        set(w, "selectedOffer", Integer.valueOf(4));
+        set(w, "lastUpgradeSlot", Integer.valueOf(3));
+
+        selectOffer(w);
+        expect(heldOffer(w) != null, "the coins offer was stashed");
+
+        generateOffers(w);
+
+        expectEq(offerTypeAt(w, 0), OFFER_COINS, "the stashed offer came back at the top");
+        expectEq(offerValueAt(w, 0), 100, "with its payload intact");
+        expect(heldOffer(w) == null, "the stash was consumed by the new roll");
     }
 
     // ---------------------------------------------------------------- helpers

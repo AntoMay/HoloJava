@@ -230,6 +230,13 @@ public final class RunWorldLifecycleIntegrationTest {
         throw new IllegalStateException("no nested Enemy type");
     }
 
+    private static Class<?> offerClass() throws Exception {
+        for (Class<?> c : Class.forName("me.holojava.fullgame.RunWorld").getDeclaredClasses()) {
+            if (c.getSimpleName().equals("Offer")) return c;
+        }
+        throw new IllegalStateException("no nested Offer type");
+    }
+
     // ---------------------------------------------------------------- main
 
     public static void main(String[] args) throws Exception {
@@ -884,7 +891,7 @@ public final class RunWorldLifecycleIntegrationTest {
         expectEq(getInt(second, "bossEncounterIndex"), -1, "no encounter carried over");
         expect(!getBool(second, "ringEventDone"), "the ring event is pending again");
         expect(!getBool(second, "hordeEventDone"), "the horde event is pending again");
-        expectEq(getInt(second, "heldOffer"), -1, "the held offer slot was cleared");
+        expect(get(second, "heldOffer") == null, "the stashed offer was cleared");
 
         // The one thing that is supposed to survive: the persistent balance.
         expectEq((int) save.coinBalance(), (int) storedBefore, "the permanent coin balance did survive the new run");
@@ -928,7 +935,7 @@ public final class RunWorldLifecycleIntegrationTest {
         set(w, "defeatCount", Integer.valueOf(17));
         set(w, "kills", Integer.valueOf(23));
         set(w, "coins", Integer.valueOf(99));
-        set(w, "heldOffer", Integer.valueOf(2));
+        set(w, "heldOffer", allocate(offerClass()));
         // The timed events must actually have fired first, or "reset re-armed them" would pass
         // against a world where they were never set in the first place.
         set(w, "ringEventDone", Boolean.TRUE);
@@ -963,7 +970,7 @@ public final class RunWorldLifecycleIntegrationTest {
         expectEq(getInt(w, "bossEncounterIndex"), -1, "reset cleared the encounter");
         expect(!getBool(w, "ringEventDone"), "reset re-armed the ring event");
         expect(!getBool(w, "hordeEventDone"), "reset re-armed the horde event");
-        expectEq(getInt(w, "heldOffer"), -1, "reset cleared the held offer");
+        expect(get(w, "heldOffer") == null, "reset cleared the stashed offer");
         expectEq(w.state(), RunWorld.STATE_RUNNING, "reset put the run back into the running state");
         expectEq(w.playerHp(), w.playerMaxHp(), "and restored full health");
     }
