@@ -53,6 +53,10 @@ rm -rf "$BUILD"
 mkdir -p "$SRC" "$CLASSES/assets" "$CLASSES/data/wiki" "$PREVERIFIED" "$DIST_MOBILE" "$DIST_DESKTOP"
 
 cp -a "$ROOT/src/java-me-fullgame/." "$SRC/"
+# src/ is copied verbatim, so an editor backup dropped next to a source file
+# would ship to players. Strip them here rather than relying on the copy
+# being clean.
+find "$SRC" -name '*.bak' -delete
 cp -a "$ROOT/assets/fullgame" "$CLASSES/assets/"
 cp "$ROOT/data/wiki/collabs.csv" "$CLASSES/data/wiki/collabs.csv"
 

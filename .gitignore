@@ -6,6 +6,10 @@ rebuild-*/
 .DS_Store
 *.swp
 *.swo
+# Editor/one-shot backup copies of source files. These have leaked into the
+# public source bundle before (build_public.sh copies src/ verbatim), so they
+# are ignored outright rather than trusted to be deleted by hand.
+*.bak
 # FreeJ2ME-Plus runtime state: per-app config and the emulator's own log, both
 # generated when the desktop emulator is run and not project sources.
 freej2me_system/
