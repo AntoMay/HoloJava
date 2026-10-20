@@ -2121,12 +2121,15 @@ final class RunWorld {
     /**
      * Hard second 10:00 boss: the regular 20:00 boss advances to 10:00 on
      * Hard (verified on the wiki Stage 1 (Hard) page: Fubuzilla and Smol Ame
-     * both at 10:00). Only Stage 1 Hard (index 5) is enabled; other hard
-     * stages return null until their stage page is verified. Null means the
-     * director skips the slot without recording it.
+     * both at 10:00, each with its own stats -- hence the *_hard row). Only
+     * Stage 1 Hard (index 5) spawns one. The Stage 2 (Hard)/3 (Hard)/4 (Hard)
+     * pages, read on 2026-10-20, likewise schedule A-chan, Spiderchama and
+     * Area 15 at 10:00, but spawning them is a schedule change this build
+     * does not make; their stats rows are not in the catalog either. Null
+     * means the director skips the slot without recording it.
      */
     private String hardSecondBoss(int stageIndex) {
-        if (stageIndex == 5) return "smol_ame";
+        if (stageIndex == 5) return "smol_ame_hard";
         return null;
     }
 
@@ -2136,17 +2139,20 @@ final class RunWorld {
     }
 
     /**
-     * Boss HP uses the same scaling as enemy HP, under the same 100000 ceiling.
+     * Boss HP uses the same scaling as enemy HP, under its own 400000 ceiling.
      *
      * <p>It used to be pinned by {@code min(20000, ...)}, which crushed every scaled spawn and
      * every boss above 20000 in the catalog — Halloween Bae's verified 72000 became exactly 20000,
-     * so all bosses shared one durability. At the normal 10:00/20:00 gates the scaling factors are
-     * still zero, so documented bosses keep their catalog HP exactly; the ceiling only shapes
-     * long Endless repeats.
+     * so all bosses shared one durability. The ceiling then became the enemy HP cap of 100000,
+     * which works only while no catalog boss exceeds it; Goriela's wiki figure of 180000 and
+     * WoWo's 110000 both do, so boss HP gets a 400000 ceiling of its own and every catalog boss
+     * surfaces its own value. At the normal 10:00/20:00 gates the scaling factors are zero, so
+     * documented bosses keep their catalog HP exactly; the ceiling only shapes long Endless
+     * repeats.
      */
     private int scaledBossHp(int base) {
         double value = MathUtil.power(base + base * 0.05 * scaleA, 1.0 + scaleB / 50.0);
-        return MathUtil.clampInt(MathUtil.roundEven(value), 1, 100000);
+        return MathUtil.clampInt(MathUtil.roundEven(value), 1, 400000);
     }
 
     private int scaledEnemyAtk(int base) {

@@ -74,15 +74,21 @@ final class AssetLibrary {
             "spr_NousagiEnemyA_", "spr_NousagiEnemyB_", "spr_NousagiEnemyC_",
             "spr_NousagiEnemyD_", "spr_DebuffOtakuA_", "spr_BijiSawit_", "spr_Kucing19_" };
     private final int[] enemyCounts = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3 };
-    private final String[] bossDirs = { "fubuzilla", "SmolAme", "Mikodanye", "AchanBoss",
-            "Shubangelion_walk", "EldrichHaachama", "Udin_walk", "Moontato", "Nanora",
+    // Parallel to ContentCatalog.BOSSES, index for index: each *_hard row shares its base
+    // boss's art directory, prefix and frame count.
+    private final String[] bossDirs = { "fubuzilla", "fubuzilla", "SmolAme", "SmolAme",
+            "Mikodanye", "Mikodanye", "AchanBoss",
+            "Shubangelion_walk", "Shubangelion_walk", "EldrichHaachama",
+            "Udin_walk", "Udin_walk", "Moontato", "Nanora",
             "Pekodam", "BaeBoss", "NodokaBoss", "NurseCalli", "Goriela", "WoWo", "FufuFafa" };
-    private final String[] bossPrefixes = { "spr_fubuzilla_", "spr_SmollAme_walk_", "spr_Mikodanye_",
-            "spr_AchanBoss_", "spr_Shubangelion_walk_", "spr_EldrichHaachama_walk_",
-            "spr_Udin_walk_", "spr_Moontato_", "spr_Moonafic2_", "spr_Pekodam_",
+    private final String[] bossPrefixes = { "spr_fubuzilla_", "spr_fubuzilla_",
+            "spr_SmollAme_walk_", "spr_SmollAme_walk_", "spr_Mikodanye_", "spr_Mikodanye_",
+            "spr_AchanBoss_", "spr_Shubangelion_walk_", "spr_Shubangelion_walk_",
+            "spr_EldrichHaachama_walk_", "spr_Udin_walk_", "spr_Udin_walk_",
+            "spr_Moontato_", "spr_Moonafic2_", "spr_Pekodam_",
             "spr_Bae3D_walk_", "spr_NodokaBoss_", "spr_NurseCalli_", "spr_Goriela_idle_",
             "spr_WoWo_", "spr_FufuFafa_" };
-    private final int[] bossCounts = { 12, 8, 8, 4, 8, 8, 6, 4, 3, 4, 8, 4, 6, 4, 4, 4 };
+    private final int[] bossCounts = { 12, 12, 8, 8, 8, 8, 4, 8, 8, 8, 6, 6, 4, 3, 4, 8, 4, 6, 4, 4, 4 };
 
     private int failures;
     private String firstFailure = "";

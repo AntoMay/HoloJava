@@ -346,11 +346,14 @@ public final class RunWorldScalingTest {
     }
 
     /**
-     * Boss stats are computed separately: the same power shape as enemy HP under the same 100000
-     * ceiling, but a bespoke speed of 0.55 plus a small scaleA term rather than scaledEnemySpeed.
+     * Boss stats are computed separately: the same power shape as enemy HP but its own 400000
+     * ceiling, plus a bespoke speed of 0.55 plus a small scaleA term rather than scaledEnemySpeed.
      *
      * <p>The HP ceiling used to be a bespoke 20000, which pinned every scaled spawn and every
-     * catalog boss above 20000 to one durability; it now shares the enemy cap.
+     * catalog boss above 20000 to one durability; it then shared the enemy cap of 100000. That
+     * sharing broke once the catalog carried its documented figures: Goriela's wiki 180000 and
+     * WoWo's 110000 both sit above 100000, so boss HP now has its own ceiling (400000) while
+     * enemies keep theirs.
      */
     private static void testBossStatsUseTheirOwnForm() throws Exception {
         System.out.println("[6] boss stats use their own formulas");
@@ -387,14 +390,14 @@ public final class RunWorldScalingTest {
         expectEq(getInt(boss(mid), "maxHp"), (int) Math.floor(exact + 0.5),
             "below the ceiling, boss HP is the round-even of the exact scaled value"
                 + " (16411.6 rounds to an even 16412)");
-        expect(getInt(boss(mid), "maxHp") < 100000, "the scaled value is well under the cap");
+        expect(getInt(boss(mid), "maxHp") < 400000, "the scaled value is well under the cap");
 
-        // The cap holds for an enormous run, and it is the enemy ceiling rather than a bespoke one.
+        // The cap holds for an enormous run, and it is the boss ceiling rather than the enemy one.
         Object huge = world(4L * HOUR);
         scale(huge);
         spawnBoss(huge, 0);
-        expectEq(getInt(boss(huge), "maxHp"), 100000,
-            "boss HP is clamped to 100000, the same ceiling as enemy HP");
+        expectEq(getInt(boss(huge), "maxHp"), 400000,
+            "boss HP is clamped to 400000, its own ceiling (enemy HP keeps 100000)");
     }
 
     private static Object boss(Object w) throws Exception {

@@ -181,6 +181,10 @@ final class ContentCatalog {
         boolean assetApproximation;
         int collW;         // hitbox, matched to the art frame size in RunWorldBossArtTest.
         int collH;
+        // True when hp/atk/exp were read off a wiki stage page (see the BOSSES block comment);
+        // false for the two original bosses, whose numbers are ours alone. The EnemyDef flag
+        // with the same name answers the same "where did these numbers come from" question.
+        boolean documentedBaseStats;
     }
 
     static final class ModeDef {
@@ -503,9 +507,14 @@ final class ContentCatalog {
      * not help either: {@code binary_logic/} holds script and object <em>names</em> only, with no
      * decompiled GML and no numeric literals to read.
      *
+     * <p>The bosses later got their figures from a second place: each stage page's "Enemy
+     * Composition" table lists HP/ATK/EXP per boss, so the BOSSES rows below are wiki-sourced
+     * and flagged {@code documentedBaseStats} true. Nothing comparable has been extracted for
+     * minions, so these rows stay false.
+     *
      * <p>So hp/atk here are balance numbers we chose, which is why they are flagged rather than
-     * dressed up as data. They read 3..8 for mobs and 20..48 for bosses, against character HP
-     * pools of 65..90 that <em>are</em> documented.
+     * dressed up as data. They read 3..8 for mobs against character HP pools of 65..90 that
+     * <em>are</em> documented (boss ATK now reads 15..48 from the wiki).
      *
      * <p>These were briefly halved on the grounds that a boss hit of 48 against a 65 HP character
      * removed three quarters of the pool in one touch. That reasoning turned out to rest on a bug
@@ -547,46 +556,74 @@ final class ContentCatalog {
     };
 
     static final BossDef[] BOSSES = {
-        // An earlier comment here claimed these stats were "verified against the wiki Stage 1
-        // (Hard) enemy composition (HP/ATK/SPD/EXP columns)". They are not, and they could not
-        // have been: data/wiki/bosses.csv has columns id, name, stage_id,
-        // scheduled_time_seconds, mode_restrictions, source_url and coverage_note -- there is no
-        // HP, ATK, SPD or EXP column anywhere in the extracted wiki data, and the file's own
-        // coverage_note says so. What IS documented for a boss is when it appears, and that is
-        // what bossATimeSec/bossBTimeSec carry. HP, ATK and EXP below are our own balance
-        // numbers. They were halved once on the belief that a 48-damage hit against a 65 HP
-        // character was untenable; that turned out to be reacting to a bug in how character
-        // ATK was applied rather than to these values, and they were restored.
+        // HP, ATK and EXP below are the wiki's own figures, read off each stage page's
+        // "Enemy Composition" table (2026-10-20), e.g.
+        // https://holocure.wiki.gg/wiki/Stage_2_-_Holo_Office for Mikodanye and A-chan.
+        // The old comment here claimed no such figures existed; that was true of the wiki's
+        // Enemy page and of the extracted data/wiki/bosses.csv (which has no HP column at
+        // all), but every stage page carries HP/ATK/SPD/EXP per boss. documentedBaseStats
+        // records the result: true on every row below except the two originals.
+        //
+        // One row per appearance: a boss that spawns on both a Normal and a Hard page gets a
+        // second *_hard row, because the wiki gives each page its own numbers (Fubuzilla is
+        // 8000 on Stage 1 but 15000 on Stage 1 (Hard)). Stage tables and hardSecondBoss pick
+        // the row for the stage they spawn in.
+        //
+        // Area 15 (three sprites) and Halloween Myth (five members) spawn here as a single
+        // entity, so their rows carry the mean of the members' wiki stats rather than the
+        // group total; the comment on each row spells the members out.
         //
         // collW/collH are the frame size of each boss's art directory (see
         // AssetLibrary.bossDirs and RunWorldBossArtTest, which pins the two
         // together), so the hitbox covers the sprite instead of one fixed
         // 42x42 corner of it.
-        boss("fubuzilla", "Fubuzilla", 8000, 22, AI_SHOOTER, 1400, 1500, "fubuzilla", false, 64, 55),
-        boss("smol_ame", "Smol Ame", 25000, 20, AI_CHASER, 1000, 1500, "AchanBoss", true, 61, 84),
-        boss("mikodanye", "Mikodanye", 2200, 24, AI_SHOOTER, 1300, 65, "Mikodanye", false, 51, 67),
-        boss("achan", "A-chan", 45000, 20, AI_CHARGER, 850, 60, "AchanBoss", false, 24, 29),
-        boss("shubangelion", "Shubangelion", 3200, 28, AI_CHARGER, 1200, 85, "Shubangelion_walk", false, 68, 101),
-        boss("spiderchama", "Spiderchama", 3600, 30, AI_SHOOTER, 1000, 90, "Pekodam", true, 128, 69),
-        boss("udin", "Udin", 4200, 34, AI_SHOOTER, 1100, 110, "Udin_walk", false, 43, 53),
-        boss("area15", "Area 15", 4600, 36, AI_BOMBER, 1200, 120, "Pekodam", true, 83, 67),
-        boss("nanora", "Nanora", 5000, 38, AI_CHASER, 900, 130, "Moonafic2", true, 25, 28),
-        boss("pekodam", "Pekodam", 6000, 42, AI_SHOOTER, 850, 160, "Pekodam", false, 99, 116),
-        boss("halloween_bae", "Halloween Bae", 72000, 27, AI_BOMBER, 1000, 6000, "Pekodam", true, 78, 70),
-        boss("nodoka", "Harusaki Nodoka", 90000, 30, AI_SHOOTER, 950, 140, "Mikodanye", true, 22, 33),
-        boss("halloween_myth", "Halloween Myth", 6000, 44, AI_CHARGER, 1000, 160, "Pekodam", true, 66, 79),
-        boss("goriela", "Goriela", 180000, 47, AI_SHOOTER, 900, 180, "Pekodam", true, 98, 75),
+        // Stage 1: Fubuzilla 10:00, Smol Ame 20:00 (Normal) / both at 10:00 (Hard).
+        boss("fubuzilla", "Fubuzilla", 8000, 15, AI_SHOOTER, 1400, 2000, "fubuzilla", false, 64, 55, true),
+        boss("fubuzilla_hard", "Fubuzilla", 15000, 22, AI_SHOOTER, 1400, 1500, "fubuzilla", false, 64, 55, true),
+        boss("smol_ame", "Smol Ame", 25000, 20, AI_CHASER, 1000, 5000, "AchanBoss", true, 61, 84, true),
+        boss("smol_ame_hard", "Smol Ame", 12000, 20, AI_CHASER, 1000, 1500, "AchanBoss", true, 61, 84, true),
+        // Stage 2: Mikodanye 10:00, A-chan 20:00 (Normal); the Hard page schedules Mikodanye
+        // and A-chan together at 10:00, but only Mikodanye is spawned by this build's schedule.
+        boss("mikodanye", "Mikodanye", 16000, 16, AI_SHOOTER, 1300, 2200, "Mikodanye", false, 51, 67, true),
+        boss("mikodanye_hard", "Mikodanye", 15000, 18, AI_SHOOTER, 1300, 2000, "Mikodanye", false, 51, 67, true),
+        boss("achan", "A-chan", 45000, 20, AI_CHARGER, 850, 6000, "AchanBoss", false, 24, 29, true),
+        // Stage 3: Shubangelion 10:00, Spiderchama 20:00 (Normal) / both at 10:00 (Hard).
+        boss("shubangelion", "Shubangelion", 24000, 22, AI_CHARGER, 1200, 2000, "Shubangelion_walk", false, 68, 101, true),
+        boss("shubangelion_hard", "Shubangelion", 35000, 30, AI_CHARGER, 1200, 2000, "Shubangelion_walk", false, 68, 101, true),
+        boss("spiderchama", "Spiderchama", 55000, 25, AI_SHOOTER, 1000, 6000, "Pekodam", true, 128, 69, true),
+        // Stage 4: Udin 10:00, Area 15 20:00 (Normal); the Hard page schedules Udin and
+        // Area 15 together at 10:00, but only Udin is spawned by this build's schedule.
+        boss("udin", "Udin", 32000, 22, AI_SHOOTER, 1100, 2000, "Udin_walk", false, 43, 53, true),
+        boss("udin_hard", "Udin", 60000, 35, AI_SHOOTER, 1100, 2000, "Udin_walk", false, 43, 53, true),
+        // Area 15 is three sprites on Stage 4: Moontato 53000/24, Risusaurus 57000/20 and
+        // UFOFI 55000/25 (EXP 2000 each). Mean: 55000 HP, 23 ATK, 2000 EXP.
+        boss("area15", "Area 15", 55000, 23, AI_BOMBER, 1200, 2000, "Pekodam", true, 83, 67, true),
+        // Stage 5: Nanora 10:00, Pekodam 20:00.
+        boss("nanora", "Nanora", 50000, 27, AI_CHASER, 900, 1400, "Moonafic2", true, 25, 28, true),
+        boss("pekodam", "Pekodam", 100000, 35, AI_SHOOTER, 850, 3000, "Pekodam", false, 99, 116, true),
+        // Hard-only finals, from the Stage 1 (Hard), Stage 2 (Hard) and Stage 4 (Hard) pages.
+        boss("halloween_bae", "Halloween Bae", 72000, 27, AI_BOMBER, 1000, 6000, "Pekodam", true, 78, 70, true),
+        boss("nodoka", "Harusaki Nodoka", 90000, 30, AI_SHOOTER, 950, 6000, "Mikodanye", true, 22, 33, true),
+        // Halloween Myth is five members spawning together on Stage 3 (Hard): Dino Gura
+        // 78000/35, Nurse Calli 83000/28, Dr. Oopsie 80000/28, Vampire Kiara 82000/33 and
+        // Pumpkin Ame 75000/30 (EXP 2000 each except Pumpkin Ame 5000). Means: 79600 HP,
+        // 30.8 -> 31 ATK, 2600 EXP.
+        boss("halloween_myth", "Halloween Myth", 79600, 31, AI_CHARGER, 1000, 2600, "Pekodam", true, 66, 79, true),
+        boss("goriela", "Goriela", 180000, 47, AI_SHOOTER, 900, 3000, "Pekodam", true, 98, 75, true),
         // Original design: WoWo, guardian of the burnt palm grove. Keeps its distance
         // and fires a widening radial seed burst, so the fight is about dodging
         // rings rather than chasing a single bullet. Tuned above Pekodam, the final
         // boss of the stage this one unlocks behind, on both axes: it closes the
-        // normal stage list and must not feel like a step back.
-        boss("wowo", "WoWo", 9000, 44, AI_SHOOTER, 1000, 300, "WoWo", false, 64, 64),
+        // normal stage list and must not feel like a step back. Pekodam now carries
+        // its wiki 100000/35, so WoWo sits above that; EXP follows the 300/400 pair
+        // scaled up to the wiki's boss-EXP range. documentedBaseStats stays false:
+        // this row is ours alone.
+        boss("wowo", "WoWo", 110000, 44, AI_SHOOTER, 1000, 3000, "WoWo", false, 64, 64, false),
         // Original design: FufuFafa, the second Arena Hutan Sawit boss, scheduled for the
         // 20:00 encounter so the stage closes on a new fight instead of a repeat WoWo. Same
         // radial-burst family as WoWo but on a tighter cooldown and a step up on both HP and
         // ATK. collW/collH track the 46x56 frame size of bosses/FufuFafa.
-        boss("fufufafa", "FufuFafa", 12000, 48, AI_SHOOTER, 900, 400, "FufuFafa", false, 46, 56)
+        boss("fufufafa", "FufuFafa", 125000, 48, AI_SHOOTER, 900, 4000, "FufuFafa", false, 46, 56, false)
     };
 
     static final ModeDef[] MODES = {
@@ -596,19 +633,19 @@ final class ContentCatalog {
     };
 
     static final StageDef[] STAGES = {
-        stage("stage1", "Grassy Plains", false, false, 0, "grass_field", 0, "shrimp", "dark_shrimp", "shrimp", 1300, 20, 3000, -1, "fubuzilla", 600, "smol_ame", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; combat values approximated"),
-        stage("stage2", "Holo Office", false, false, 1, "office", 1, "sukonbu", "kuro_sukonbu", "sukonbu", 1150, 24, 5000, 0, "mikodanye", 600, "achan", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; combat values approximated"),
-        stage("stage3", "Halloween Castle", false, false, 2, "castle", 2, "matsurisu", "matsurisu3", "matsurisu", 1000, 28, 7500, 1, "shubangelion", 600, "spiderchama", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; Spiderchama asset approximated"),
-        stage("stage4", "Gelora Bung Yagoo", false, false, 3, "carpet", 3, "moonafic", "moonafic_vip", "moonafic", 900, 32, 10000, 2, "udin", 600, "area15", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; Area 15 asset approximated"),
+        stage("stage1", "Grassy Plains", false, false, 0, "grass_field", 0, "shrimp", "dark_shrimp", "shrimp", 1300, 20, 3000, -1, "fubuzilla", 600, "smol_ame", 1200, "https://holocure.wiki.gg/wiki/Stage_1_-_Grassy_Plains", "documented stage/boss timing and boss stats; minion combat values approximated"),
+        stage("stage2", "Holo Office", false, false, 1, "office", 1, "sukonbu", "kuro_sukonbu", "sukonbu", 1150, 24, 5000, 0, "mikodanye", 600, "achan", 1200, "https://holocure.wiki.gg/wiki/Stage_2_-_Holo_Office", "documented stage/boss timing and boss stats; minion combat values approximated"),
+        stage("stage3", "Halloween Castle", false, false, 2, "castle", 2, "matsurisu", "matsurisu3", "matsurisu", 1000, 28, 7500, 1, "shubangelion", 600, "spiderchama", 1200, "https://holocure.wiki.gg/wiki/Stage_3_-_Halloween_Castle", "documented stage/boss timing and boss stats; Spiderchama asset approximated"),
+        stage("stage4", "Gelora Bung Yagoo", false, false, 3, "carpet", 3, "moonafic", "moonafic_vip", "moonafic", 900, 32, 10000, 2, "udin", 600, "area15", 1200, "https://holocure.wiki.gg/wiki/Stage_4_-_Gelora_Bung_Yagoo", "documented stage/boss timing and boss stats; Area 15 asset approximated"),
         // unlockRequirement 99 marks this stage always unlocked. Verified from the reference JAR
         // bytecode: the stage5 entry pushes interval 850, cap 36, coins 15000, then 99, then the
         // boss string "nanora". FullGameCanvas.stageUnlocked treats 99 exactly like -1 and returns
         // true without consulting the save, so Fantasy Island is never locked in the reference.
-        stage("stage5", "Fantasy Island", false, false, 4, "fantasy", 4, "nousagi_a", "nousagi_b", "nousagi_c", 850, 36, 15000, 99, "nanora", 600, "pekodam", 1200, "https://holocure.wiki.gg/wiki/Stage", "documented stage/boss timing; Nanora asset approximated"),
-        stage("stage1h", "Grassy Plains (Night)", true, false, 5, "grass", 5, "dark_shrimp", "shrimp", "dark_shrimp", 1000, 26, 5000, 1, "fubuzilla", 600, "halloween_bae", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m final boss uses fallback asset"),
-        stage("stage2h", "Holo Office (Evening)", true, false, 6, "office", 6, "kuro_sukonbu", "sukonbu", "kuro_sukonbu", 900, 30, 15000, 5, "mikodanye", 600, "nodoka", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m Nodoka uses fallback asset"),
-        stage("stage3h", "Halloween Castle (Myth)", true, false, 7, "castle", 7, "matsurisu3", "matsurisu", "matsurisu3", 850, 34, 30000, 6, "shubangelion", 600, "halloween_myth", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m Halloween Myth uses fallback asset"),
-        stage("stage4h", "Gelora Bung Yagoo (Night)", true, false, 8, "yagoo", 8, "moonafic_vip", "moonafic", "moonafic_vip", 800, 38, 50000, 7, "udin", 600, "goriela", 1200, "https://holocure.wiki.gg/wiki/Stage", "Hard variant documented; 20m Goriela uses fallback asset"),
+        stage("stage5", "Fantasy Island", false, false, 4, "fantasy", 4, "nousagi_a", "nousagi_b", "nousagi_c", 850, 36, 15000, 99, "nanora", 600, "pekodam", 1200, "https://holocure.wiki.gg/wiki/Stage_5_-_Fantasy_Island", "documented stage/boss timing and boss stats; Nanora asset approximated"),
+        stage("stage1h", "Grassy Plains (Night)", true, false, 5, "grass", 5, "dark_shrimp", "shrimp", "dark_shrimp", 1000, 26, 5000, 1, "fubuzilla_hard", 600, "halloween_bae", 1200, "https://holocure.wiki.gg/wiki/Stage_1_(Hard)_-_Grassy_Plains_(Night)", "Hard variant documented; 20m final boss uses fallback asset"),
+        stage("stage2h", "Holo Office (Evening)", true, false, 6, "office", 6, "kuro_sukonbu", "sukonbu", "kuro_sukonbu", 900, 30, 15000, 5, "mikodanye_hard", 600, "nodoka", 1200, "https://holocure.wiki.gg/wiki/Stage_2_(Hard)_-_Holo_Office_(Evening)", "Hard variant documented; 20m Nodoka uses fallback asset"),
+        stage("stage3h", "Halloween Castle (Myth)", true, false, 7, "castle", 7, "matsurisu3", "matsurisu", "matsurisu3", 850, 34, 30000, 6, "shubangelion_hard", 600, "halloween_myth", 1200, "https://holocure.wiki.gg/wiki/Stage_3_(Hard)_-_Halloween_Castle_(Myth)", "Hard variant documented; 20m Halloween Myth uses fallback asset"),
+        stage("stage4h", "Gelora Bung Yagoo (Night)", true, false, 8, "yagoo", 8, "moonafic_vip", "moonafic", "moonafic_vip", 800, 38, 50000, 7, "udin_hard", 600, "goriela", 1200, "https://holocure.wiki.gg/wiki/Stage_4_(Hard)_-_Gelora_Bung_Yagoo_(Night)", "Hard variant documented; 20m Goriela uses fallback asset"),
         stage("time1", "Concert Stage", false, true, 9, "concert", 9, "otaku", "otaku", "otaku", 650, 40, 0, 2, "", 0, "", 0, "https://holocure.wiki.gg/wiki/Stage", "Time Mode target 4000; collabs and super items disabled"),
         // Original custom stage: Arena Hutan Sawit. Not from the reference game: its enemy, boss,
         // tile and combat values are this project's own design. It is placed last so its order stays
@@ -746,11 +783,13 @@ final class ContentCatalog {
     }
 
     static BossDef boss(String id, String name, int hp, int atk, int behavior,
-            int cooldown, int exp, String sprite, boolean approximation, int collW, int collH) {
+            int cooldown, int exp, String sprite, boolean approximation, int collW, int collH,
+            boolean documented) {
         BossDef d = new BossDef();
         d.id = id; d.name = name; d.hp = hp; d.atk = atk; d.behavior = behavior;
         d.cooldownMs = cooldown; d.exp = exp; d.sprite = sprite;
         d.assetApproximation = approximation; d.collW = collW; d.collH = collH;
+        d.documentedBaseStats = documented;
         return d;
     }
 

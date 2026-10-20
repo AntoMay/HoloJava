@@ -25,12 +25,17 @@ public final class RunWorldBossArtTest {
     /** {bossId, dir, prefix, count} — mirrors the audit, not the loader. */
     private static final String[][] SPEC = {
         {"fubuzilla", "fubuzilla", "spr_fubuzilla_", "12"},
+        {"fubuzilla_hard", "fubuzilla", "spr_fubuzilla_", "12"},
         {"smol_ame", "SmolAme", "spr_SmollAme_walk_", "8"},
+        {"smol_ame_hard", "SmolAme", "spr_SmollAme_walk_", "8"},
         {"mikodanye", "Mikodanye", "spr_Mikodanye_", "8"},
+        {"mikodanye_hard", "Mikodanye", "spr_Mikodanye_", "8"},
         {"achan", "AchanBoss", "spr_AchanBoss_", "4"},
         {"shubangelion", "Shubangelion_walk", "spr_Shubangelion_walk_", "8"},
+        {"shubangelion_hard", "Shubangelion_walk", "spr_Shubangelion_walk_", "8"},
         {"spiderchama", "EldrichHaachama", "spr_EldrichHaachama_walk_", "8"},
         {"udin", "Udin_walk", "spr_Udin_walk_", "6"},
+        {"udin_hard", "Udin_walk", "spr_Udin_walk_", "6"},
         {"area15", "Moontato", "spr_Moontato_", "4"},
         {"nanora", "Nanora", "spr_Moonafic2_", "3"},
         {"pekodam", "Pekodam", "spr_Pekodam_", "4"},

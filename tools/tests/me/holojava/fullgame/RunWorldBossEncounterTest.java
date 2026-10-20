@@ -205,14 +205,16 @@ public final class RunWorldBossEncounterTest {
      *
      * <p>spawnBossById used to pin HP with {@code min(20000, ...)}, so every scaled spawn and every
      * boss above 20000 collapsed to exactly 20000 — Halloween Bae's verified 72000 became 20000,
-     * making all bosses share one durability. The ceiling is now the enemy HP cap of 100000, so
-     * a 72000 boss is no longer crushed. Field values pass through the log/exp approximation in
-     * MathUtil.power, so they are asserted near the catalog value rather than equal to it.
+     * making all bosses share one durability. The ceiling became the enemy HP cap of 100000 next,
+     * and is now a boss-specific 400000, because the wiki figures (Goriela 180000) and the custom
+     * stage's bosses outrank Pekodam's 100000 and would otherwise be clamped flat. Field values
+     * pass through the log/exp approximation in MathUtil.power, so they are asserted near the
+     * catalog value rather than equal to it.
      */
     public static void testBossHpIsNotPinnedByACap() throws Exception {
         Object w = world(5, 0);   // stage1h
         // The two 10:00 bosses share one slot, so halloween_bae (the 20:00 gate's
-        // boss) only spawns once fubuzilla and smol_ame have both fallen.
+        // boss) only spawns once fubuzilla_hard and smol_ame_hard have both fallen.
         director(w, 600L * 1000L);
         defeat(w);
         director(w, 600L * 1000L + 1L);
@@ -224,7 +226,7 @@ public final class RunWorldBossEncounterTest {
         expect(bossId(w).equals("halloween_bae"), "the 20:00 hard encounter is halloween_bae");
         expect(maxHp > 20000, "a 72000 HP boss is no longer crushed to the old 20000 cap (got "
             + maxHp + ")");
-        expect(maxHp <= 100000, "boss HP still respects the 100000 enemy-HP ceiling (got " + maxHp
+        expect(maxHp <= 400000, "boss HP still respects the 400000 boss-HP ceiling (got " + maxHp
             + ")");
         expectNear(maxHp, catalogHp, (int) (catalogHp * 0.05),
             "at zero scaling a 72000 boss surfaces ~72000 HP");
@@ -436,14 +438,14 @@ public final class RunWorldBossEncounterTest {
         Object w = world(hardIndex, 0);
         director(w, 600L * 1000L);
         expect(getBool(boss(w), "active"), "fubuzilla appears at 10:00");
-        expect(bossId(w).equals("fubuzilla"), "the 10:00 encounter is fubuzilla");
+        expect(bossId(w).equals("fubuzilla_hard"), "the 10:00 encounter is fubuzilla's hard row");
         defeat(w);
 
         // The single boss slot cannot hold both 10:00 bosses at once, so the
         // verified second one follows as soon as the first falls.
         director(w, 600L * 1000L + 1L);
         expect(getBool(boss(w), "active"), "smol ame follows at the same gate");
-        expect(bossId(w).equals("smol_ame"), "the second 10:00 encounter is smol ame");
+        expect(bossId(w).equals("smol_ame_hard"), "the second 10:00 encounter is smol ame's hard row");
         defeat(w);
 
         expect(!getBool(w, "won"), "two 10:00 encounters are not enough to win");
@@ -477,25 +479,24 @@ public final class RunWorldBossEncounterTest {
     }
 
     /**
-     * Pins the Stage 1 Hard boss numbers so a later balance pass changes them deliberately.
+     * Pins the Stage 1 Hard boss numbers to the wiki's own figures.
      *
-     * <p>The test used to be called "stats match the verified source", and its javadoc claimed
-     * they were verified against the wiki's Stage 1 (Hard) HP/ATK/SPD/EXP columns. They were not.
-     * {@code data/wiki/bosses.csv} carries only id, name, stage id, scheduled time, mode
-     * restrictions and a source URL -- there is no HP/ATK/SPD/EXP column in any of the extracted
-     * wiki data, and the file's own {@code coverage_note} states that those values are not on the
-     * Enemy page. What is documented for a boss is its spawn time, and that is asserted elsewhere.
+     * <p>These used to be labelled "pinned balance values" after an earlier audit proved that no
+     * extracted wiki data carried HP/ATK/EXP for bosses -- data/wiki/bosses.csv has no such
+     * columns, and the wiki's Enemy page has no such columns either. The stage pages do: each
+     * one's "Enemy Composition" table lists every boss it spawns with HP/ATK/SPD/EXP, and the
+     * Stage 1 (Hard) page was read on 2026-10-20. It schedules Fubuzilla and Smol Ame together
+     * at 10:00 and Halloween Bae at 20:00, each appearance with its own stats -- which is why
+     * Fubuzilla and Smol Ame now carry a *_hard row beside their normal one.
      *
-     * <p>So these are balance numbers, like the mob damage. They were halved once and restored: the
- * halving was a reaction to how punishing the numbers looked, but the real cause of that
- * impression was a bug in how character ATK was applied, and once that was fixed the original
- * values were correct. Pinning them is still worth doing, so a later change is a deliberate edit
- * here rather than a quiet drift, and the name now says what they actually are.
+     * <p>Pinning stays worth doing: a later balance pass should edit these lines deliberately
+     * rather than let the table drift quietly. BossStatsWikiTest extends the same check to every
+     * boss in the catalog.
      */
     private static void testStage1HardStatsAreVerified() throws Exception {
-        System.out.println("[8] stage 1 hard boss stats match the pinned balance values");
-        expectBoss("fubuzilla", 8000, 22, 1500);
-        expectBoss("smol_ame", 25000, 20, 1500);
+        System.out.println("[8] stage 1 hard boss stats match the wiki stage page");
+        expectBoss("fubuzilla_hard", 15000, 22, 1500);
+        expectBoss("smol_ame_hard", 12000, 20, 1500);
         expectBoss("halloween_bae", 72000, 27, 6000);
     }
 
