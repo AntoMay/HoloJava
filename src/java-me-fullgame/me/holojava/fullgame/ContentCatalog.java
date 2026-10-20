@@ -1,5 +1,4 @@
 package me.holojava.fullgame;
-import java.io.IOException;
 
 /** Data-only catalog. Engine behavior is selected through primitive pattern identifiers. */
 final class ContentCatalog {
@@ -668,8 +667,12 @@ final class ContentCatalog {
         if (is != null) {
             try {
                 defs = WikiCatalogData.buildCollabDefs(is);
-            } catch (IOException ie) {
-                // Fallback if CSV parsing fails
+            } catch (Throwable t) {
+                // Fallback if CSV parsing fails. This catches Throwable, not just
+                // IOException, because it runs in a static initializer: an Error
+                // thrown here (a missing class, a VerifyError) would escape as an
+                // ExceptionInInitializerError and kill the MIDlet before the first
+                // frame, which the IOException-only version could not prevent.
                 defs = new CollabDef[] {
                     collab("absolute_wall", "Absolute Wall", "bounce_ball", "cutting_board", "collab", ""),
                     collab("bl_fujoshi", "BL Fujoshi", "bl_book", "psycho_axe", "collab", ""),
