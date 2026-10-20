@@ -73,6 +73,18 @@ final class AssetLibrary {
     private Image[] controllerIcons;    // 10 controller icons (hud_controllerButtonIcons_*)
     private Image dialogueBox;          // hud_dialogueBox_0.png
     private Image uiDialogueBox;        // ui_dialogueBox_0.png
+    private Image shopCategory0;
+    private Image shopCategory1;
+    private Image shopCategory2;
+    private Image shopButton0;
+    private Image shopButton1;
+    private Image shopButton2;
+    private Image shopButton3;
+    private Image upgradeWindow;
+    private Image upgradeWindowSel0;
+    private Image upgradeWindowSel1;
+    private Image menuFirst0;
+    private Image menuCharSelBG;
 
     Image tileGrass;
     Image tileGrassField;
@@ -703,6 +715,78 @@ final class AssetLibrary {
     Image uiDialogueBox() {
         if (uiDialogueBox == null) uiDialogueBox = image("/assets/fullgame/ui/hud/ui_dialogueBox_0.png");
         return uiDialogueBox;
+    }
+
+    /** hud_shopCategories_0.png - shop category tab 0. */
+    Image shopCategory0() {
+        if (shopCategory0 == null) shopCategory0 = image("/assets/fullgame/ui/hud/shop_category_0.png");
+        return shopCategory0;
+    }
+
+    /** hud_shopCategories_1.png - shop category tab 1. */
+    Image shopCategory1() {
+        if (shopCategory1 == null) shopCategory1 = image("/assets/fullgame/ui/hud/shop_category_1.png");
+        return shopCategory1;
+    }
+
+    /** hud_shopCategories_2.png - shop category tab 2. */
+    Image shopCategory2() {
+        if (shopCategory2 == null) shopCategory2 = image("/assets/fullgame/ui/hud/shop_category_2.png");
+        return shopCategory2;
+    }
+
+    /** hud_shopButtons_0.png - shop button 0. */
+    Image shopButton0() {
+        if (shopButton0 == null) shopButton0 = image("/assets/fullgame/ui/hud/shop_button_0.png");
+        return shopButton0;
+    }
+
+    /** hud_shopButtons_1.png - shop button 1. */
+    Image shopButton1() {
+        if (shopButton1 == null) shopButton1 = image("/assets/fullgame/ui/hud/shop_button_1.png");
+        return shopButton1;
+    }
+
+    /** hud_shopButtons_2.png - shop button 2. */
+    Image shopButton2() {
+        if (shopButton2 == null) shopButton2 = image("/assets/fullgame/ui/hud/shop_button_2.png");
+        return shopButton2;
+    }
+
+    /** hud_shopButtons_3.png - shop button 3. */
+    Image shopButton3() {
+        if (shopButton3 == null) shopButton3 = image("/assets/fullgame/ui/hud/shop_button_3.png");
+        return shopButton3;
+    }
+
+    /** ui_menu_upgrade_window_0.png - upgrade window background. */
+    Image upgradeWindow() {
+        if (upgradeWindow == null) upgradeWindow = image("/assets/fullgame/ui/hud/ui_menu_upgrade_window_0.png");
+        return upgradeWindow;
+    }
+
+    /** ui_menu_upgrade_window_selected_0.png - upgrade window selected. */
+    Image upgradeWindowSel0() {
+        if (upgradeWindowSel0 == null) upgradeWindowSel0 = image("/assets/fullgame/ui/hud/ui_menu_upgrade_window_selected_0.png");
+        return upgradeWindowSel0;
+    }
+
+    /** ui_menu_upgrade_window_selected_1.png - upgrade window selected alt. */
+    Image upgradeWindowSel1() {
+        if (upgradeWindowSel1 == null) upgradeWindowSel1 = image("/assets/fullgame/ui/hud/ui_menu_upgrade_window_selected_1.png");
+        return upgradeWindowSel1;
+    }
+
+    /** menu_first_0.png - label box (same as menu_label but full). */
+    Image menuFirst0() {
+        if (menuFirst0 == null) menuFirst0 = image("/assets/fullgame/ui/hud/menu_first_0.png");
+        return menuFirst0;
+    }
+
+    /** menu_charselecBG_0.png - character select background. */
+    Image menuCharSelBG() {
+        if (menuCharSelBG == null) menuCharSelBG = image("/assets/fullgame/ui/hud/menu_charselecBG_0.png");
+        return menuCharSelBG;
     }
 
     private Image[] frames(String dir, int count) { return frames(dir, count, ""); }
