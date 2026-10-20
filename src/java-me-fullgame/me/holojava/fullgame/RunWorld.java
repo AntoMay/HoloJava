@@ -328,6 +328,13 @@ final class RunWorld {
     private Offer heldOffer;
     private boolean won;
 
+    // Dialogue system
+    private static final int MAX_DIALOGUE_LINES = 3;
+    private String[] dialogueLines = new String[MAX_DIALOGUE_LINES];
+    private int dialogueLineCount = 0;
+    private long dialogueShowUntil = 0;
+    private static final long DIALOGUE_DURATION_MS = 3000;
+
     // HUD string cache fields for allocation optimization
     private String cachedHpString;
     private String cachedLvString;
@@ -627,6 +634,7 @@ final class RunWorld {
         updateMelee(now);
         updatePickups(now);
         updateRegen(now);
+        checkDialogueTriggers(now);
         if (playerHp <= 0) {
             playerHp = 0;
             state = STATE_GAME_OVER;
@@ -2452,6 +2460,7 @@ final class RunWorld {
             drawPlayer(g, worldOffX, offY, now);
             drawMelee(g, worldOffX, offY, now);
             drawHud(g, offX, offY, now);
+            drawDialogue(g, offX, offY, now);
             return;
         }
         drawPlayer(g, worldOffX, offY, now);
@@ -2967,5 +2976,53 @@ final class RunWorld {
     private static final class Offer {
         int type = -1; int value; int existing; boolean newItem; boolean collab;
         void clear() { type = -1; value = 0; existing = -1; newItem = false; collab = false; }
+    }
+
+    /** Shows a dialogue line (up to 3 lines stacked). */
+    void showDialogue(String line) {
+        if (dialogueLines == null) dialogueLines = new String[MAX_DIALOGUE_LINES];
+        for (int i = 0; i < MAX_DIALOGUE_LINES - 1; i++) {
+            dialogueLines[i] = dialogueLines[i + 1];
+        }
+        dialogueLines[MAX_DIALOGUE_LINES - 1] = line;
+        if (dialogueLineCount < MAX_DIALOGUE_LINES) dialogueLineCount++;
+        dialogueShowUntil = System.currentTimeMillis() + DIALOGUE_DURATION_MS;
+    }
+
+    private void drawDialogue(Graphics g, int offX, int offY, long now) {
+        if (now >= dialogueShowUntil || dialogueLineCount == 0) return;
+        Image box = assets.dialogueBox();
+        if (box == null) box = assets.uiDialogueBox();
+        if (box == null) return;
+
+        int boxW = box.getWidth();
+        int boxH = box.getHeight();
+        int boxX = offX + (viewWidth - boxW) / 2;
+        int boxY = offY + viewHeight - boxH - 20;
+
+        g.drawImage(box, boxX, boxY, Graphics.TOP | Graphics.LEFT);
+
+        g.setColor(255, 255, 255);
+        Font small = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        g.setFont(small);
+        int lineH = small.getHeight() + 2;
+        for (int i = 0; i < dialogueLineCount; i++) {
+            if (dialogueLines[i] != null) {
+                int textX = boxX + (boxW - g.getFont().stringWidth(dialogueLines[i])) / 2;
+                g.drawString(dialogueLines[i], textX, boxY + 8 + i * lineH, Graphics.TOP | Graphics.LEFT);
+            }
+        }
+    }
+
+    private void checkDialogueTriggers(long now) {
+        if (playerLevel != lastPlayerLevel) {
+            showDialogue("Level up! Lv " + playerLevel + " reached!");
+        }
+        if (specialCharge >= SPECIAL_CHARGE_MAX && !specialLocked) {
+            showDialogue("Special ready! Press 9 to unleash!");
+        }
+        if (boss.active && boss.hp == boss.maxHp && now > 5000) {
+            showDialogue("Boss appeared: " + bossName() + "!");
+        }
     }
 }

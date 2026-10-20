@@ -71,6 +71,8 @@ final class AssetLibrary {
     private Image[] mainWeaponCaseLevels; // 5 main weapon case level icons
     private Image[] keybindIcons;       // 16 keybind icons (hud_keybindIcons_*)
     private Image[] controllerIcons;    // 10 controller icons (hud_controllerButtonIcons_*)
+    private Image dialogueBox;          // hud_dialogueBox_0.png
+    private Image uiDialogueBox;        // ui_dialogueBox_0.png
 
     Image tileGrass;
     Image tileGrassField;
@@ -689,6 +691,18 @@ final class AssetLibrary {
             for (int i = 0; i < 10; i++) controllerIcons[i] = image("/assets/fullgame/ui/hud/button_icons/controller_" + i + ".png");
         }
         return controllerIcons;
+    }
+
+    /** hud_dialogueBox_0.png - main dialogue box background. */
+    Image dialogueBox() {
+        if (dialogueBox == null) dialogueBox = image("/assets/fullgame/ui/hud/hud_dialogueBox_0.png");
+        return dialogueBox;
+    }
+
+    /** ui_dialogueBox_0.png - alternative dialogue box. */
+    Image uiDialogueBox() {
+        if (uiDialogueBox == null) uiDialogueBox = image("/assets/fullgame/ui/hud/ui_dialogueBox_0.png");
+        return uiDialogueBox;
     }
 
     private Image[] frames(String dir, int count) { return frames(dir, count, ""); }
