@@ -280,29 +280,39 @@ final class ContentCatalog {
 
     // Additional documented roster is tracked in data/wiki/characters.csv. Entries without
     // verified local animation assets are defined but not presented as playable.
+    // Weapon damage lives in the rows below on the enemy-HP scale: a level-1 main weapon must
+    // one-shot the weakest minute-0 fan at its owner's ATK% (Trident 30 x 1.10 = 33 vs Shrimp's
+    // 30 HP; the dark variants and every charger take two hits, which is the original's opening
+    // too). The table was authored at a tenth of this scale (damage 2-7), which took ten swings
+    // to kill one 30 HP Shrimp and made the first minutes of a zero-coin run unwinnable; the
+    // 2026-10-20 retune multiplies the damage column by ten -- mains set to land the one-shot
+    // floor against each owner's ATK% (Ame 24 x 1.30, Ina 34 x 0.90) -- and leaves cooldown,
+    // count, reach, area, knockback, weight and levels untouched. Nothing here is wiki-sourced:
+    // enemy HP is approximated (documentedBaseStats = false) and so is this curve; see
+    // docs/GAME_MECHANICS.md.
     static final WeaponDef[] BASE_WEAPONS = {
-        weapon("trident_thrust", "Trident Thrust", 1, WEAPON_MELEE, PATTERN_MELEE_ARC, 900, 3, 1, 0, 34, 18, 3, 3, 7, "gura", "trident", "", ""),
-        weapon("pistol_shot", "Pistol Shot", 1, WEAPON_MULTISHOT, PATTERN_PROJECTILE, 800, 2, 3, 9, 110, 8, 1, 3, 7, "ame", "ame_bullet", "", ""),
-        weapon("scythe_swing", "Scythe Swing", 1, WEAPON_MELEE, PATTERN_MELEE_ARC, 1000, 3, 1, 0, 32, 24, 4, 3, 7, "calli", "scythe", "", ""),
-        weapon("phoenix_sword", "Phoenix Sword", 1, WEAPON_MELEE, PATTERN_MELEE_ARC, 900, 3, 1, 0, 38, 20, 3, 3, 7, "kiara", "phoenix", "", ""),
-        weapon("summon_tentacle", "Summon Tentacle", 1, WEAPON_MELEE, PATTERN_MELEE_ARC, 1000, 3, 1, 0, 30, 16, 2, 3, 7, "ina", "tentacle", "", ""),
+        weapon("trident_thrust", "Trident Thrust", 1, WEAPON_MELEE, PATTERN_MELEE_ARC, 900, 30, 1, 0, 34, 18, 3, 3, 7, "gura", "trident", "", ""),
+        weapon("pistol_shot", "Pistol Shot", 1, WEAPON_MULTISHOT, PATTERN_PROJECTILE, 800, 24, 3, 9, 110, 8, 1, 3, 7, "ame", "ame_bullet", "", ""),
+        weapon("scythe_swing", "Scythe Swing", 1, WEAPON_MELEE, PATTERN_MELEE_ARC, 1000, 30, 1, 0, 32, 24, 4, 3, 7, "calli", "scythe", "", ""),
+        weapon("phoenix_sword", "Phoenix Sword", 1, WEAPON_MELEE, PATTERN_MELEE_ARC, 900, 30, 1, 0, 38, 20, 3, 3, 7, "kiara", "phoenix", "", ""),
+        weapon("summon_tentacle", "Summon Tentacle", 1, WEAPON_MELEE, PATTERN_MELEE_ARC, 1000, 34, 1, 0, 30, 16, 2, 3, 7, "ina", "tentacle", "", ""),
 
-        weapon("bl_book", "BL Book", 0, WEAPON_MULTISHOT, PATTERN_ORBIT, 900, 2, 2, 4, 34, 10, 2, 3, 7, "", "bullet", "", ""),
-        weapon("psycho_axe", "Psycho Axe", 0, WEAPON_RANGED, PATTERN_PROJECTILE, 1200, 3, 1, 6, 130, 12, 2, 3, 7, "", "axe", "", ""),
-        weapon("sausage", "Sausage", 0, WEAPON_MELEE, PATTERN_HOMING, 1400, 4, 1, 5, 90, 10, 3, 3, 7, "", "bullet", "", ""),
-        weapon("holo_bomb", "Holo Bomb", 0, WEAPON_MULTISHOT, PATTERN_AOE, 1800, 4, 1, 4, 120, 28, 3, 4, 7, "", "bomb", "", ""),
-        weapon("glowstick", "Glowstick", 0, WEAPON_MULTISHOT, PATTERN_BOOMERANG, 1100, 2, 1, 7, 100, 8, 1, 4, 7, "", "bullet", "", ""),
-        weapon("bounce_ball", "Bounce Ball", 0, WEAPON_MULTISHOT, PATTERN_HOMING, 1600, 4, 1, 5, 150, 24, 4, 4, 7, "", "bomb", "", ""),
-        weapon("cutting_board", "Cutting Board", 0, WEAPON_RANGED, PATTERN_WALL, 1500, 3, 1, 5, 60, 22, 2, 2, 7, "", "axe", "", ""),
-        weapon("ens_curse", "EN's Curse", 0, WEAPON_MULTISHOT, PATTERN_PROJECTILE, 1300, 2, 3, 7, 105, 10, 1, 2, 7, "", "bullet", "", ""),
-        weapon("owl_dagger", "Owl Dagger", 0, WEAPON_MELEE, PATTERN_PIERCING, 600, 2, 1, 10, 85, 8, 1, 2, 7, "", "ame_bullet", "", ""),
-        weapon("fan_beam", "Fan Beam", 0, WEAPON_RANGED, PATTERN_PIERCING, 1000, 4, 1, 12, 150, 8, 2, 3, 7, "", "ame_bullet", "", ""),
+        weapon("bl_book", "BL Book", 0, WEAPON_MULTISHOT, PATTERN_ORBIT, 900, 20, 2, 4, 34, 10, 2, 3, 7, "", "bullet", "", ""),
+        weapon("psycho_axe", "Psycho Axe", 0, WEAPON_RANGED, PATTERN_PROJECTILE, 1200, 30, 1, 6, 130, 12, 2, 3, 7, "", "axe", "", ""),
+        weapon("sausage", "Sausage", 0, WEAPON_MELEE, PATTERN_HOMING, 1400, 40, 1, 5, 90, 10, 3, 3, 7, "", "bullet", "", ""),
+        weapon("holo_bomb", "Holo Bomb", 0, WEAPON_MULTISHOT, PATTERN_AOE, 1800, 40, 1, 4, 120, 28, 3, 4, 7, "", "bomb", "", ""),
+        weapon("glowstick", "Glowstick", 0, WEAPON_MULTISHOT, PATTERN_BOOMERANG, 1100, 20, 1, 7, 100, 8, 1, 4, 7, "", "bullet", "", ""),
+        weapon("bounce_ball", "Bounce Ball", 0, WEAPON_MULTISHOT, PATTERN_HOMING, 1600, 40, 1, 5, 150, 24, 4, 4, 7, "", "bomb", "", ""),
+        weapon("cutting_board", "Cutting Board", 0, WEAPON_RANGED, PATTERN_WALL, 1500, 30, 1, 5, 60, 22, 2, 2, 7, "", "axe", "", ""),
+        weapon("ens_curse", "EN's Curse", 0, WEAPON_MULTISHOT, PATTERN_PROJECTILE, 1300, 20, 3, 7, 105, 10, 1, 2, 7, "", "bullet", "", ""),
+        weapon("owl_dagger", "Owl Dagger", 0, WEAPON_MELEE, PATTERN_PIERCING, 600, 20, 1, 10, 85, 8, 1, 2, 7, "", "ame_bullet", "", ""),
+        weapon("fan_beam", "Fan Beam", 0, WEAPON_RANGED, PATTERN_PIERCING, 1000, 40, 1, 12, 150, 8, 2, 3, 7, "", "ame_bullet", "", ""),
 
-        weapon("absolute_wall", "Absolute Wall", 2, WEAPON_MELEE, PATTERN_WALL, 1600, 6, 1, 0, 46, 38, 8, 0, 7, "", "axe", "bounce_ball", "cutting_board"),
-        weapon("bl_fujoshi", "BL Fujoshi", 2, WEAPON_MELEE, PATTERN_MELEE_ARC, 1300, 6, 1, 0, 42, 30, 7, 0, 7, "", "bullet", "bl_book", "psycho_axe"),
-        weapon("black_plague", "Black Plague", 2, WEAPON_MULTISHOT, PATTERN_AOE, 1500, 5, 2, 4, 115, 24, 3, 0, 7, "", "bomb", "ens_curse", "owl_dagger"),
-        weapon("blood_lust", "Blood Lust", 2, WEAPON_MELEE, PATTERN_MELEE_ARC, 1000, 7, 2, 0, 48, 30, 8, 0, 7, "", "scythe", "owl_dagger", "psycho_axe"),
-        weapon("legendary_sausage", "Legendary Sausage", 2, WEAPON_MELEE, PATTERN_ORBIT, 900, 5, 2, 5, 40, 14, 4, 0, 7, "", "bullet", "bl_book", "sausage")
+        weapon("absolute_wall", "Absolute Wall", 2, WEAPON_MELEE, PATTERN_WALL, 1600, 60, 1, 0, 46, 38, 8, 0, 7, "", "axe", "bounce_ball", "cutting_board"),
+        weapon("bl_fujoshi", "BL Fujoshi", 2, WEAPON_MELEE, PATTERN_MELEE_ARC, 1300, 60, 1, 0, 42, 30, 7, 0, 7, "", "bullet", "bl_book", "psycho_axe"),
+        weapon("black_plague", "Black Plague", 2, WEAPON_MULTISHOT, PATTERN_AOE, 1500, 50, 2, 4, 115, 24, 3, 0, 7, "", "bomb", "ens_curse", "owl_dagger"),
+        weapon("blood_lust", "Blood Lust", 2, WEAPON_MELEE, PATTERN_MELEE_ARC, 1000, 70, 2, 0, 48, 30, 8, 0, 7, "", "scythe", "owl_dagger", "psycho_axe"),
+        weapon("legendary_sausage", "Legendary Sausage", 2, WEAPON_MELEE, PATTERN_ORBIT, 900, 50, 2, 5, 40, 14, 4, 0, 7, "", "bullet", "bl_book", "sausage")
     };
 
     static final WeaponDef[] WEAPONS = WikiCatalogData.buildWeapons(BASE_WEAPONS);

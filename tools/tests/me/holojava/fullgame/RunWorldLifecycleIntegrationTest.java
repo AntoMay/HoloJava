@@ -395,7 +395,7 @@ public final class RunWorldLifecycleIntegrationTest {
                     ContentCatalog.CHARACTERS[ci].name + ": skill goes on a 15 second cooldown");
 
             switch (ci) {
-                case 0: {   // Shark Bite (Gawr Gura): radius 70, 6 damage, knockback
+                case 0: {   // Shark Bite (Gawr Gura): radius 70, 60 damage, knockback
                     expect(enemy != null && getInt(enemy, "hp") < hpBefore,
                             "Gawr Gura: Shark Bite damaged an enemy inside radius 70");
                     break;

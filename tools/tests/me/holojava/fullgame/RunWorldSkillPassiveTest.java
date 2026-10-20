@@ -247,7 +247,7 @@ public final class RunWorldSkillPassiveTest {
     }
 
     /**
-     * Shark Bite is a burst at the fixed base: 6 damage inside a 70px radius. Nothing scales it
+     * Shark Bite is a burst at the fixed base: 60 damage inside a 70px radius. Nothing scales it
      * any more, and the radius boundary must still hold.
      */
     private static void testBurstSkillHitsTheFixedBasePower() throws Exception {

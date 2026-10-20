@@ -29,11 +29,23 @@ per-stage figures (provenance in `docs/GAME_MECHANICS.md`, pinned by `BossStatsW
 boss-HP ceiling note under Boss Combat Fixes below was updated with it); `README.md` added;
 the stale status documents refreshed.
 
+**Done 2026-10-20 (early-game balance):** weapon damage had been authored at a tenth of the
+enemy-HP scale — a level-1 main needed ten swings to kill a 30 HP Shrimp, so a zero-coin run's
+opening minutes were unwinnable, where the original one-shots its opening fans. The damage column
+was retuned to that scale: mains land the one-shot floor on the weakest minute-0 fan at each
+idol's ATK% (Trident 30 x 1.10, Pistol 24 x 1.30, Tentacle 34 x 0.90), the pool and collab rows
+followed at the same factor, and the skill/special bursts moved with them (Shark Bite/The Ancient
+One 60/40, Shark Call/Phoenix Fire 180/240). Cooldowns, counts, reach, radii, enemy HP and every
+wiki-sourced boss figure are untouched; rationale in the comment over `BASE_WEAPONS`.
+`RunWorldWeaponHitboxTest`'s fixture gained the pickup pool, because a covered enemy now dies and
+a kill drops EXP through the production path.
+
 **Known follow-ups from the same audit (not yet done):** per-frame allocation in the render
 path, `AssetLibrary.prepareStage` leaking `framesM`, no integrity check over the save record,
-the debug hitbox overlay left enabled in `RunWorld`, duplicated helpers and dead classes, the
-legacy `src/java-me-{first-slice,phase3,diagnostic}` modules, and a ProGuard keep-rule naming
-a nonexistent `MIDLET_VERSION`.
+duplicated helpers and dead classes, the legacy `src/java-me-{first-slice,phase3,diagnostic}`
+modules, and a ProGuard keep-rule naming a nonexistent `MIDLET_VERSION`. (The debug
+enemy-outline overlay from that list is now behind `DEBUG_ENEMY_OUTLINE = false`, done in the
+git log.)
 
 **Immediate next action:** work that follow-up list, then runtime validation on a real J2ME
 target — no suite covers device behavior. Phase 8 licensing review stays the release gate.

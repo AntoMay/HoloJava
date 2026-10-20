@@ -681,13 +681,17 @@ final class RunWorld {
      * nothing to buy and no stacks to scale it. Duration-based skills (Hunter's Instinct, Second
      * Flame) keep their window as the effect, because the window is what they <em>are</em>. The
      * skill fires automatically on the cooldown — the player never presses anything.
+     *
+     * <p>Burst damage sits on the same enemy-HP scale as the weapon table's 2026-10-20 retune
+     * (Shark Bite 60, The Ancient One 40, up from 6/4): on the old scale a permanent 15-second
+     * skill could not even dent a minute-0 fan, while 60 one-shots one inside the 70px radius.
      */
     private void activateSkill(long now) {
         skillReadyAt = now + SKILL_COOLDOWN_MS;
         // Skill Up: +4% damage per level, additive up to the 10-level cap (max 40%).
         int skillMul = 100 + Math.min(skillUpLevel * 4, 40);
         if (characterIndex == 0) { // Shark Bite
-            damageEnemiesInRadius((70 * skillMul) / 100, 6, true);
+            damageEnemiesInRadius((70 * skillMul) / 100, 60, true);
         } else if (characterIndex == 1) { // Hunter's Instinct
             slowEnemiesUntil = now + 3500L;
             for (int i = 0; i < enemies.length; i++) if (enemies[i].active) enemies[i].nextAttack = now + 1200L;
@@ -698,7 +702,7 @@ final class RunWorld {
             lifestealUntil = now + 8000L;
         } else { // The Ancient One
             invulUntil = now + 2500L;
-            damageEnemiesInRadius((45 * skillMul) / 100, 4, false);
+            damageEnemiesInRadius((45 * skillMul) / 100, 40, false);
         }
     }
 
@@ -708,20 +712,24 @@ final class RunWorld {
      * <p>Called only from the gated site in {@code updatePlayer}: the Special Attack upgrade must
      * be owned and the meter full, or the key never reaches here. The meter — not the run — is
      * what is spent: SPECIAL orb drops refill it, so every full meter buys another cast.
+     *
+     * <p>Shark Call and Phoenix Fire carry 180/240 damage — the weapon table's 2026-10-20 scale,
+     * same factor as the skill bursts above — so a spent meter clears a crowd instead of chipping
+     * it. Radii (110/130px) and every other special's effect are unchanged.
      */
     private void activateSpecial(long now) {
         specialCharge = 0;
         // Growth applies to special attacks too: flat bonus per player level per rank.
         int growthBonus = growthLevel * playerLevel;
         if (characterIndex == 0) { // Shark Call
-            damageEnemiesInRadius(110 + growthBonus, 18, true);
+            damageEnemiesInRadius(110 + growthBonus, 180, true);
         } else if (characterIndex == 1) { // Slow Time
             slowEnemiesUntil = now + 6000L;
         } else if (characterIndex == 2) { // The Reaper
             playerHp = Math.min(playerMaxHp, playerHp + Math.max(8, playerMaxHp / 4));
             lifestealUntil = now + 10000L;
         } else if (characterIndex == 3) { // Phoenix Fire
-            damageEnemiesInRadius(130 + growthBonus, 24, true);
+            damageEnemiesInRadius(130 + growthBonus, 240, true);
         } else { // Spirit of the Oni
             shield = 30;
             shieldReadyAt = now + 10000L;

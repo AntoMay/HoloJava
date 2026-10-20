@@ -192,6 +192,12 @@ public final class RunWorldWeaponHitboxTest {
         set(w, "boss", boss);
         set(w, "shots", filled("me.holojava.fullgame.RunWorld$Shot", 128));
         set(w, "enemies", filled("me.holojava.fullgame.RunWorld$Enemy", 64));
+        // A covered enemy can die now (the 2026-10-20 weapon retune put axe damage above the
+        // Shrimp's 30 HP), and a kill drops EXP through dropPickup, which scans the pickup pool
+        // production always has. Allocate it the way the constructor does, at its real size.
+        java.lang.reflect.Field poolSize = wc.getDeclaredField("PICKUP_POOL");
+        poolSize.setAccessible(true);
+        set(w, "pickups", filled("me.holojava.fullgame.RunWorld$Pickup", poolSize.getInt(null)));
         set(w, "weaponSlots", new int[] { -1, -1, -1, -1, -1, -1 });
         set(w, "weaponLevels", new int[] { 1, 1, 1, 1, 1, 1 });
         set(w, "weaponReadyAt", new long[] { 0L, 0L, 0L, 0L, 0L, 0L });
