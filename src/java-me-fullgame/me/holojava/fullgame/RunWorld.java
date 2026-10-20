@@ -2338,6 +2338,14 @@ final class RunWorld {
         if (e.x > worldWidth) e.x = worldWidth; if (e.y > worldHeight) e.y = worldHeight;
     }
 
+    /**
+     * Outline three fixed enemy ids in red while drawing, left behind by the 2026-10-19
+     * contact-damage debugging and hidden behind this flag on 2026-10-20. It was never a
+     * general hitbox overlay — it covered only defIndex 3, 4 and 11 — and it drew on real
+     * devices too. Flip to true only while inspecting those enemies; never ship it enabled.
+     */
+    private static final boolean DEBUG_ENEMY_OUTLINE = false;
+
     void draw(Graphics g, int offX, int offY, long now) {
         // offX/offY are screen-space viewport offsets (Viewport.offsetX/offsetY). Only the world
         // layers shift by the camera; the HUD below keeps the untouched screen offsets.
@@ -2385,7 +2393,7 @@ final class RunWorld {
             int x = worldOffX + e.x; int y = offY + e.y;
             if (im != null) g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
             else { g.setColor(180, 0, 0); g.fillRect(x, y, enemyWidth(e.defIndex), enemyHeight(e.defIndex)); }
-            if (e.defIndex == 3 || e.defIndex == 4 || e.defIndex == 11) {
+            if (DEBUG_ENEMY_OUTLINE && (e.defIndex == 3 || e.defIndex == 4 || e.defIndex == 11)) {
                 g.setColor(255, 100, 100); g.drawRect(x - 3, y - 3, enemyWidth(e.defIndex) + 6, enemyHeight(e.defIndex) + 6);
             }
         }
