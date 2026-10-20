@@ -42,6 +42,9 @@ final class AssetLibrary {
     Image pickupIcon;
     private Image logo;
     private Image menuLogo;
+    private Image titleLogo;
+    private Image sparkle0;
+    private Image sparkle1;
     private Image titleBg;
     private Image menuCast;
     private Image menuLabel;
@@ -433,9 +436,34 @@ final class AssetLibrary {
     }
 
     /**
-     * Smaller copy of the same wordmark for the Main Menu. The icon bar and the roster collage
-     * own the lower two thirds of the title screen now, so the logo floats over the crowd at
-     * this size instead of the splash's full 300px scale.
+     * The main menu logo — the smaller 176px-wide version of the HoloCure wordmark,
+     * sourced from hud_titlebar_0.png (the actual title screen logo), not the splash logo.
+     * Loaded lazily and cached.
+     */
+    Image titleLogo() {
+        if (titleLogo == null) titleLogo = image("/assets/fullgame/ui/menu_logo.png");
+        return titleLogo;
+    }
+
+    /**
+     * Sparkle frame 0 for graduated members on the title screen (hudfx_sparkle_0, halved).
+     */
+    Image sparkle0() {
+        if (sparkle0 == null) sparkle0 = image("/assets/fullgame/ui/sparkle_0.png");
+        return sparkle0;
+    }
+
+    /**
+     * Sparkle frame 1 for graduated members on the title screen (hudfx_sparkle_1, halved).
+     */
+    Image sparkle1() {
+        if (sparkle1 == null) sparkle1 = image("/assets/fullgame/ui/sparkle_1.png");
+        return sparkle1;
+    }
+
+    /**
+     * Legacy menu logo (splash logo scaled down). Kept for compatibility but titleLogo()
+     * should be used for the main menu title screen.
      */
     Image menuLogo() {
         if (menuLogo == null) menuLogo = image("/assets/fullgame/ui/holocure_logo_menu.png");

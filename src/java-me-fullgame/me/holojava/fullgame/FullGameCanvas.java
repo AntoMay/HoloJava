@@ -1045,10 +1045,39 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             g.drawLine(x, feetY, x + Viewport.MIN_W, feetY);
             g.setColor(40, 30, 20); // slightly lighter second line for depth
             g.drawLine(x, feetY + 1, x + Viewport.MIN_W, feetY + 1);
+
+            // 2b. Sparkle animation on graduated members (Update 0.7+ feature)
+            // Graduated members: Coco, Sana, Mel, Aqua, Ame, Fauna, Shion, Mumei, Gura, Kanata
+            // Sparkle frames alternate every ~300ms at fixed positions on the crowd
+            long sparkleTick = clockMs / 300;
+            Image sparkle = (sparkleTick % 2 == 0) ? assets.sparkle0() : assets.sparkle1();
+            if (sparkle != null) {
+                // Sparkle positions (relative to crowd top-left at castY=64)
+                // These match the graduated members' positions in the crowd arch:
+                // Coco, Sana, Mel, Aqua, Ame, Fauna, Shion, Mumei, Gura, Kanata
+                // Positions are (x, y) relative to crowd top-left (x=0, y=0 at castY)
+                int[][] sparkles = {
+                    {  85,  20}, // Coco (back row, left side)
+                    { 120,  22}, // Sana
+                    { 200,  24}, // Mel
+                    { 260,  26}, // Aqua
+                    {  60,  50}, // Ame (middle row)
+                    { 180,  52}, // Fauna
+                    { 290,  54}, // Shion
+                    { 100,  80}, // Mumei (front row)
+                    { 160,  82}, // Gura
+                    { 220,  84}, // Kanata
+                };
+                for (int[] pos : sparkles) {
+                    int sx = x + pos[0] - sparkle.getWidth() / 2;
+                    int sy = y + TITLE_CAST_Y + pos[1] - sparkle.getHeight() / 2;
+                    g.drawImage(sparkle, sx, sy, Graphics.TOP | Graphics.LEFT);
+                }
+            }
         }
 
         // 3. HoloCure logo - floating above the crowd, centered with gentle bob
-        Image logo = assets.menuLogo();
+        Image logo = assets.titleLogo();
         if (logo != null) {
             int logoY = y + MENU_LOGO_Y + bob(600, 3);
             g.drawImage(logo, x + MENU_LOGO_X, logoY, Graphics.TOP | Graphics.LEFT);
