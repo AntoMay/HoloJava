@@ -1021,6 +1021,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * freezes every effect at rest.
      */
     private void drawMainMenu(Graphics g, int x, int y) {
+        // 1. Star-stage backdrop (full screen)
         Image bg = assets.titleBg();
         if (bg != null) {
             g.drawImage(bg, x, y, Graphics.TOP | Graphics.LEFT);
@@ -1028,22 +1029,44 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             g.setColor(TITLE_DEEP_R, TITLE_DEEP_G, TITLE_DEEP_B);
             g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
         }
-        Image cast = assets.menuCast();
-        if (cast != null) g.drawImage(cast, x, y + TITLE_CAST_Y, Graphics.TOP | Graphics.LEFT);
 
+        // 2. Character crowd (roster) - positioned on the stage floor of the backdrop.
+        // The crowd (320x116) at y=64 aligns its bottom with the stage floor in the backdrop.
+        // To integrate it better, draw a subtle shadow line at the crowd's feet.
+        Image cast = assets.menuCast();
+        if (cast != null) {
+            int castY = y + TITLE_CAST_Y; // 64 - aligns with stage floor
+            g.drawImage(cast, x, castY, Graphics.TOP | Graphics.LEFT);
+
+            // Subtle shadow line at the crowd's feet (where they stand on the stage)
+            // This grounds the characters into the backdrop instead of floating.
+            int feetY = castY + cast.getHeight(); // bottom of crowd = stage floor
+            g.setColor(0, 0, 0);
+            g.drawLine(x, feetY, x + Viewport.MIN_W, feetY);
+            g.setColor(40, 30, 20); // slightly lighter second line for depth
+            g.drawLine(x, feetY + 1, x + Viewport.MIN_W, feetY + 1);
+        }
+
+        // 3. HoloCure logo - floating above the crowd, centered with gentle bob
         Image logo = assets.menuLogo();
         if (logo != null) {
-            g.drawImage(logo, x + MENU_LOGO_X, y + MENU_LOGO_Y + bob(600, 3),
-                    Graphics.TOP | Graphics.LEFT);
+            int logoY = y + MENU_LOGO_Y + bob(600, 3);
+            g.drawImage(logo, x + MENU_LOGO_X, logoY, Graphics.TOP | Graphics.LEFT);
+
+            // Subtle gold glow line under the logo (matches the title screen's lighting)
+            int glowY = logoY + logo.getHeight() + 2;
+            g.setColor(255, 200, 0); // warm gold
+            g.drawLine(x + 60, glowY, x + 260, glowY);
+            g.setColor(255, 230, 100);
+            g.drawLine(x + 65, glowY + 1, x + 255, glowY + 1);
         }
+
         g.setColor(TITLE_TEXT_R, TITLE_TEXT_G, TITLE_TEXT_B);
         drawRight(g, x, y + 4, "version 0.1");
 
         drawBar(g, x, y);
 
-        // Gold label box with the highlighted entry's name, bottom right. Changing the selection
-        // restarts the short slide-in so the label visibly answers the input; the box and its
-        // baked text share one coordinate, so they move together.
+        // Gold label box with the highlighted entry's name, bottom right.
         if (menuIndex != labelIndex) { labelIndex = menuIndex; labelShownAt = clockMs; }
         int slide = (int) ((clockMs - labelShownAt) / 25L);
         if (slide > 6) slide = 6;
@@ -1928,31 +1951,44 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
     }
 
-    /** Pause screen, drawn with the same visual weight as the Main Menu:
-     *  larger title, larger list items, and a centred layout that mirrors the idle screen. */
+    /** Pause popup: a centred panel over the frozen run, like the level-up popup.
+     *  Two simple choices: Resume / Return to Menu. No full-screen dim. */
     private void drawPause(Graphics g, int x, int y) {
-        drawPageBackground(g, x, y);
-        // Title at the same vertical position and size as Main Menu's centered heading
+        int panelW = 200;
+        int rowH = 22;
+        int rows = PAUSE_ITEMS.length;
+        int panelH = 30 + rows * rowH + 10;
+        int px = x + (Viewport.MIN_W - panelW) / 2;
+        int py = y + (Viewport.MIN_H - panelH) / 2;
+
+        // Panel with double border like the level-up popup
+        g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
+        g.fillRect(px, py, panelW, panelH);
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        Font large = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_LARGE);
-        g.setFont(large);
+        g.drawRect(px, py, panelW - 1, panelH - 1);
+        g.drawRect(px + 2, py + 2, panelW - 5, panelH - 5);
+
+        // Title
+        Font titleFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+        g.setFont(titleFont);
         String titleText = "PAUSED";
-        g.drawString(titleText, x + (Viewport.MIN_W - large.stringWidth(titleText)) / 2, y + TITLE_TOP,
+        g.drawString(titleText, px + (panelW - titleFont.stringWidth(titleText)) / 2, py + 8,
                 Graphics.TOP | Graphics.LEFT);
-        // List items use MEDIUM font (like the pre-rendered Main Menu labels) for readability
-        Font medium = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_MEDIUM);
-        g.setFont(medium);
-        int itemY = y + PAUSE_LIST_Y;
+
+        // List items
+        int listY = py + 30;
+        Font rowFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        g.setFont(rowFont);
         for (int i = 0; i < PAUSE_ITEMS.length; i++) {
+            int ry = listY + i * rowH;
             boolean on = i == pauseIndex;
-            int rowY = itemY + i * 28;  // slightly taller rows for MEDIUM font
-            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-            String prefix = on ? "> " : "  ";
-            g.drawString(prefix + PAUSE_ITEMS[i], x + 36, rowY, Graphics.TOP | Graphics.LEFT);
             if (on) {
                 g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-                g.fillRect(x, rowY + 2, 2, 16);  // taller accent bar
+                g.fillRect(px + 5, ry, panelW - 10, rowH - 2);
             }
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+            String prefix = on ? "> " : "  ";
+            g.drawString(prefix + PAUSE_ITEMS[i], px + 10, ry + 4, Graphics.TOP | Graphics.LEFT);
         }
     }
 
