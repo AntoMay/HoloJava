@@ -22,10 +22,10 @@ public final class BgmStageMusicTest {
     private static int checks = 0;
     private static int failures = 0;
 
-    /** Per-track ceiling: the owner's size policy (2026-10-18) caps transcriptions at 60 KB. */
-    private static final int MAX_TRACK_BYTES = 61440;
-    /** Whole-set ceiling for assets/fullgame/audio: 10 stages x the 60 KB per-track cap. */
-    private static final int MAX_TOTAL_BYTES = 614400;
+    /** Per-track ceiling: the owner's size policy (2026-10-20) caps transcriptions at 150 KB. */
+    private static final int MAX_TRACK_BYTES = 153600;
+    /** Whole-set ceiling for assets/fullgame/audio: 11 tracks x the 150 KB per-track cap. */
+    private static final int MAX_TOTAL_BYTES = 1689600;
 
     public static void main(String[] args) throws Exception {
         testEveryStageHasMusicExceptHutanSawit();

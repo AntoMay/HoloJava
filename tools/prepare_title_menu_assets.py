@@ -141,10 +141,11 @@ def character_collage(source: Path) -> Image.Image:
         if not frames:
             continue
         start = -rng.randint(0, 10) - row_index * 7   # stagger the row starts per row
-        # One gap for the whole row: negative means overlap (a packed crowd),
-        # and the row still ends at CAST_W however wide the sprites came out.
-        gap = ((CAST_W - start - sum(f.width for f in frames)) / (len(frames) - 1)
-               if len(frames) > 1 else 0)
+        # Gap tuned for a tight, overlapping crowd: aim for ~2 px overlap
+        # instead of exact-width fill, so characters visually pack together.
+        natural_gap = ((CAST_W - start - sum(f.width for f in frames)) / (len(frames) - 1)
+                       if len(frames) > 1 else 0)
+        gap = min(natural_gap, -2.0)  # clamp to at most -2 px (overlap)
         x = float(start)
         for frame in frames:
             canvas.alpha_composite(frame, (int(x), top + rng.randint(0, 2)))
