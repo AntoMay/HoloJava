@@ -85,6 +85,8 @@ final class AssetLibrary {
     private Image upgradeWindowSel1;
     private Image menuFirst0;
     private Image menuCharSelBG;
+    private Image pauseMenu;
+    private Image optionsMenu;
 
     Image tileGrass;
     Image tileGrassField;
@@ -787,6 +789,18 @@ final class AssetLibrary {
     Image menuCharSelBG() {
         if (menuCharSelBG == null) menuCharSelBG = image("/assets/fullgame/ui/hud/menu_charselecBG_0.png");
         return menuCharSelBG;
+    }
+
+    /** hud_pausemenu_0.png - pause menu background. */
+    Image pauseMenu() {
+        if (pauseMenu == null) pauseMenu = image("/assets/fullgame/ui/hud/hud_pausemenu_0.png");
+        return pauseMenu;
+    }
+
+    /** hud_optionsmenu_0.png - options menu background. */
+    Image optionsMenu() {
+        if (optionsMenu == null) optionsMenu = image("/assets/fullmenu/ui/hud/hud_optionsmenu_0.png");
+        return optionsMenu;
     }
 
     private Image[] frames(String dir, int count) { return frames(dir, count, ""); }
