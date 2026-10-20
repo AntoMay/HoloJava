@@ -2575,42 +2575,84 @@ final class RunWorld {
         }
         g.drawString(cachedHpString, offX + 4, offY + 4, Graphics.TOP | Graphics.LEFT);
 
-        // Player HP bar, directly under the HP text. The ratio is clamped so the fill can never
-        // exceed the inner width or go negative; playerMaxHp <= 0 renders as an empty bar.
+        // Player HP bar - use HP bar assets (green/purple) with HP icon
         double maxHpRatio = (double) playerMaxHp;
         double hpRatio = maxHpRatio > 0.0 ? MathUtil.clamp((double) playerHp / maxHpRatio, 0.0, 1.0) : 0.0;
-        int hpFillW = (int) ((HP_BAR_W - 2 * HP_BAR_INSET) * hpRatio);
-        g.setColor(20, 20, 20); g.fillRect(offX + HP_BAR_X, offY + HP_BAR_Y, HP_BAR_W, HP_BAR_H);
-        g.setColor(90, 30, 30);
-        g.fillRect(offX + HP_BAR_X + HP_BAR_INSET, offY + HP_BAR_Y + HP_BAR_INSET,
-                HP_BAR_W - 2 * HP_BAR_INSET, HP_BAR_H - 2 * HP_BAR_INSET);
-        if (hpRatio * 100.0 <= HP_BAR_LOW_PERCENT) g.setColor(220, 40, 40);
-        else g.setColor(40, 190, 60);
-        g.fillRect(offX + HP_BAR_X + HP_BAR_INSET, offY + HP_BAR_Y + HP_BAR_INSET, hpFillW, HP_BAR_H - 2 * HP_BAR_INSET);
+        
+        // Draw HP bar background
+        Image hpBg = (hpRatio * 100.0 <= HP_BAR_LOW_PERCENT) ? assets.hpPurple() : assets.hpGreen();
+        if (hpBg != null) {
+            g.drawImage(hpBg, offX + HP_BAR_X, offY + HP_BAR_Y, Graphics.TOP | Graphics.LEFT);
+        } else {
+            // Fallback to rect drawing
+            g.setColor(20, 20, 20); g.fillRect(offX + HP_BAR_X, offY + HP_BAR_Y, HP_BAR_W, HP_BAR_H);
+            g.setColor(90, 30, 30);
+            g.fillRect(offX + HP_BAR_X + HP_BAR_INSET, offY + HP_BAR_Y + HP_BAR_INSET,
+                    HP_BAR_W - 2 * HP_BAR_INSET, HP_BAR_H - 2 * HP_BAR_INSET);
+            if (hpRatio * 100.0 <= HP_BAR_LOW_PERCENT) g.setColor(220, 40, 40);
+            else g.setColor(40, 190, 60);
+            int hpFillW = (int) ((HP_BAR_W - 2 * HP_BAR_INSET) * hpRatio);
+            g.fillRect(offX + HP_BAR_X + HP_BAR_INSET, offY + HP_BAR_Y + HP_BAR_INSET, hpFillW, HP_BAR_H - 2 * HP_BAR_INSET);
+        }
+        
+        // HP icon
+        Image hpIcon = assets.hpIcon();
+        if (hpIcon != null) {
+            g.drawImage(hpIcon, offX + HP_BAR_X + HP_BAR_W + 2, offY + HP_BAR_Y, Graphics.TOP | Graphics.LEFT);
+        }
         g.setColor(0, 0, 0);
 
-        // Special bar: directly under the HP bar, filled in proportion to the meter — it charges
-        // from SPECIAL orb drops and empties the moment the special fires. An empty dark track
-        // while the Special Attack upgrade is still locked: charge banks silently and the track
-        // only ever shows what the key could actually spend.
-        int specialFillW = (!specialLocked && specialCharge > 0)
-                ? ((SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET) * specialCharge) / SPECIAL_CHARGE_MAX
-                : 0;
-        // Release flash: pulse the whole bar bright for ~200 ms after firing.
-        boolean flash = now < specialFlashUntil;
-        g.setColor(20, 20, 20);
-        g.fillRect(offX + SPECIAL_BAR_X, offY + SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H);
-        if (flash) {
-            g.setColor(255, 255, 180); // bright yellow-white pulse
+        // Special bar: use SP bar assets
+        Image spBg = assets.spbarBg();
+        Image spFill = assets.spbarFill();
+        Image spFillRainbow = assets.spbarFillRainbow();
+        Image spFrame = assets.spbarFrame();
+        
+        if (spBg != null && spFill != null && spFrame != null) {
+            // Draw SP bar background
+            g.drawImage(spBg, offX + SPECIAL_BAR_X, offY + SPECIAL_BAR_Y, Graphics.TOP | Graphics.LEFT);
+            
+            // Release flash: pulse the whole bar bright for ~200 ms after firing.
+            boolean flash = now < specialFlashUntil;
+            
+            // Draw fill
+            int specialFillW = (!specialLocked && specialCharge > 0)
+                    ? ((spFill.getWidth() - 2) * specialCharge) / SPECIAL_CHARGE_MAX
+                    : 0;
+            
+            if (specialFillW > 0 && !flash) {
+                // Use rainbow fill when meter is full and ready
+                Image fillImg = (specialCharge >= SPECIAL_CHARGE_MAX && spFillRainbow != null) ? spFillRainbow : spFill;
+                // Draw fill portion by clipping (MIDP doesn't support clipping rect for drawImage, so draw rect fallback)
+                int fillX = offX + SPECIAL_BAR_X + 1;
+                int fillY = offY + SPECIAL_BAR_Y + 1;
+                int fillH = spBg.getHeight() - 2;
+                g.setColor(255, 206, 74); // SPECIAL_READY_R/G/B
+                g.fillRect(fillX, fillY, specialFillW, fillH);
+            }
+            
+            // Draw frame overlay
+            g.drawImage(spFrame, offX + SPECIAL_BAR_X, offY + SPECIAL_BAR_Y, Graphics.TOP | Graphics.LEFT);
         } else {
-            g.setColor(SPECIAL_TRACK_R, SPECIAL_TRACK_G, SPECIAL_TRACK_B);
-        }
-        g.fillRect(offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET, offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET,
-                SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
-        if (specialFillW > 0 && !flash) {
-            g.setColor(SPECIAL_READY_R, SPECIAL_READY_G, SPECIAL_READY_B);
+            // Fallback to rect drawing (original code)
+            int specialFillW = (!specialLocked && specialCharge > 0)
+                    ? ((SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET) * specialCharge) / SPECIAL_CHARGE_MAX
+                    : 0;
+            boolean flash = now < specialFlashUntil;
+            g.setColor(20, 20, 20);
+            g.fillRect(offX + SPECIAL_BAR_X, offY + SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H);
+            if (flash) {
+                g.setColor(255, 255, 180);
+            } else {
+                g.setColor(SPECIAL_TRACK_R, SPECIAL_TRACK_G, SPECIAL_TRACK_B);
+            }
             g.fillRect(offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET, offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET,
-                    specialFillW, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
+                    SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
+            if (specialFillW > 0 && !flash) {
+                g.setColor(SPECIAL_READY_R, SPECIAL_READY_G, SPECIAL_READY_B);
+                g.fillRect(offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET, offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET,
+                        specialFillW, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
+            }
         }
         g.setColor(0, 0, 0);
 
@@ -2655,15 +2697,42 @@ final class RunWorld {
         }
         g.drawString(cachedLvString, statusX, offY + STATUS_LV_Y, Graphics.TOP | Graphics.RIGHT);
 
-        // EXP bar: light-blue fill (#5EDDEE) on the original's deep-blue track (#183684),
-        // black border, legible on any sky.
+        // EXP bar: animated frames from asset (90 frames at 76x3)
+        Image[] expAnim = assets.expbarAnim();
+        Image expBg = assets.expbarBg();
+        Image expFrame = assets.expbarFrame();
+        Image expShine = assets.expbarShine();
         double expRatio = expNeed > 0 ? MathUtil.clamp((double) experience / (double) expNeed, 0.0, 1.0) : 0.0;
-        int expX = statusX - EXP_BAR_W;
-        g.setColor(24, 54, 132); g.fillRect(expX, offY + STATUS_EXP_Y, EXP_BAR_W, EXP_BAR_H);
-        g.setColor(EXP_FILL_R, EXP_FILL_G, EXP_FILL_B);
-        g.fillRect(expX + 1, offY + STATUS_EXP_Y + 1, (int) ((EXP_BAR_W - 2) * expRatio), EXP_BAR_H - 2);
-        g.setColor(0, 0, 0);
-        g.drawRect(expX, offY + STATUS_EXP_Y, EXP_BAR_W - 1, EXP_BAR_H - 1);
+        
+        if (expAnim != null && expAnim.length > 0) {
+            // Select frame based on experience ratio (0-89)
+            int frameIndex = (int) (expRatio * (expAnim.length - 1));
+            Image frame = expAnim[frameIndex];
+            int expX = statusX - EXP_BAR_W;
+            int expY = offY + STATUS_EXP_Y;
+            
+            if (frame != null) {
+                g.drawImage(frame, expX, offY + STATUS_EXP_Y, Graphics.TOP | Graphics.LEFT);
+            }
+            // Draw frame overlay
+            Image expFrameImg = assets.expbarFrame();
+            if (expFrameImg != null) {
+                g.drawImage(expFrameImg, expX, offY + STATUS_EXP_Y, Graphics.TOP | Graphics.LEFT);
+            }
+            // Optional shine overlay
+            Image expShineImg = assets.expbarShine();
+            if (expShineImg != null) {
+                g.drawImage(expShineImg, expX, offY + STATUS_EXP_Y, Graphics.TOP | Graphics.LEFT);
+            }
+        } else {
+            // Fallback to rect drawing
+            int expX = statusX - EXP_BAR_W;
+            g.setColor(24, 54, 132); g.fillRect(expX, offY + STATUS_EXP_Y, EXP_BAR_W, EXP_BAR_H);
+            g.setColor(EXP_FILL_R, EXP_FILL_G, EXP_FILL_B);
+            g.fillRect(expX + 1, offY + STATUS_EXP_Y + 1, (int) ((EXP_BAR_W - 2) * expRatio), EXP_BAR_H - 2);
+            g.setColor(0, 0, 0);
+            g.drawRect(expX, offY + STATUS_EXP_Y, EXP_BAR_W - 1, EXP_BAR_H - 1);
+        }
 
         g.setColor(255, 255, 255);
         g.drawString("Status run", statusX, offY + STATUS_LABEL_Y, Graphics.TOP | Graphics.RIGHT);
@@ -2755,6 +2824,23 @@ final class RunWorld {
         if (frames == null || frames.length == 0) return null;
         int i = index % frames.length; if (i < 0) i += frames.length;
         return frames[i];
+    }
+
+    /**
+     * Draws a non-negative integer using digit images (white by default).
+     * Returns the x coordinate just after the last digit drawn.
+     */
+    private int drawDigits(Graphics g, int x, int y, int value, Image[] digits) {
+        if (digits == null || digits.length < 10) return x;
+        String s = String.valueOf(value);
+        for (int i = 0; i < s.length(); i++) {
+            int d = s.charAt(i) - '0';
+            if (d >= 0 && d < 10 && digits[d] != null) {
+                g.drawImage(digits[d], x, y, Graphics.TOP | Graphics.LEFT);
+                x += digits[d].getWidth() + 1; // 1px spacing
+            }
+        }
+        return x;
     }
 
     private static final class Enemy {

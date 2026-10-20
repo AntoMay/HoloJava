@@ -51,6 +51,25 @@ final class AssetLibrary {
     private Image[] icons;
     private Image[] texts;
 
+    // HUD assets (new)
+    private Image[] expbarAnim;          // 90-frame animated EXP bar
+    private Image expbarBg;              // EXP bar background
+    private Image expbarFrame;           // EXP bar frame
+    private Image expbarShine;           // EXP bar shine overlay
+    private Image spbarBg;               // SP bar background
+    private Image spbarFill;             // SP bar fill (normal)
+    private Image spbarFillRainbow;      // SP bar fill (rainbow/ready)
+    private Image spbarFrame;            // SP bar frame
+    private Image[] digitsWhite;         // 10 white digits
+    private Image[] digitsYellow;        // 10 yellow digits
+    private Image[] digitsPink;          // 10 pink digits
+    private Image hpGreen;               // HP bar green (normal)
+    private Image hpGreen1;              // HP bar green (alt)
+    private Image hpPurple;              // HP bar purple (low HP)
+    private Image hpIcon;                // HP icon
+    private Image[] weaponCaseLevels;    // 5 weapon case level icons
+    private Image[] mainWeaponCaseLevels; // 5 main weapon case level icons
+
     Image tileGrass;
     Image tileGrassField;
     Image tileOffice;
@@ -519,6 +538,137 @@ final class AssetLibrary {
             }
         }
         return texts[index];
+    }
+
+    // --- HUD asset loaders ---
+
+    /**
+     * 90-frame animated EXP bar (expbar_anim_00.png .. expbar_anim_89.png).
+     * Pre-scaled to 76px wide (EXP_BAR_W) by prepare_hud_assets.py.
+     */
+    Image[] expbarAnim() {
+        if (expbarAnim == null) {
+            expbarAnim = new Image[90];
+            for (int i = 0; i < 90; i++) {
+                // CLDC-compatible: build path without String.format
+                String path = "/assets/fullgame/ui/hud/expbar_anim/expbar_anim_";
+                if (i < 10) path += "0";
+                path += i + ".png";
+                expbarAnim[i] = image(path);
+            }
+        }
+        return expbarAnim;
+    }
+
+    /** EXP bar background (static). */
+    Image expbarBg() {
+        if (expbarBg == null) expbarBg = image("/assets/fullgame/ui/hud/expbar_bg.png");
+        return expbarBg;
+    }
+
+    /** EXP bar frame overlay. */
+    Image expbarFrame() {
+        if (expbarFrame == null) expbarFrame = image("/assets/fullgame/ui/hud/expbar_frame.png");
+        return expbarFrame;
+    }
+
+    /** EXP bar shine overlay (animated separately if desired). */
+    Image expbarShine() {
+        if (expbarShine == null) expbarShine = image("/assets/fullgame/ui/hud/expbar_shine.png");
+        return expbarShine;
+    }
+
+    /** SP bar background. */
+    Image spbarBg() {
+        if (spbarBg == null) spbarBg = image("/assets/fullgame/ui/hud/spbar_bg.png");
+        return spbarBg;
+    }
+
+    /** SP bar normal fill (gold). */
+    Image spbarFill() {
+        if (spbarFill == null) spbarFill = image("/assets/fullgame/ui/hud/spbar_fill.png");
+        return spbarFill;
+    }
+
+    /** SP bar rainbow fill (when meter full/ready). */
+    Image spbarFillRainbow() {
+        if (spbarFillRainbow == null) spbarFillRainbow = image("/assets/fullgame/ui/hud/spbar_fill_rainbow.png");
+        return spbarFillRainbow;
+    }
+
+    /** SP bar frame overlay. */
+    Image spbarFrame() {
+        if (spbarFrame == null) spbarFrame = image("/assets/fullgame/ui/hud/spbar_frame.png");
+        return spbarFrame;
+    }
+
+    /** 10 white digit images (0-9). */
+    Image[] digitsWhite() {
+        if (digitsWhite == null) {
+            digitsWhite = new Image[10];
+            for (int i = 0; i < 10; i++) digitsWhite[i] = image("/assets/fullgame/ui/hud/digits_white/digit_" + i + ".png");
+        }
+        return digitsWhite;
+    }
+
+    /** 10 yellow digit images (0-9). */
+    Image[] digitsYellow() {
+        if (digitsYellow == null) {
+            digitsYellow = new Image[10];
+            for (int i = 0; i < 10; i++) digitsYellow[i] = image("/assets/fullgame/ui/hud/digits_yellow/digit_" + i + ".png");
+        }
+        return digitsYellow;
+    }
+
+    /** 10 pink digit images (0-9). */
+    Image[] digitsPink() {
+        if (digitsPink == null) {
+            digitsPink = new Image[10];
+            for (int i = 0; i < 10; i++) digitsPink[i] = image("/assets/fullgame/ui/hud/digits_pink/digit_" + i + ".png");
+        }
+        return digitsPink;
+    }
+
+    /** HP bar green (normal). */
+    Image hpGreen() {
+        if (hpGreen == null) hpGreen = image("/assets/fullgame/ui/hud/hp_green.png");
+        return hpGreen;
+    }
+
+    /** HP bar green alt. */
+    Image hpGreen1() {
+        if (hpGreen1 == null) hpGreen1 = image("/assets/fullgame/ui/hud/hp_green_1.png");
+        return hpGreen1;
+    }
+
+    /** HP bar purple (low HP). */
+    Image hpPurple() {
+        if (hpPurple == null) hpPurple = image("/assets/fullgame/ui/hud/hp_purple.png");
+        return hpPurple;
+    }
+
+    /** HP icon. */
+    Image hpIcon() {
+        if (hpIcon == null) hpIcon = image("/assets/fullgame/ui/hud/hp_icon.png");
+        return hpIcon;
+    }
+
+    /** Weapon case level icons (0-4). */
+    Image[] weaponCaseLevels() {
+        if (weaponCaseLevels == null) {
+            weaponCaseLevels = new Image[5];
+            for (int i = 0; i < 5; i++) weaponCaseLevels[i] = image("/assets/fullgame/ui/hud/weapon_case_level_" + i + ".png");
+        }
+        return weaponCaseLevels;
+    }
+
+    /** Main weapon case level icons (0-4). */
+    Image[] mainWeaponCaseLevels() {
+        if (mainWeaponCaseLevels == null) {
+            mainWeaponCaseLevels = new Image[5];
+            for (int i = 0; i < 5; i++) mainWeaponCaseLevels[i] = image("/assets/fullgame/ui/hud/mainweapon_case_level_" + i + ".png");
+        }
+        return mainWeaponCaseLevels;
     }
 
     private Image[] frames(String dir, int count) { return frames(dir, count, ""); }
