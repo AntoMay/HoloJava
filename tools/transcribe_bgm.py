@@ -40,21 +40,22 @@ TRACKS = [
 # Menu theme
 MENU_TRACK = ("bgm_SSS.ogg", "bgm_SSS.mid")
 
-# Higher fidelity settings for basic-pitch — tuned for ~150 KB/track ceiling
+# Higher fidelity settings for basic-pitch — tuned to MAXIMIZE quality within 150 KB/track
 # - onset_threshold: lower = more sensitive = more notes (default 0.5)
 # - frame_threshold: lower = more frames = more detail (default 0.3)
 # - minimum_note_length: shorter = more short notes (default 127.7 ms)
 # - minimum_frequency / maximum_frequency: wider range = more notes
-# - multiple_pitch_bends: True adds pitch bend events (larger MIDI)
+# - multiple_pitch_bends: True adds pitch bend events (expressive, larger MIDI)
 # - melodia_trick: True enables improved pitch estimation
+# Target: push ALL tracks into 140-150 KB range (cap 160 KB) for maximum quality
 TRANSCRIBE_KWARGS = {
-    "onset_threshold": 0.42,           # slightly less sensitive = fewer notes
-    "frame_threshold": 0.28,           # slightly less frame detail
-    "minimum_note_length": 40.0,       # filter very short notes
-    "minimum_frequency": 35.0,         # slightly higher bass floor
-    "maximum_frequency": 7000.0,       # slightly lower treble ceiling
-    "multiple_pitch_bends": False,     # disable pitch bends (big size saver)
-    "melodia_trick": True,             # keep improved pitch estimation
+    "onset_threshold": 0.45,           # slightly tighter for identity
+    "frame_threshold": 0.32,           # slightly tighter
+    "minimum_note_length": 45.0,       # slightly longer notes
+    "minimum_frequency": 34.0,         # slightly higher bass
+    "maximum_frequency": 7500.0,       # slightly lower treble
+    "multiple_pitch_bends": True,      # enable pitch bends (expressive)
+    "melodia_trick": True,             # better pitch estimation
     "midi_tempo": 120.0,               # explicit tempo
 }
 
