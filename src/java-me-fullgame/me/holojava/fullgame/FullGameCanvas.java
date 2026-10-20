@@ -1881,21 +1881,75 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int lh = 16;
         drawText(g, x + 16, ty, "Navigasi Menu:", Font.STYLE_BOLD, Font.SIZE_SMALL);
         ty += lh;
-        drawText(g, x + 24, ty, "D-pad: pindah & pilih menu", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        // D-pad icon (controller_0) + text
+        Image dpadIcon = assets.controllerIcons() != null ? assets.controllerIcons()[0] : null;
+        if (dpadIcon != null) {
+            g.drawImage(dpadIcon, x + 24, ty + 2, Graphics.TOP | Graphics.LEFT);
+            drawText(g, x + 24 + dpadIcon.getWidth() + 4, ty, "pindah & pilih menu", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        } else {
+            drawText(g, x + 24, ty, "D-pad: pindah & pilih menu", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
         ty += lh;
-        drawText(g, x + 24, ty, "FIRE / 5: pilih / konfirmasi", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        // FIRE/5 key icon (keybind_5 or keybind_0 for FIRE)
+        Image fireIcon = assets.keybindIcons() != null ? assets.keybindIcons()[5] : null; // keybind_5 = FIRE
+        if (fireIcon != null) {
+            g.drawImage(fireIcon, x + 24, ty + 1, Graphics.TOP | Graphics.LEFT);
+            drawText(g, x + 24 + fireIcon.getWidth() + 4, ty, "pilih / konfirmasi", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        } else {
+            drawText(g, x + 24, ty, "FIRE / 5: pilih / konfirmasi", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
         ty += lh;
-        drawText(g, x + 24, ty, "Kiri/Kanan: pindah tab / kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        // Left/Right arrows (controller_2 = left, controller_3 = right?)
+        Image leftIcon = assets.controllerIcons() != null ? assets.controllerIcons()[2] : null;
+        Image rightIcon = assets.controllerIcons() != null ? assets.controllerIcons()[3] : null;
+        if (leftIcon != null && rightIcon != null) {
+            g.drawImage(leftIcon, x + 24, ty + 2, Graphics.TOP | Graphics.LEFT);
+            drawText(g, x + 24 + leftIcon.getWidth() + 4, ty, "pindah tab / kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            g.drawImage(rightIcon, x + 24 + leftIcon.getWidth() + 4 + g.getFont().stringWidth("pindah tab / kembali") + 8, ty + 2, Graphics.TOP | Graphics.LEFT);
+        } else {
+            drawText(g, x + 24, ty, "Kiri/Kanan: pindah tab / kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
         ty += lh + 6;
         drawText(g, x + 16, ty, "Dalam Gameplay:", Font.STYLE_BOLD, Font.SIZE_SMALL);
         ty += lh;
-        drawText(g, x + 24, ty, "D-pad: gerak", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        // D-pad for movement
+        Image moveIcon = assets.controllerIcons() != null ? assets.controllerIcons()[0] : null;
+        if (moveIcon != null) {
+            g.drawImage(moveIcon, x + 24, ty + 2, Graphics.TOP | Graphics.LEFT);
+            drawText(g, x + 24 + moveIcon.getWidth() + 4, ty, "gerak", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        } else {
+            drawText(g, x + 24, ty, "D-pad: gerak", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
         ty += lh;
-        drawText(g, x + 24, ty, "1 / GAME A: serang dasar", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        // 1 / GAME A for basic attack
+        Image key1Icon = assets.keybindIcons() != null ? assets.keybindIcons()[1] : null;
+        if (key1Icon != null) {
+            g.drawImage(key1Icon, x + 24, ty + 1, Graphics.TOP | Graphics.LEFT);
+            drawText(g, x + 24 + key1Icon.getWidth() + 4, ty, "serang dasar", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        } else {
+            drawText(g, x + 24, ty, "1 / GAME A: serang dasar", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
         ty += lh;
-        drawText(g, x + 24, ty, "9: Special (butuh upgrade)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        // 9 for Special
+        Image key9Icon = assets.keybindIcons() != null ? assets.keybindIcons()[9] : null;
+        if (key9Icon != null) {
+            g.drawImage(key9Icon, x + 24, ty + 1, Graphics.TOP | Graphics.LEFT);
+            drawText(g, x + 24 + key9Icon.getWidth() + 4, ty, "Special (butuh upgrade)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        } else {
+            drawText(g, x + 24, ty, "9: Special (butuh upgrade)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
         ty += lh;
-        drawText(g, x + 24, ty, "5 / FIRE: pause   0: pause alternatif", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        // 5 / FIRE for pause
+        Image key5Icon = assets.keybindIcons() != null ? assets.keybindIcons()[5] : null;
+        Image key0Icon = assets.keybindIcons() != null ? assets.keybindIcons()[0] : null;
+        if (key5Icon != null && key0Icon != null) {
+            g.drawImage(key5Icon, x + 24, ty + 1, Graphics.TOP | Graphics.LEFT);
+            drawText(g, x + 24 + key5Icon.getWidth() + 4, ty, "pause", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            g.drawImage(key0Icon, x + 24 + key5Icon.getWidth() + 4 + g.getFont().stringWidth("pause   ") + 4, ty + 1, Graphics.TOP | Graphics.LEFT);
+            drawText(g, x + 24 + key5Icon.getWidth() + 4 + g.getFont().stringWidth("pause   ") + 4 + key0Icon.getWidth() + 4, ty, "pause alternatif", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        } else {
+            drawText(g, x + 24, ty, "5 / FIRE: pause   0: pause alternatif", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        }
         ty += lh + 6;
         drawText(g, x + 16, ty, "Otomatis:", Font.STYLE_BOLD, Font.SIZE_SMALL);
         ty += lh;

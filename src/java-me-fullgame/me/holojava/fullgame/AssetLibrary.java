@@ -69,6 +69,8 @@ final class AssetLibrary {
     private Image hpIcon;                // HP icon
     private Image[] weaponCaseLevels;    // 5 weapon case level icons
     private Image[] mainWeaponCaseLevels; // 5 main weapon case level icons
+    private Image[] keybindIcons;       // 16 keybind icons (hud_keybindIcons_*)
+    private Image[] controllerIcons;    // 10 controller icons (hud_controllerButtonIcons_*)
 
     Image tileGrass;
     Image tileGrassField;
@@ -669,6 +671,24 @@ final class AssetLibrary {
             for (int i = 0; i < 5; i++) mainWeaponCaseLevels[i] = image("/assets/fullgame/ui/hud/mainweapon_case_level_" + i + ".png");
         }
         return mainWeaponCaseLevels;
+    }
+
+    /** 16 keybind icons (0-15) from hud_keybindIcons_*. */
+    Image[] keybindIcons() {
+        if (keybindIcons == null) {
+            keybindIcons = new Image[16];
+            for (int i = 0; i < 16; i++) keybindIcons[i] = image("/assets/fullgame/ui/hud/button_icons/keybind_" + i + ".png");
+        }
+        return keybindIcons;
+    }
+
+    /** 10 controller button icons (0-9) from hud_controllerButtonIcons_*. */
+    Image[] controllerIcons() {
+        if (controllerIcons == null) {
+            controllerIcons = new Image[10];
+            for (int i = 0; i < 10; i++) controllerIcons[i] = image("/assets/fullgame/ui/hud/button_icons/controller_" + i + ".png");
+        }
+        return controllerIcons;
     }
 
     private Image[] frames(String dir, int count) { return frames(dir, count, ""); }
