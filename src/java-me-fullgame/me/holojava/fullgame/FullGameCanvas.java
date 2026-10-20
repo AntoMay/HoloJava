@@ -1928,12 +1928,32 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
     }
 
-    /** Pause screen, drawn as a full page so it uses the same title, list and selection bar as
-     *  every other menu instead of a lone label floating over the frozen gameplay. */
+    /** Pause screen, drawn with the same visual weight as the Main Menu:
+     *  larger title, larger list items, and a centred layout that mirrors the idle screen. */
     private void drawPause(Graphics g, int x, int y) {
         drawPageBackground(g, x, y);
-        title(g, x, y, "PAUSED");
-        list(g, x, y + PAUSE_LIST_Y, PAUSE_ITEMS, pauseIndex);
+        // Title at the same vertical position and size as Main Menu's centered heading
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        Font large = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_LARGE);
+        g.setFont(large);
+        String titleText = "PAUSED";
+        g.drawString(titleText, x + (Viewport.MIN_W - large.stringWidth(titleText)) / 2, y + TITLE_TOP,
+                Graphics.TOP | Graphics.LEFT);
+        // List items use MEDIUM font (like the pre-rendered Main Menu labels) for readability
+        Font medium = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_MEDIUM);
+        g.setFont(medium);
+        int itemY = y + PAUSE_LIST_Y;
+        for (int i = 0; i < PAUSE_ITEMS.length; i++) {
+            boolean on = i == pauseIndex;
+            int rowY = itemY + i * 28;  // slightly taller rows for MEDIUM font
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+            String prefix = on ? "> " : "  ";
+            g.drawString(prefix + PAUSE_ITEMS[i], x + 36, rowY, Graphics.TOP | Graphics.LEFT);
+            if (on) {
+                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+                g.fillRect(x, rowY + 2, 2, 16);  // taller accent bar
+            }
+        }
     }
 
     private void drawResults(Graphics g, int x, int y) {

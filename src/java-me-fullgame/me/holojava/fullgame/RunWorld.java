@@ -106,11 +106,13 @@ final class RunWorld {
     // EXP bar: light blue, sampled from the original game's own hud_expbar_anim art (#5EDDEE)
     // so the fill reads exactly like HoloCure's EXP bar. Its track is the matching deep blue
     // from hud_expbar_bg (#183684); the black border keeps both legible on light and dark skies.
+    // Moved down to 24 (was HP_BAR_Y=18) so it no longer overlaps the Level text drawn at y=4
+    // with MEDIUM font (~12px tall).
     private static final int EXP_BAR_W = 76;
     private static final int EXP_BAR_H = 8;
     private static final int EXP_FILL_R = 94, EXP_FILL_G = 221, EXP_FILL_B = 238; // #5EDDEE
-    private static final int STATUS_EXP_Y = HP_BAR_Y; // 18, aligned with HP bar
-    private static final int STATUS_LABEL_Y = STATUS_EXP_Y + EXP_BAR_H + 3; // 25
+    private static final int STATUS_EXP_Y = 24;
+    private static final int STATUS_LABEL_Y = STATUS_EXP_Y + EXP_BAR_H + 3; // 35
     private static final int STATUS_ROW_H = 13;
     private static final int STATUS_COINS_Y = STATUS_LABEL_Y + STATUS_ROW_H;  // 38
     private static final int STATUS_WAVE_Y = STATUS_COINS_Y + STATUS_ROW_H;   // 51
@@ -299,6 +301,9 @@ final class RunWorld {
      * instant special.
      */
     private int specialCharge;
+
+    /** Timer for the special-release flash (ms). When >0, the special bar pulses bright. */
+    private long specialFlashUntil;
 
     /** Full special meter, in charge points. */
     static final int SPECIAL_CHARGE_MAX = 100;
@@ -719,6 +724,8 @@ final class RunWorld {
      */
     private void activateSpecial(long now) {
         specialCharge = 0;
+        // Trigger a brief release flash on the special bar (200 ms pulse).
+        specialFlashUntil = now + 200L;
         // Growth applies to special attacks too: flat bonus per player level per rank.
         int growthBonus = growthLevel * playerLevel;
         if (characterIndex == 0) { // Shark Call
@@ -2589,12 +2596,18 @@ final class RunWorld {
         int specialFillW = (!specialLocked && specialCharge > 0)
                 ? ((SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET) * specialCharge) / SPECIAL_CHARGE_MAX
                 : 0;
+        // Release flash: pulse the whole bar bright for ~200 ms after firing.
+        boolean flash = now < specialFlashUntil;
         g.setColor(20, 20, 20);
         g.fillRect(offX + SPECIAL_BAR_X, offY + SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H);
-        g.setColor(SPECIAL_TRACK_R, SPECIAL_TRACK_G, SPECIAL_TRACK_B);
+        if (flash) {
+            g.setColor(255, 255, 180); // bright yellow-white pulse
+        } else {
+            g.setColor(SPECIAL_TRACK_R, SPECIAL_TRACK_G, SPECIAL_TRACK_B);
+        }
         g.fillRect(offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET, offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET,
                 SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
-        if (specialFillW > 0) {
+        if (specialFillW > 0 && !flash) {
             g.setColor(SPECIAL_READY_R, SPECIAL_READY_G, SPECIAL_READY_B);
             g.fillRect(offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET, offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET,
                     specialFillW, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
