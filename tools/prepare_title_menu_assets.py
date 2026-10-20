@@ -6,10 +6,9 @@ extraction tools use. MIDP 2.0 cannot scale images at runtime, so every output i
 already at its display size:
 
   ui/title_bg.png      320x240  stage backdrop (hud_new_title_BG, center-cropped)
-  ui/menu_cast.png     320x116  transparent crowd of every playable talent's idle
-                                sprite, exactly once each (47 in the source build;
-                                the seven Holo House critters stay out), laid out in
-                                four staggered rows like the game's title roster
+  ui/menu_cast.png     320x116  transparent crowd of every playable talent's TITLE
+                                sprite (spr_Title_*), exactly once each (47 talents),
+                                densely packed in a natural arch on the stage floor
   ui/menu_icon_0..7    halved hud_title_icons (the eight bar entries we use,
                                 frame 7 the red X for the Keluar entry)
   ui/menu_label.png    116x20   the gold-bordered label box (menu_first frame 0),
@@ -58,7 +57,14 @@ LABEL_TEXT_PX = 10
 
 
 def title_background(source: Path) -> Image.Image:
-    """hud_new_title_BG (660x360, 16:9) center-cropped to 4:3 and scaled to 320x240."""
+    """hud_new_title_BG (660x360, 16:9) center-cropped to 4:3 and scaled to 320x240.
+
+    The crop keeps the starry sky and the stage floor. The stage floor in the
+    source is at the bottom ~60px; after center-crop+resize it sits at y≈180-200
+    in the 320x240 output. The crowd (menu_cast) is drawn at y=64 in the canvas,
+    which places the characters' feet on the stage floor when the cast image
+    bottom aligns with the backdrop's floor.
+    """
     bg = Image.open(source / "textures" / "Sprites" / "hud_new_title_BG_0.png").convert("RGB")
     w, h = bg.size
     keep = int(h * 4 / 3)                       # 480 of 660 columns at native height
@@ -67,89 +73,107 @@ def title_background(source: Path) -> Image.Image:
     return bg.resize((SCREEN_W, SCREEN_H), Image.LANCZOS)
 
 
-def base_idle_dirs(source: Path):
-    """Base-costume idle sprite dirs: spr_<Name>_idle, without the O1+ outfit variants.
-
-    Case-insensitive on purpose: the only base dir spelled with a capital I is
-    Gura's ``spr_Gura_Idle``, and the strict match silently dropped her from the
-    roster -- 46 talents instead of the game's 47.
-    """
-    pattern = re.compile(r"^spr_[A-Za-z0-9]+_idle$", re.IGNORECASE)
-    sprites = source / "sprites"
-    return sorted(d for d in sprites.iterdir() if d.is_dir() and pattern.match(d.name))
-
-
 def load_trimmed(path: Path) -> Image.Image:
     im = Image.open(path).convert("RGBA")
     bbox = im.getbbox()
     return im.crop(bbox) if bbox else im
 
 
-# The seven Holo House critter ids (bug-catch / fishing mascots). They match the
-# base-idle shape above but they are not hololive talents, and the original's
-# title crowd is the talent roster itself -- the wiki describes the 0.5+
-# title screen as "all of the hololive members featured in a group" -- so these
-# never stand in it.
-CRITTER_IDS = frozenset({
-    "spr_Beetle_idle", "spr_Bunny_idle", "spr_Cat_idle", "spr_Dog_idle",
-    "spr_Goriela_idle", "spr_Monkey_idle", "spr_Penguin_idle",
-})
+def title_sprite_paths(source: Path):
+    """Return paths to the 47 spr_Title_*_0.png files, one per talent.
+
+    These are the pre-posed title screen character sprites from the source game,
+    exactly 47 matching the playable roster. They are larger and properly posed
+    for the title screen crowd (unlike the gameplay idle sprites).
+    """
+    sprites_dir = source / "textures" / "Sprites"
+    paths = []
+    for p in sorted(sprites_dir.glob("spr_Title_*_0.png")):
+        # Skip the full title screen composite and any non-talent sprites
+        name = p.stem  # e.g. "spr_Title_Gura_0"
+        if name == "spr_HoloCureTitle_full_0":
+            continue
+        paths.append(p)
+    if len(paths) != 47:
+        print("WARNING: found %d spr_Title_* sprites (expected 47)" % len(paths), file=sys.stderr)
+    return paths
 
 
 def character_collage(source: Path) -> Image.Image:
-    """Four staggered rows holding every talent exactly once, over transparency.
+    """Dense, natural arch of all 47 title sprites on the stage floor.
 
-    The crowd is the roster: the seven Holo House critters are left out and no
-    talent repeats to fill space. The old version wrapped around the directory
-    list once it ran past ~53 entries, so half the strip was duplicates of a
-    roster that was itself missing Gura; instead each row now derives its
-    spacing from its own sprites and spans the strip however they pack.
+    The HoloCure title screen shows a dense arch of characters on the stage:
+    - Back rows: smaller, higher up, tighter horizontal packing
+    - Front rows: larger, lower, more spread, heavy overlap
+    - All 47 talents exactly once, no critters, no duplicates
+    - Arranged in a gentle arc (center higher, edges lower) like a group photo
 
-    Deterministic: the same seed always rebuilds the same crowd, so the asset only
-    changes when the script or the source art does.
+    Deterministic: fixed seed ensures reproducible output.
     """
     rng = random.Random(20261018)
-    dirs = [d for d in base_idle_dirs(source) if d.name not in CRITTER_IDS]
-    if not dirs:
-        raise SystemExit("no talent idle sprite dirs found under %s/sprites" % source)
-    rng.shuffle(dirs)
+    sprite_paths = title_sprite_paths(source)
+    if not sprite_paths:
+        raise SystemExit("no spr_Title_* sprites found under %s/textures/Sprites" % source)
+
+    # Load all frames first
+    frames = []
+    for p in sprite_paths:
+        frame = load_trimmed(p)
+        if frame.width < 4 or frame.height < 4:
+            continue
+        frames.append(frame)
+
+    rng.shuffle(frames)
 
     canvas = Image.new("RGBA", (CAST_W, CAST_H), (0, 0, 0, 0))
-    # Row tops and heights: back rows smaller and higher, front rows bigger.
-    rows = [(2, 24), (28, 26), (56, 28), (84, 30)]
-    # Split the roster across the rows in proportion to row height (largest
-    # remainder), so the taller front rows hold slightly fewer, wider chibis.
-    total_height = float(sum(height for _, height in rows))
-    shares = [len(dirs) * height / total_height for _, height in rows]
-    counts = [int(share) for share in shares]
-    for i in sorted(range(len(rows)),
-                    key=lambda i: shares[i] - counts[i],
-                    reverse=True)[:len(dirs) - sum(counts)]:
+
+    # Row configuration: 5 rows forming an arch on the stage floor
+    # Row 0 (back): highest, smallest; Row 4 (front): lowest, largest
+    # Heights chosen so the bottom of row 4 aligns with CAST_H (stage floor)
+    row_heights = [22, 26, 30, 34, 38]
+    row_tops = [2, 26, 52, 78, 78]  # last two rows share bottom alignment
+    # Adjust tops so row 4 bottom = CAST_H
+    row_tops[4] = CAST_H - row_heights[4]
+
+    # Distribute 47 chars across 5 rows: more in back, fewer in front
+    # Proportional to row height (taller rows = wider chars = fewer fit)
+    total_h = float(sum(row_heights))
+    shares = [len(frames) * h / total_h for h in row_heights]
+    counts = [int(s) for s in shares]
+    for i in sorted(range(len(row_heights)), key=lambda i: shares[i] - counts[i], reverse=True)[:len(frames) - sum(counts)]:
         counts[i] += 1
 
     cursor = 0
-    for row_index, ((top, height), count) in enumerate(zip(rows, counts)):
-        frames = []
-        for d in dirs[cursor:cursor + count]:
+    for row_idx, (top, height, count) in enumerate(zip(row_tops, row_heights, counts)):
+        row_frames = []
+        for _ in range(count):
+            if cursor >= len(frames):
+                break
+            frame = frames[cursor]
             cursor += 1
-            frame = load_trimmed(d / (d.name + "_0.png"))
-            if frame.height < 4 or frame.width < 4:
-                continue
             scale = height / frame.height
             width = max(2, int(frame.width * scale))
-            frames.append(frame.resize((width, height), Image.BOX))
-        if not frames:
+            row_frames.append(frame.resize((width, height), Image.BOX))
+
+        if not row_frames:
             continue
-        start = -rng.randint(0, 10) - row_index * 7   # stagger the row starts per row
-        # Gap tuned for a tight, overlapping crowd: aim for ~2 px overlap
-        # instead of exact-width fill, so characters visually pack together.
-        natural_gap = ((CAST_W - start - sum(f.width for f in frames)) / (len(frames) - 1)
-                       if len(frames) > 1 else 0)
-        gap = min(natural_gap, -2.0)  # clamp to at most -2 px (overlap)
+
+        # Dense packing: start near left edge, heavy overlap (gap = -6 to -10px)
+        # This creates the tight, overlapping crowd from the reference
+        overlap = -8 if row_idx < 3 else -10  # front rows overlap more
+        start = -rng.randint(0, 8) - row_idx * 5
+
+        # For the front row, center the group horizontally
+        if row_idx == 4:
+            total_w = sum(f.width for f in row_frames) + overlap * (len(row_frames) - 1)
+            start = (CAST_W - total_w) // 2
+
         x = float(start)
-        for frame in frames:
-            canvas.alpha_composite(frame, (int(x), top + rng.randint(0, 2)))
-            x += frame.width + gap
+        for frame in row_frames:
+            # Small vertical jitter for natural look
+            canvas.alpha_composite(frame, (int(x), top + rng.randint(0, 1)))
+            x += frame.width + overlap
+
     return canvas
 
 
