@@ -31,6 +31,7 @@ public final class RunWorldMeleeVisualTest {
         testMirrorPixels();
         testFacingSelection();
         testFaceToward();
+        testFacingAngleMatchesAtan2();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -127,6 +128,27 @@ public final class RunWorldMeleeVisualTest {
         expectEq(RunWorld.faceToward(100, 200), 1, "target on the right faces right");
         expectEq(RunWorld.faceToward(200, 100), -1, "target on the left faces left");
         expectEq(RunWorld.faceToward(100, 100), 1, "tie faces right by convention");
+    }
+
+    /**
+     * facingAngle exists because CLDC 1.1's Math has no atan2, so it must be
+     * indistinguishable from atan2 for every input the game can produce.
+     * atan2 is desktop-only and appears solely here as the oracle; nothing
+     * under src/ calls it.
+     */
+    private static void testFacingAngleMatchesAtan2() {
+        System.out.println("[9] facing angle equals atan2 for every facing pair");
+        for (int fx = -1; fx <= 1; fx++) {
+            for (int fy = -1; fy <= 1; fy++) {
+                double got = RunWorld.facingAngle(fx, fy);
+                double want = Math.atan2(fy, fx);
+                expect(Math.abs(got - want) < 1e-12,
+                        "facing(" + fx + "," + fy + "): expected " + want + " got " + got);
+            }
+        }
+        // The game only ever faces the eight cardinal/ordinal directions; the
+        // degenerate (0,0) pair aims right, which atan2(0,0) also returns.
+        expect(RunWorld.facingAngle(0, 0) == 0.0, "neutral facing aims right");
     }
 
     // ---------------------------------------------------------------- helpers

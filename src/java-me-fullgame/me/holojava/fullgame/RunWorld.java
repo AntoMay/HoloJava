@@ -1212,8 +1212,8 @@ final class RunWorld {
                         ty = t.y + enemyHeight(t.defIndex) / 2;
                     } else { tx = ox + facingX * 80; ty = oy; }
                 } else {
-                    double base = Math.atan2((double) facingY, (double) facingX);
-                    if (facingX == 0 && facingY == 0) base = 0.0;
+                    // facingAngle is atan2 without the call: CLDC 1.1 has no Math.atan2.
+                    double base = facingAngle(facingX, facingY);
                     double spread = count == 1 ? 0.0 : (i - (count - 1) / 2.0) * 0.16;
                     tx = ox + (int) (Math.cos(base + spread) * 100.0);
                     ty = oy + (int) (Math.sin(base + spread) * 100.0);
@@ -2258,6 +2258,24 @@ final class RunWorld {
     static Image[] facingFrames(Image[] normal, Image[] mirrored, int facingX) {
         if (facingLeft(facingX) && mirrored != null) return mirrored;
         return normal;
+    }
+
+    /**
+     * The angle of the facing direction in radians, for aiming a volley when
+     * no target can be locked onto. This is {@code Math.atan2(facingY,
+     * facingX)}, which CLDC 1.1's {@link Math} does not have (its trig set is
+     * sin/cos/tan and the inverse-free helpers), and facing only ever holds
+     * -1, 0 or 1 -- so the eight reachable angles are spelled out instead of
+     * computed, each an exact multiple of PI/4. (0,0) aims right, matching
+     * the atan2(0,0) result the old code special-cased to. Package-visible
+     * for tests.
+     */
+    static double facingAngle(int facingX, int facingY) {
+        if (facingY == 0) return facingX < 0 ? Math.PI : 0.0;
+        if (facingX == 0) return facingY > 0 ? Math.PI / 2.0 : -Math.PI / 2.0;
+        double diagonal = Math.PI / 4.0;
+        if (facingX > 0) return facingY > 0 ? diagonal : -diagonal;
+        return facingY > 0 ? Math.PI - diagonal : -Math.PI + diagonal;
     }
 
     /**

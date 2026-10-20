@@ -44,9 +44,15 @@ mkdir -p "$BUILD/classes/assets" "$BUILD/classes/data/wiki" "$DIST"
 cp -a "$ROOT/assets/fullgame" "$BUILD/classes/assets/"
 cp "$ROOT/data/wiki/collabs.csv" "$BUILD/classes/data/wiki/collabs.csv"
 
+# Compile with the desktop's signatures and gate the emitted bytecode against
+# the stubs: see the long note in tools/build_fullgame.sh for why the check
+# cannot be made at the boot classpath (javac's generated StringBuilder makes
+# that compile impossible) and why checking the bytecode is the stronger guard.
 # shellcheck disable=SC2046
-javac --release 8 -sourcepath "$ROOT/src/java-me-fullgame" -cp "$STUBS" \
-    -d "$BUILD/classes" $(find "$ROOT/src/java-me-fullgame" -name '*.java' | sort)
+javac --release 8 -nowarn -cp "$STUBS" \
+    -sourcepath "$ROOT/src/java-me-fullgame" -d "$BUILD/classes" \
+    $(find "$ROOT/src/java-me-fullgame" -name '*.java' | sort)
+tools/verify_cldc_classes.sh "$BUILD/classes"
 
 mkdir -p "$BUILD/classes/META-INF"
 cat > "$BUILD/classes/META-INF/MANIFEST.MF" <<'MANIFEST'

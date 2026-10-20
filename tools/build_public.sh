@@ -76,9 +76,18 @@ open(path, "w").write(patched)
 print("  ShopStartingCapital.VALUE forced to %sL" % value)
 PY
 
-echo "compiling (javac --release 8)"
+echo "compiling and gating against the CLDC/MIDP stubs"
+# --release 8 for the compile, then tools/verify_cldc_classes.sh rewrites javac's
+# generated StringBuilder and checks every emitted java.*/javax.* reference
+# against the stubs: with plain --release 8 javac resolves java.* from the desktop
+# JDK, so nothing else would catch a phone build using APIs a handset lacks
+# (ArrayList, String.matches(), ...). Compiling against the stubs as the boot
+# classpath was tried first and cannot work: every concatenation fails on CLDC's
+# missing StringBuilder. See the long note in tools/build_fullgame.sh.
 # shellcheck disable=SC2046
-javac --release 8 -sourcepath "$SRC" -cp "$STUBS" -d "$CLASSES" $(find "$SRC" -name '*.java' | sort)
+javac --release 8 -nowarn -sourcepath "$SRC" -cp "$STUBS" -d "$CLASSES" \
+    $(find "$SRC" -name '*.java' | sort)
+tools/verify_cldc_classes.sh "$CLASSES"
 
 mkdir -p "$CLASSES/META-INF"
 cat > "$CLASSES/META-INF/MANIFEST.MF" <<'MANIFEST'
@@ -95,13 +104,16 @@ MANIFEST
 # ---------------------------------------------------------------- phone JAR --
 # ProGuard preverification, same as tools/build_fullgame.sh.
 echo "preverifying for the phone (ProGuard)"
+# No -dontwarn: verify_cldc_classes.sh proved these class files reference only
+# classes and members the stubs declare, and ProGuard exits non-zero on any
+# unresolved reference it still finds.
 proguard -verbose \
   -injars "$CLASSES" \
   -outjars "$PREVERIFIED" \
   -libraryjars "$ROOT/deps/java-me/cldcapi11-2.0.4.jar" \
   -libraryjars "$ROOT/deps/java-me/midpapi20-2.0.4.jar" \
   -keep 'public class me.holojava.fullgame.FullGameMIDlet extends javax.microedition.midlet.MIDlet { public <init>(); public void startApp(); public void pauseApp(); public void destroyApp(boolean); }' \
-  -dontshrink -dontoptimize -dontobfuscate -dontwarn -microedition >/dev/null
+  -dontshrink -dontoptimize -dontobfuscate -microedition >/dev/null
 
 mkdir -p "$PREVERIFIED/META-INF" "$PREVERIFIED/data/wiki"
 cp "$CLASSES/META-INF/MANIFEST.MF" "$PREVERIFIED/META-INF/MANIFEST.MF"

@@ -35,14 +35,58 @@ javac --release 8 -nowarn \
     -d "$SHADOW" tools/tests/javax/microedition/lcdui/Image.java
 
 echo "== compiling production sources =="
+# The emitted bytecode is gated against the stubs immediately after this, so the
+# suite fails whenever the phone build would (see the long note in
+# tools/build_fullgame.sh: with --release 8 javac resolves java.* from the desktop
+# JDK, which is how non-CLDC code -- ArrayList, String.matches(), Math.atan2 --
+# once passed every test and then failed on a handset). The test sources below
+# compile AFTER the gate has run: they run on the desktop and are never packaged,
+# so they may use desktop APIs without those ever being checked.
 # shellcheck disable=SC2046
-javac --release 8 -Xlint:-options -nowarn -cp "$CP" -d "$OUT" \
+javac --release 8 -nowarn -cp "$CP" -d "$OUT" \
     $(find src/java-me-fullgame -name '*.java' | sort)
+
+tools/verify_cldc_classes.sh "$OUT"
 
 # Mirror production packaging (tools/build_fullgame.sh): stage the collab
 # catalog at the runtime resource path so ContentCatalog reads CSV, not fallback.
 mkdir -p "$OUT/data/wiki"
 cp "$root/data/wiki/collabs.csv" "$OUT/data/wiki/collabs.csv"
+
+echo "== cldc gate self-test (a violating fixture must be rejected) =="
+# The gate above only means something if it still bites. Compile a class that
+# uses APIs no CLDC handset has, run it through the same rewrite-then-check
+# pipeline, and fail the run if the checker accepts it -- or if it crashes
+# instead of reporting, because a traceback exits non-zero too and would
+# otherwise masquerade as a rejection.
+fixture="$BUILD/cldc-gate-fixture"
+mkdir -p "$fixture"
+cat > "$fixture/CldcGateFixture.java" <<'EOF'
+import java.util.ArrayList;
+
+// Deliberately non-CLDC. Compiled only to prove tools/check_cldc_compliance.py
+// still rejects violations; never packaged, never loaded by a suite.
+public final class CldcGateFixture {
+    private final ArrayList<String> cache = new ArrayList<String>();
+
+    boolean probe(String text) {
+        return text.isEmpty() || text.matches("[0-9]+") || cache.isEmpty();
+    }
+}
+EOF
+javac --release 8 -nowarn -d "$fixture" "$fixture/CldcGateFixture.java"
+python3 tools/stringbuilder_to_stringbuffer.py "$fixture" >/dev/null
+if python3 tools/check_cldc_compliance.py \
+        "deps/java-me/cldcapi11-2.0.4.jar" "deps/java-me/midpapi20-2.0.4.jar" \
+        -- "$fixture" > "$fixture/gate.log" 2>&1; then
+    echo "FATAL: the CLDC gate accepted a fixture using java.util.ArrayList" >&2
+    exit 1
+elif ! grep -q "CLDC compliance FAILED" "$fixture/gate.log"; then
+    echo "FATAL: the CLDC gate did not report a clean rejection:" >&2
+    cat "$fixture/gate.log" >&2
+    exit 1
+fi
+echo "gate rejected the fixture as required"
 
 echo "== compiling test sources =="
 # shellcheck disable=SC2046
