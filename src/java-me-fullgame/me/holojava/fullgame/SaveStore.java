@@ -48,6 +48,25 @@ final class SaveStore {
     private int loadState = LOAD_ABSENT;
 
     /**
+     * Coin writes are debounced. A pickup used to write the whole record to RMS the moment it was
+     * collected, and a magnet can pull a dozen pickups within a couple of seconds — one flash
+     * write each, mid-frame. The balance now advances in memory at once (gameplay never waits for
+     * storage) and the disk catches up at most once per window: by the next credit after it, by
+     * {@link #flush()}, or by any other mutation that writes the record anyway. The window is
+     * also the bound on what a power cut can cost — the coins collected since the last write —
+     * and {@link #flush()} runs on pause and on exit to close even that gap on the normal paths.
+     */
+    static final long COIN_WRITE_INTERVAL_MS = 3000;
+
+    /** The balance changed in memory after the last successful write of the record. */
+    private boolean coinDirty;
+
+    /** Clock time of the last write attempt that carried the balance, successful or refused.
+     *  Stamping failures too is what keeps a broken store from turning into its own write storm:
+     *  it is retried once per window, not once per pickup. */
+    private long coinWriteAtMs;
+
+    /**
      * The single seam that touches {@code javax.microedition.rms}. Everything above it is plain
      * byte[] work, so the record layout and the transaction rules can be exercised on a desktop
      * JVM with a fake implementation, where the MIDP stub would otherwise throw.
@@ -383,26 +402,63 @@ final class SaveStore {
     }
 
     /**
-     * Credits coins and persists them as one transaction.
+     * Credits coins into the in-memory balance and schedules the record write.
      *
-     * <p>Overflow is rejected as a whole: if the amount does not fit, nothing is credited and
-     * nothing is written, so a caller never receives a partial deposit. The in-memory record is
-     * updated only after the write has been reported successful, which means a failed write
-     * leaves the balance exactly as it was instead of silently reverting later.
+     * <p>The balance advances immediately (given a loadable record and a fitting amount):
+     * persistence is optional, gameplay is not, so a pickup never waits on and never depends on a
+     * flash write. Overflow is still rejected as a whole — if the amount does not fit, nothing is
+     * credited and nothing is written, so a caller never receives a partial deposit. What changed
+     * from the old write-first transaction is <em>when</em> the disk catches up: the write is
+     * debounced per {@link #COIN_WRITE_INTERVAL_MS}, a refused write leaves the coins in memory
+     * for the next attempt instead of costing them, and {@link #flush()} forces it out early.
      *
      * @param amount coins to credit; must be positive and must fit
-     * @return true when the balance was credited and the record committed
+     * @return true when the balance was credited in memory; false when the record is unusable
+     *         (a failed load must never be overwritten) or the amount would overflow
      */
     boolean creditCoins(long amount) {
+        if (loadState == LOAD_FAILED) return false;
         long current = coinBalance();
         if (!CoinBalance.canAdd(current, amount)) return false;
-        return commitCoin(CoinBalance.add(current, amount));
+        writeCoin(data, COIN_INDEX, CoinBalance.add(current, amount));
+        coinDirty = true;
+        maybeWriteCoins();
+        return true;
     }
 
     /**
-     * Pays coins out of the balance and persists the result as one transaction, on the same terms
-     * as {@link #creditCoins(long)}: the record is only updated once the write succeeded, and a
-     * cost the balance cannot cover is refused outright rather than driving it negative.
+     * Writes the record when the debounce window has elapsed; otherwise lets the credit wait.
+     *
+     * <p>Called from {@link #creditCoins} only. The window is measured from the last attempt,
+     * successful or refused, so both a burst of pickups and a store that keeps failing produce at
+     * most one write per window.
+     */
+    private void maybeWriteCoins() {
+        if (System.currentTimeMillis() - coinWriteAtMs < COIN_WRITE_INTERVAL_MS) return;
+        save();
+    }
+
+    /**
+     * Pushes a debounced coin credit to storage now instead of waiting out the window.
+     *
+     * <p>Called where a delay must not survive: when the app is paused or stopped, and after the
+     * one-time stage-clear reward, so a session's final coins and a run's biggest grant never
+     * depend on where the window happened to stand.
+     *
+     * @return true when nothing was pending or the write committed; false when storage refused
+     *         (the credit stays in memory for the next attempt)
+     */
+    boolean flush() {
+        if (!coinDirty) return true;
+        return save();
+    }
+
+    /**
+     * Pays coins out of the balance, writing first. Spending is rare — a shop, not a pickup
+     * stream — so it keeps the old transactional rule: the record is only updated once the write
+     * succeeded, and a cost the balance cannot cover is refused outright rather than driving it
+     * negative. Because the candidate record is built from the live one, a successful spend also
+     * lands every debounced credit still waiting in memory, in that same single write.
      *
      * @param cost coins to spend; must be positive and must be covered
      * @return true when the cost was paid and the record committed
@@ -414,19 +470,23 @@ final class SaveStore {
     }
 
     /**
-     * Writes a new balance and only then adopts it.
+     * Writes a new balance and only then adopts it. The spend path; {@link #creditCoins} no
+     * longer comes through here.
      *
      * <p>The candidate record is built in a separate array, so a failed write cannot leave the
      * live record partly updated. Character completion bytes and the settings byte are copied in
-     * unchanged; only the coin bytes differ.
+     * unchanged; only the coin bytes differ. A successful write also carries any debounced
+     * credits that were already sitting in {@code data}, so it marks the balance clean.
      */
     private boolean commitCoin(long next) {
         if (loadState == LOAD_FAILED) return false;
         byte[] candidate = new byte[DATA_LEN];
         System.arraycopy(data, 0, candidate, 0, DATA_LEN);
         writeCoin(candidate, COIN_INDEX, next);
+        coinWriteAtMs = System.currentTimeMillis();
         if (!storage.write(RECORD_ID, candidate)) return false;
         System.arraycopy(candidate, 0, data, 0, DATA_LEN);
+        coinDirty = false;
         return true;
     }
 
@@ -538,7 +598,13 @@ final class SaveStore {
         // Refuse every write while the record is unknown. Without this guard a single read error
         // would let the next ordinary mutation persist the empty defaults over real progress.
         if (loadState == LOAD_FAILED) return false;
-        return storage.write(RECORD_ID, data);
+        // Every write of the record carries the balance with it: on success the debounced credit
+        // is now durable, on refusal it stays pending — and the attempt is stamped either way so
+        // the retry lands inside the debounce window instead of right after this one.
+        coinWriteAtMs = System.currentTimeMillis();
+        if (!storage.write(RECORD_ID, data)) return false;
+        coinDirty = false;
+        return true;
     }
 
     /** The production seam: the one and only place that touches {@code javax.microedition.rms}. */

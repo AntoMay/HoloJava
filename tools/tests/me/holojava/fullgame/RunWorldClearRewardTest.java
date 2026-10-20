@@ -13,7 +13,8 @@ import java.util.Random;
  *   <li>The victory reward {@code coinClear + defeatCount / 4} is credited to the permanent
  *       balance.</li>
  *   <li>The level-up {@code +100} stays run-local and is never persisted.</li>
- *   <li>A collected pickup is credited only after the storage transaction succeeds.</li>
+ *   <li>A collected pickup lands in the balance at once while its write is debounced; a
+ *       refusing store costs it nothing but the disk copy.</li>
  *   <li>Coins never collected are never converted into a permanent balance.</li>
  *   <li>The HUD keeps showing run coins, so the run counter must still advance.</li>
  * </ol>
@@ -200,7 +201,7 @@ public final class RunWorldClearRewardTest {
         testClearRewardIsGrantedOnlyOnce();
         testLevelUpHundredStaysRunLocal();
         testUncollectedCoinsAreNeverPersisted();
-        testRefusedClearWriteLeavesBalanceUnchanged();
+        testRefusedClearWriteStillPaysTheReward();
         testRunCounterStillDrivesTheHud();
 
         System.out.println("checks=" + checks + " failures=" + failures);
@@ -304,9 +305,13 @@ public final class RunWorldClearRewardTest {
             "only the clear reward persisted; the 250 run coins were not converted");
     }
 
-    /** Clause 3 applied to the reward: a refused transaction must not move the stored balance. */
-    private static void testRefusedClearWriteLeavesBalanceUnchanged() throws Exception {
-        System.out.println("[5] a refused clear-reward write leaves the balance unchanged");
+    /**
+     * Clause 3 applied to the reward: persistence is optional, the grant is not. A store that
+     * refuses every write must cost the run neither its counter nor its balance — only the bytes
+     * on disk stay where they were, until a later write lands them.
+     */
+    private static void testRefusedClearWriteStillPaysTheReward() throws Exception {
+        System.out.println("[5] a refused clear-reward write still pays the reward");
         Recording store = new Recording();
         SaveStore save = new SaveStore(store);
         Object w = clearedRun(save, 0);
@@ -315,8 +320,17 @@ public final class RunWorldClearRewardTest {
         defeatBoss(w);
 
         expectEq(getInt(w, "coins"), coinClear(0) + 2, "the run counter still advanced");
-        expectEq(save.coinBalance(), 0L, "the stored balance did not move on a refused write");
+        expectEq(save.coinBalance(), coinClear(0) + 2L,
+            "and the permanent balance received the reward despite the refusal");
         expectEq(SaveStore.readCoin(store.record, 48), 0L, "the bytes on disk still say zero");
+        expect(!save.flush(), "the flush reports the refusal too");
+        expectEq(SaveStore.readCoin(store.record, 48), 0L, "and still leaves disk untouched");
+
+        // The refusal is temporary: the next write over a healthy store lands everything.
+        store.failWrites = false;
+        expect(save.flush(), "the reward lands once storage recovers");
+        expectEq(SaveStore.readCoin(store.record, 48), coinClear(0) + 2L,
+            "the recovered record carries the full reward");
         expect(getBool(w, "won"), "the run still counts as won");
     }
 

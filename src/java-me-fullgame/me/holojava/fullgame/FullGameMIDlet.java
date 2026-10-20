@@ -43,9 +43,9 @@ public class FullGameMIDlet extends MIDlet implements FullGameCanvas.ShutdownReq
      * before the coin economy has a real earning rate.
      *
      * <p>Deliberately a top-up rather than an assignment: coins earned in play are kept, so a player
-     * who spends down and restarts is restored to the same ceiling instead of losing progress. A
-     * refused write is ignored here exactly as it is everywhere else in SaveStore, which leaves the
-     * real balance intact.
+     * who spends down and restarts is restored to the same ceiling instead of losing progress. The
+     * result is ignored here exactly as it is everywhere else in SaveStore; the credit itself is
+     * debounced like any other, and nothing here can write over a record that failed to load.
      *
      * <p>Delete this method and its one call site to remove the starting capital entirely.
      */

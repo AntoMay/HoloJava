@@ -290,6 +290,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     public boolean exitRequested() { return exitRequested; }
     public void pauseApplication() {
         applicationPaused = true;
+        // Debounced coin credits land before the app goes to the background: a suspend is exactly
+        // when a device may never come back the way it left.
+        if (save != null) save.flush();
         bgm().stop(); // music must not keep playing behind a backgrounded MIDlet
         if (world != null) world.pause();
     }
@@ -304,7 +307,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             bgm().playMenu(); // same rule as render(): only the results page stays silent
         }
     }
-    public void stopApplication() { stopped = true; }
+    public void stopApplication() {
+        // The session's last debounced credits, pushed out before the thread ends.
+        if (save != null) save.flush();
+        stopped = true;
+    }
 
     public void run() {
         threadRunning = true;

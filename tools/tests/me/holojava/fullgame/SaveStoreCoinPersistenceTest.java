@@ -60,7 +60,7 @@ public final class SaveStoreCoinPersistenceTest {
         testCodecRoundTrip();
         testTruncatedAndUnexpectedLengths();
         testCorruptBalanceIsSanitised();
-        testFailedWriteLeavesBalanceUnchanged();
+        testStorageRefusalKeepsEveryCredit();
         testOverflowRejectedWholesale();
         testOtherDataSurvivesCoinTransactions();
         testRecordLengthBoundaries();
@@ -73,6 +73,7 @@ public final class SaveStoreCoinPersistenceTest {
         testAbsenceTypeHierarchy();
         testMissingStoreAllowsNewSave();
         testOtherReadErrorStillBlocks();
+        testCoinWritesAreDebounced();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -232,37 +233,47 @@ public final class SaveStoreCoinPersistenceTest {
         expectEq(store.coinBalance(), 10L, "credit onto a corrupt record starts from 0");
     }
 
-    // ---- 6. A failed write must not change the reported balance ------------------
+    // ---- 6. A storage refusal may cost nothing and duplicate nothing -------------
 
-    private static void testFailedWriteLeavesBalanceUnchanged() {
-        System.out.println("[6] failed write keeps the balance");
+    /**
+     * The contract after the coin-write debounce: a credit lands in memory whatever the store
+     * does (persistence is optional, gameplay is not), a refused spend is still refused as a
+     * whole, and the recovery write carries the piled-up credits exactly once — none lost,
+     * none duplicated.
+     */
+    private static void testStorageRefusalKeepsEveryCredit() {
+        System.out.println("[6] a storage refusal costs and duplicates nothing");
         FakeStorage storage = new FakeStorage(null);
         SaveStore store = new SaveStore(storage);
         expectEq(store.coinBalance(), 0L, "starts at 0");
 
         expect(store.creditCoins(100L), "first credit succeeds");
-        expectEq(store.coinBalance(), 100L, "balance is 100 after a committed credit");
+        expectEq(store.coinBalance(), 100L, "balance is 100 after the first credit");
+        expectEq(SaveStore.readCoin(storage.record, COIN_INDEX), 100L,
+            "the first credit is on disk too: its window was open");
 
         storage.failWrites = true;
-        expect(!store.creditCoins(50L), "a failed commit reports failure");
-        expectEq(store.coinBalance(), 100L, "balance unchanged after a failed commit");
+        expect(store.creditCoins(50L), "a credit is accepted even while storage refuses");
+        expectEq(store.coinBalance(), 150L, "the refused write did not cost the credit");
+        expectEq(SaveStore.readCoin(storage.record, COIN_INDEX), 100L,
+            "disk still holds the last balance that committed");
 
         expect(!store.spendCoins(30L), "a failed spend reports failure");
-        expectEq(store.coinBalance(), 100L, "balance unchanged after a failed spend");
+        expectEq(store.coinBalance(), 150L, "a refused spend leaves the balance untouched");
 
-        // Repeated failures must not accumulate hidden credit.
+        // Credits are not lost while the store is broken — they wait in memory instead.
         for (int i = 0; i < 5; i++) store.creditCoins(10L);
-        expectEq(store.coinBalance(), 100L, "five failed credits leave the balance at 100");
+        expectEq(store.coinBalance(), 200L, "five more credits all land in memory");
+        expect(!store.flush(), "flush reports the storage failure");
+        expectEq(SaveStore.readCoin(storage.record, COIN_INDEX), 100L,
+            "and a refused flush leaves the committed bytes alone");
 
-        // A later successful write must reflect only what actually committed.
+        // Recovery: one write carries everything that piled up, exactly once.
         storage.failWrites = false;
-        expect(store.creditCoins(25L), "credit succeeds once storage recovers");
-        expectEq(store.coinBalance(), 125L, "balance is 100 + the one committed 25");
-
-        // The bytes on disk must match the reported balance exactly.
-        expectEq(SaveStore.readCoin(storage.record, COIN_INDEX), 125L,
+        expect(store.flush(), "flush commits once storage recovers");
+        expectEq(SaveStore.readCoin(storage.record, COIN_INDEX), 200L,
             "persisted bytes agree with the reported balance");
-        expectEq(new SaveStore(new FakeStorage(storage.record)).coinBalance(), 125L,
+        expectEq(new SaveStore(new FakeStorage(storage.record)).coinBalance(), 200L,
             "a fresh store reads back the same balance");
     }
 
@@ -471,20 +482,29 @@ public final class SaveStoreCoinPersistenceTest {
 
     // ---- 15. A close-time failure must not be reported as success -----------------
 
+    /**
+     * A store that reports the write but cannot commit on close commits nothing. Under the
+     * debounce that refusal lands on {@link SaveStore#flush()}: the credit stays in memory,
+     * flush reports the failure, and the retry carries the same coins to disk once close works.
+     */
     private static void testCloseFailureIsNotReportedAsSuccess() {
         System.out.println("[15] close failure is not success");
         FakeStorage closeFails = new FakeStorage(null);
         SaveStore store = new SaveStore(closeFails);
 
         closeFails.failClose = true;
-        expect(!store.creditCoins(50L), "a store that cannot commit reports failure");
-        expectEq(store.coinBalance(), 0L, "the balance did not advance on a failed commit");
-        expectEq(closeFails.writeCount, 1, "the write was attempted exactly once");
+        expect(store.creditCoins(50L), "the credit is accepted in memory");
+        expectEq(store.coinBalance(), 50L, "the balance advanced");
+        expectEq(closeFails.writeCount, 1, "the write was attempted exactly once, window open");
+        expect(!store.flush(), "flush reports the close failure");
+        expectEq(SaveStore.readCoin(closeFails.record, COIN_INDEX), 0L,
+            "and nothing was committed");
 
         closeFails.failClose = false;
-        expect(store.creditCoins(50L), "the same transaction succeeds once close works");
-        expectEq(store.coinBalance(), 50L, "the balance advanced only on the successful commit");
-        expectEq(SaveStore.readCoin(closeFails.record, COIN_INDEX), 50L, "and it is genuinely on disk");
+        expect(store.flush(), "the same credit commits once close works");
+        expectEq(store.coinBalance(), 50L, "the balance is the one credited 50");
+        expectEq(SaveStore.readCoin(closeFails.record, COIN_INDEX), 50L,
+            "and it is genuinely on disk");
     }
 
     // ---- 16. The type relationship the absence fix relies on ------------------------
@@ -588,6 +608,33 @@ public final class SaveStoreCoinPersistenceTest {
             if (broken.record[i] != pristine[i]) untouched = false;
         }
         expect(untouched, "stored progress, settings and balance are unchanged");
+    }
+
+    // ---- 19. A pickup burst costs one write, not one per coin --------------------
+
+    /**
+     * The whole point of the debounce: pickups arrive in bursts (a magnet can pull a dozen
+     * within a couple of seconds), and each flash write costs time mid-frame on a handset. The
+     * balance must keep every credit while the record write is shared out across the window.
+     */
+    private static void testCoinWritesAreDebounced() {
+        System.out.println("[19] a burst of credits is coalesced into one write");
+        FakeStorage storage = new FakeStorage(null);
+        SaveStore store = new SaveStore(storage);
+
+        for (int i = 0; i < 50; i++) store.creditCoins(1L);
+        expectEq(store.coinBalance(), 50L, "every credit reached the balance");
+        expectEq(storage.writeCount, 1, "the whole burst hit storage exactly once");
+        expectEq(SaveStore.readCoin(storage.record, COIN_INDEX), 1L,
+            "the one write holds the balance as of the first credit");
+
+        expect(store.flush(), "flush pushes the rest now");
+        expectEq(storage.writeCount, 2, "flush is the second and final write");
+        expectEq(SaveStore.readCoin(storage.record, COIN_INDEX), 50L,
+            "the record now holds the whole burst");
+
+        expect(store.flush(), "flushing a clean store reports true");
+        expectEq(storage.writeCount, 2, "and issues no write at all");
     }
 
     // ---- helpers ----------------------------------------------------------------

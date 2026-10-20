@@ -1121,13 +1121,19 @@ final class RunWorld {
             boolean finalDefeated = encounterDefeated[1];
             if (finalDefeated) {
                 // Decision C: the stage-clear reward joins the permanent balance, while the
-                // level-up +100 stays run-local. crediting is a transaction, so a refused write
-                // leaves the stored balance exactly as it was. This is reached only once per run:
-                // defeatBoss clears boss.active on its first line and every caller of
-                // damageBoss is gated on it.
+                // level-up +100 stays run-local. Pickup credits are debounced (see
+                // SaveStore.COIN_WRITE_INTERVAL_MS), but this one-time grant flushes at once:
+                // it is the largest single payout of a run, and it must not depend on where the
+                // debounce window happened to stand when the boss fell. A refused write leaves
+                // the balance as it is and the run continues regardless. This is reached only
+                // once per run: defeatBoss clears boss.active on its first line and every caller
+                // of damageBoss is gated on it.
                 int clearReward = stage.coinClear + defeatCount / 4;
                 coins += clearReward;
-                if (save != null) save.creditCoins(clearReward);
+                if (save != null) {
+                    save.creditCoins(clearReward);
+                    save.flush();
+                }
                 won = true;
                 state = STATE_VICTORY;
             }
@@ -1459,8 +1465,10 @@ final class RunWorld {
             coins += p.value;
             // Only a collected pickup becomes permanent. The run counter above stays run-local and
             // is what the HUD and the results screen show; this is the balance that survives the
-            // run. creditCoins is a transaction, so a refused write leaves the stored balance
-            // exactly as it was and the run continues regardless. p.active was cleared on the first
+            // run. The credit lands in memory at once while its write is debounced (see
+            // SaveStore.COIN_WRITE_INTERVAL_MS): a burst of pickups costs one write per window
+            // instead of one flash write per coin, a refusing store neither drops the coin nor
+            // stalls the run, and pause/exit flush the rest. p.active was cleared on the first
             // line of this method, so one pickup can never be committed twice.
             if (save != null) save.creditCoins(p.value);
         } else if (p.type == 2) {

@@ -216,8 +216,9 @@ public final class RunWorldCoinWiringTest {
     // ---- 4. A refused write must not break the run -------------------------------
 
     /**
-     * Persistence is optional. If storage refuses the write, the run still counts the coin and the
-     * stored balance stays where it was rather than drifting from what the player was shown.
+     * Persistence is optional; the run is not. The run counter counts the coin either way, and
+     * under the coin-write debounce the in-memory balance keeps it too: a store that refuses
+     * costs nothing but the disk copy, which stays where it was until a later write lands.
      */
     private static void testRefusedWriteStillCountsForTheRun() throws Exception {
         System.out.println("[4] a refused write still counts for the run");
@@ -230,8 +231,18 @@ public final class RunWorldCoinWiringTest {
         collect(world, newPickup(1, 10), 1100L);
 
         expectEq(getInt(world, "coins"), 20, "the run counter advanced regardless");
-        expectEq(save.coinBalance(), 10L, "the stored balance did not advance on a refused write");
-        expectEq(SaveStore.readCoin(store.record, 48), 10L, "the bytes on disk still match");
+        expectEq(save.coinBalance(), 20L,
+            "the balance kept both coins while storage refused");
+        expectEq(SaveStore.readCoin(store.record, 48), 10L, "the bytes on disk still say 10");
+
+        expect(!save.flush(), "flush reports the refusal");
+        expectEq(SaveStore.readCoin(store.record, 48), 10L,
+            "and a refused flush touches nothing");
+
+        store.failWrites = false;
+        expect(save.flush(), "the next flush lands the pending coin");
+        expectEq(SaveStore.readCoin(store.record, 48), 20L,
+            "and the record ends up holding both coins");
     }
 
     // ---- 5. A run without persistence must not crash -----------------------------

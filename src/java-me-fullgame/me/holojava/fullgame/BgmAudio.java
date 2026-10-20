@@ -30,6 +30,31 @@ final class BgmAudio {
     private boolean enabled = true;
 
     /**
+     * Minimum gap between attempts to (re)load a track that failed. The menu theme is requested on
+     * every tick of the run loop, so on a device whose MMAPI refuses to build the player (or a jar
+     * missing the file) the old code re-read the whole MIDI and re-ran createPlayer thirty times a
+     * second, forever. Within this window the failed track is not attempted at all; once it
+     * lapses, one retry runs and the next failure reopens it, so a transient media failure costs
+     * at most this much silence instead of a permanent retry storm.
+     */
+    private static final long RETRY_INTERVAL_MS = 5000;
+
+    /**
+     * The track whose last attempt failed, or null when none has. Package-visible because
+     * {@code BgmRetryThrottleTest} drives the throttle headlessly: only the media calls
+     * themselves are device-only, the retry decision around them is plain arithmetic.
+     */
+    String lastFailedPath;
+
+    /** Clock time before which {@link #lastFailedPath} must not be attempted again. The test
+     *  rewinds this field to simulate a lapse instead of sleeping through the window. */
+    long retryAfterMs;
+
+    /** Load attempts that actually started, counted after the throttle. The test counts these to
+     *  prove one attempt per window rather than one per tick. */
+    int loadAttempts;
+
+    /**
      * Pengaturan's Audio row: false turns {@link #play(int)} into a no-op and immediately stops
      * anything playing, so flipping the row silences the game at once. The persisted copy lives
      * in SaveStore; the canvas pushes it here on every toggle and before every play.
@@ -70,12 +95,15 @@ final class BgmAudio {
      */
     static final String MENU_MID = "/assets/fullgame/audio/bgm_SSS.mid";
 
-    /** Starts the stage's track, looping forever. No-op if disabled or if that track already plays. */
+    /** Starts the stage's track, looping forever. No-op if disabled, if that track already plays,
+     *  or if its last attempt failed inside the retry window ({@link #RETRY_INTERVAL_MS}). */
     void play(int stageIndex) {
         play(musicFor(stageIndex));
     }
 
-    /** Starts the menu theme, looping forever. No-op if disabled or if it already plays. */
+    /** Starts the menu theme, looping forever. No-op under the same three rules as
+     *  {@link #play(int)} — and this one is asked for on every tick, which is exactly why the
+     *  retry window exists. */
     void playMenu() {
         play(MENU_MID);
     }
@@ -84,11 +112,16 @@ final class BgmAudio {
         if (!enabled) { stop(); return; }
         if (path == null) { stop(); return; }
         if (path.equals(current) && player != null) return;
+        // A track that just failed is held back until the window lapses. Only that exact track is
+        // held back: switching to another track is a deliberate change, so it always runs, and a
+        // stale failure can never keep a different track from starting.
+        if (path.equals(lastFailedPath) && System.currentTimeMillis() < retryAfterMs) return;
+        loadAttempts++;
         stop();
         InputStream raw = null;
         try {
             raw = BgmAudio.class.getResourceAsStream(path);
-            if (raw == null) return; // asset missing: silence, never a crash
+            if (raw == null) { markFailed(path); return; } // asset missing: silence, never a crash
             player = Manager.createPlayer(new ByteArrayInputStream(readAll(raw)), "audio/midi");
             // MMAPI's Player.LOOP_CONTINUOUSLY is the spec constant -1; the pinned microemu
             // API stub omits the constant (it has setLoopCount itself), so the literal is used.
@@ -96,11 +129,19 @@ final class BgmAudio {
             player.prefetch();
             player.start();
             current = path;
+            lastFailedPath = null;
         } catch (Throwable t) {
             stop(); // release any half-made player; this device plays on silently
+            markFailed(path);
         } finally {
             try { if (raw != null) raw.close(); } catch (IOException ignored) { }
         }
+    }
+
+    /** Opens the retry window for a track whose attempt just failed. */
+    private void markFailed(String path) {
+        lastFailedPath = path;
+        retryAfterMs = System.currentTimeMillis() + RETRY_INTERVAL_MS;
     }
 
     /** Stops and releases the current track, if any. Safe to call when nothing plays. */
