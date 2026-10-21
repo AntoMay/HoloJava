@@ -181,7 +181,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // Bottom icon bar, rebuilt after the reference's horizontal entry bar. The icons keep their
     // native halved sizes and align on one baseline; the gap is what recentres the bar after any
     // art change, so both stay named constants instead of spreading through the draw code.
-    private static final int TITLE_CAST_Y = 60;
+    private static final int TITLE_CAST_Y = 2;
     private static final int TITLE_BAR_BASE = 202;
     // Recentred for the eight icons: their visual span (sum of widths + seven 23px gaps)
     // is 265px, so (320 - 265) / 2 = 27 keeps the same left/right margin the seven-icon
@@ -1033,7 +1033,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         // To integrate it better, draw a subtle shadow line at the crowd's feet.
         Image cast = assets.menuCast();
         if (cast != null) {
-            int castY = y + TITLE_CAST_Y; // 64 - aligns with stage floor
+            int castY = y + TITLE_CAST_Y; // 2 - aligns with stage floor (matches reference)
             g.drawImage(cast, x, castY, Graphics.TOP | Graphics.LEFT);
 
             // Subtle shadow line at the crowd's feet (where they stand on the stage)
@@ -1074,18 +1074,18 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
         }
 
-        // 3. HoloCure logo - centered at top (from extracted title screen logo)
+        // 3. HoloCure logo - centered at top (176x74 from hud_titlebar_0.png, matching reference)
         Image logo = assets.titleLogo();
         if (logo != null) {
-            int logoY = y + 2; // at top, matching reference
-            int logoX = x + (Viewport.MIN_W - logo.getWidth()) / 2; // centered
-            int logoW = logo.getWidth();
-            int logoH = logo.getHeight();
+            int logoY = y + 2; // at top, matching reference (y=2)
+            int logoX = x + 72; // centered: (320 - 176) / 2 = 72
+            int logoW = 176;
+            int logoH = 74;
 
             // Draw dark background behind logo for visibility
-            // Logo extracted from composite has varying alpha, ensure visibility
+            // Source has max alpha 145, so we need a dark backdrop
             g.setColor(0, 0, 0); // solid black background
-            g.fillRect(logoX - 2, logoY - 1, logoW + 4, logoH + 2);
+            g.fillRect(logoX, logoY, logoW, logoH);
 
             // Draw logo on top
             g.drawImage(logo, logoX, logoY, Graphics.TOP | Graphics.LEFT);

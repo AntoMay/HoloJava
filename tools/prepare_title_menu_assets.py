@@ -236,15 +236,14 @@ def character_collage(source: Path) -> Image.Image:
     return canvas
 
 def menu_logo(source: Path) -> None:
-    """Title logo from official HoloCure wiki (HoloCureLogo.png - fully opaque).
+    """Title logo matching reference holocure_logo_menu.png (176x74).
     
-    Downloaded from https://holocure.wiki.gg/images/thumb/HoloCureLogo.png/540px-HoloCureLogo.png
-    Original: 540x228, fully opaque. Scaled to canvas width (320px) maintaining aspect ratio.
+    Uses official wiki logo (540x228) scaled to 176x74 (matching reference aspect ratio).
+    Reference uses 176x74 logo centered at x=72, y=2.
     """
     logo = Image.open("/tmp/HoloCureLogo.png").convert("RGBA")
-    target_w = 320
-    scale = target_w / logo.width
-    target_h = max(1, int(logo.height * scale))
+    target_w = 176
+    target_h = 74
     logo.resize((target_w, target_h), Image.LANCZOS).save(UI / "menu_logo.png")
 
 
