@@ -119,87 +119,117 @@ def title_sprite_paths(source: Path):
 
 
 def character_collage(source: Path) -> Image.Image:
-    """Dense, natural arch of all 47 title sprites on the stage floor.
+    """Title screen crowd matching the official HoloCure wiki layout exactly.
 
-    The HoloCure title screen shows a dense arch of characters on the stage:
-    - Back rows: smaller, higher up, tighter horizontal packing
-    - Front rows: larger, lower, more spread, heavy overlap
-    - All 47 talents exactly once, no critters, no duplicates
-    - Arranged in a gentle arc (center higher, edges lower) like a group photo
+    Layout (4 rows, logo centered in row 1):
+    Row 1 (10 chars + logo center): Pekora, Noel, Flare, Marine, [LOGO], Coco, Kanata, Towa, Watame, Luna
+    Row 2 (13 chars): Kaela, Kobo, Zeta, Anya, Reine, Ollie, Iofi, Moona, Risu, Aki, Haato, Shion, Ayame
+    Row 3 (13 chars): Korone, Okayu, Mio, Fubuki, AZKi, Roboco, Sora, Suisei, Miko, Matsuri, Mel, Choco, Subaru
+    Row 4 (12 chars): Kronii, Sana, IRyS, Fauna, Mumei, Bae, Ame, Gura, Ina, Kiara, Calli, Aqua
 
-    Deterministic: fixed seed ensures reproducible output.
+    Total: 47 characters + logo in row 1 center.
+    Matches official HoloCure wiki title screen layout exactly.
     """
-    rng = random.Random(20261018)
-    sprite_paths = title_sprite_paths(source)
-    if not sprite_paths:
-        raise SystemExit("no spr_Title_* sprites found under %s/textures/Sprites" % source)
+    # Exact character order per wiki reference
+    row1_left = ["spr_Title_Pekora_0", "spr_Title_Noel_0", "spr_Title_Flare_0", "spr_Title_Marine_0"]
+    row1_right = ["spr_Title_Coco_0", "spr_Title_Kanata_0", "spr_Title_Towa_0", "spr_Title_Watame_0", "spr_Title_Luna_0"]
+    row2 = ["spr_Title_Kaela_0", "spr_Title_Kobo_0", "spr_Title_Zeta_0", "spr_Title_Anya_0",
+            "spr_Title_Reine_0", "spr_Title_Ollie_0", "spr_Title_Iofi_0", "spr_Title_Moona_0",
+            "spr_Title_Risu_0", "spr_Title_Aki_0", "spr_Title_Haato_0", "spr_Title_Shion_0", "spr_Title_Ayame_0"]
+    row3 = ["spr_Title_Korone_0", "spr_Title_Okayu_0", "spr_Title_Mio_0", "spr_Title_Fubuki_0",
+            "spr_Title_Azki_0", "spr_Title_Roboco_0", "spr_Title_Sora_0", "spr_Title_Suisei_0",
+            "spr_Title_Miko_0", "spr_Title_Matsuri_0", "spr_Title_Mel_0", "spr_Title_Choco_0", "spr_Title_Subaru_0"]
+    row4 = ["spr_Title_Kronii_0", "spr_Title_Sana_0", "spr_Title_Irys_0", "spr_Title_Fauna_0",
+            "spr_Title_Mumei_0", "spr_Title_bae_0", "spr_Title_Ame_0", "spr_Title_Gura_0",
+            "spr_Title_Ina_0", "spr_Title_Kiara_0", "spr_Title_Calli_0", "spr_Title_Aqua_0"]
 
-    # Load all frames first, keep track of which sprite each frame came from
-    frames = []
-    for p in sprite_paths:
-        frame = load_trimmed(p)
-        if frame.width < 4 or frame.height < 4:
+    # Load all sprites into a dict for lookup
+    sprites_dir = source / "textures" / "Sprites"
+    sprite_dict = {}
+    for p in sorted(sprites_dir.glob("spr_Title_*_0.png")):
+        name = p.stem
+        if name == "spr_HoloCureTitle_full_0":
             continue
-        frames.append((p.name, frame))  # (filename, frame)
-
-    rng.shuffle(frames)
+        frame = load_trimmed(p)
+        if frame.width >= 4 and frame.height >= 4:
+            sprite_dict[name] = frame
 
     canvas = Image.new("RGBA", (CAST_W, CAST_H), (0, 0, 0, 0))
 
-    # Row configuration: 5 rows forming an arch on the stage floor
-    # Row 0 (back): highest, smallest; Row 4 (front): lowest, largest
-    # Heights chosen so the bottom of row 4 aligns with CAST_H (stage floor)
-    row_heights = [22, 26, 30, 34, 38]
-    row_tops = [2, 26, 52, 78, 78]  # last two rows share bottom alignment
-    # Adjust tops so row 4 bottom = CAST_H
-    row_tops[4] = CAST_H - row_heights[4]
+    # Row configuration: 4 rows, back to front
+    # Row 0 (back): smallest, highest; Row 3 (front): largest, lowest
+    row_heights = [24, 28, 32, 36]  # increasing height per row
+    row_tops = [10, 34, 62, 86]     # vertical positions
+    # Ensure last row bottom = CAST_H (116)
+    row_tops[3] = CAST_H - 36
 
-    # Distribute 47 chars across 5 rows: more in back, fewer in front
-    # Proportional to row height (taller rows = wider chars = fewer fit)
-    total_h = float(sum(row_heights))
-    shares = [len(frames) * h / total_h for h in row_heights]
-    counts = [int(s) for s in shares]
-    for i in sorted(range(len(row_heights)), key=lambda i: shares[i] - counts[i], reverse=True)[:len(frames) - sum(counts)]:
-        counts[i] += 1
+    # Logo sprite
+    logo_path = Path("/home/antomay/Projects/HoloCure_Unpacked/textures/Sprites/spr_gacha_holologo_0.png")
+    logo_img = load_trimmed(Path(logo_path))
+    logo_scale = 40 / logo_img.height  # logo height ~40px in grid
+    logo_img = logo_img.resize((int(logo_img.width * 40 / logo_img.height), 40), Image.LANCZOS)
 
-    cursor = 0
-    # Store positions of graduated members for sparkle rendering
-    graduated_positions = []
+    all_rows = [["spr_Title_Pekora_0", "spr_Title_Noel_0", "spr_Title_Flare_0", "spr_Title_Marine_0"],  # row1 left
+                ["spr_Title_Kaela_0", "spr_Title_Kobo_0", "spr_Title_Zeta_0", "spr_Title_Anya_0",
+                 "spr_Title_Reine_0", "spr_Title_Ollie_0", "spr_Title_Iofi_0", "spr_Title_Moona_0",
+                 "spr_Title_Risu_0", "spr_Title_Aki_0", "spr_Title_Haato_0", "spr_Title_Shion_0", "spr_Title_Ayame_0"],
+                ["spr_Title_Korone_0", "spr_Title_Okayu_0", "spr_Title_Mio_0", "spr_Title_Fubuki_0",
+                 "spr_Title_Azki_0", "spr_Title_Roboco_0", "spr_Title_Sora_0", "spr_Title_Suisei_0",
+                 "spr_Title_Miko_0", "spr_Title_Matsuri_0", "spr_Title_Mel_0", "spr_Title_Choco_0", "spr_Title_Subaru_0"],
+                ["spr_Title_Kronii_0", "spr_Title_Sana_0", "spr_Title_Irys_0", "spr_Title_Fauna_0",
+                 "spr_Title_Mumei_0", "spr_Title_bae_0", "spr_Title_Ame_0", "spr_Title_Gura_0",
+                 "spr_Title_Ina_0", "spr_Title_Kiara_0", "spr_Title_Calli_0", "spr_Title_Aqua_0"]]
+    row1_right = ["spr_Title_Coco_0", "spr_Title_Kanata_0", "spr_Title_Towa_0", "spr_Title_Watame_0", "spr_Title_Luna_0"]
 
-    for row_idx, (top, height, count) in enumerate(zip(row_tops, row_heights, counts)):
+    rng = random.Random(20261018)
+
+    for row_idx, row_names in enumerate(all_rows):
+        if row_idx == 0:
+            # Row 1: left part, logo, right part
+            names = ["spr_Title_Pekora_0", "spr_Title_Noel_0", "spr_Title_Flare_0", "spr_Title_Marine_0"] + ["LOGO"] + ["spr_Title_Coco_0", "spr_Title_Kanata_0", "spr_Title_Towa_0", "spr_Title_Watame_0", "spr_Title_Luna_0"]
+        else:
+            if row_idx == 1:
+                names = ["spr_Title_Kaela_0", "spr_Title_Kobo_0", "spr_Title_Zeta_0", "spr_Title_Anya_0",
+                         "spr_Title_Reine_0", "spr_Title_Ollie_0", "spr_Title_Iofi_0", "spr_Title_Moona_0",
+                         "spr_Title_Risu_0", "spr_Title_Aki_0", "spr_Title_Haato_0", "spr_Title_Shion_0", "spr_Title_Ayame_0"]
+            elif row_idx == 2:
+                names = ["spr_Title_Korone_0", "spr_Title_Okayu_0", "spr_Title_Mio_0", "spr_Title_Fubuki_0",
+                         "spr_Title_Azki_0", "spr_Title_Roboco_0", "spr_Title_Sora_0", "spr_Title_Suisei_0",
+                         "spr_Title_Miko_0", "spr_Title_Matsuri_0", "spr_Title_Mel_0", "spr_Title_Choco_0", "spr_Title_Subaru_0"]
+            else:
+                names = ["spr_Title_Kronii_0", "spr_Title_Sana_0", "spr_Title_Irys_0", "spr_Title_Fauna_0",
+                         "spr_Title_Mumei_0", "spr_Title_bae_0", "spr_Title_Ame_0", "spr_Title_Gura_0",
+                         "spr_Title_Ina_0", "spr_Title_Kiara_0", "spr_Title_Calli_0", "spr_Title_Aqua_0"]
+
+        # Load and resize frames for this row
+        height = row_heights[row_idx]
         row_frames = []
-        for _ in range(count):
-            if cursor >= len(frames):
-                break
-            fname, frame = frames[cursor]
-            cursor += 1
+        for name in names:
+            if name == "LOGO":
+                row_frames.append(("LOGO", logo_img))
+                continue
+            frame = sprite_dict.get(name)
+            if not frame:
+                continue
             scale = height / frame.height
             width = max(2, int(frame.width * scale))
-            resized = frame.resize((width, height), Image.BOX)
-            row_frames.append((fname, resized))
+            row_frames.append((name, frame.resize((width, height), Image.BOX)))
 
         if not row_frames:
             continue
 
-        # Dense packing: start near left edge, heavy overlap (gap = -8 to -10px)
-        # This creates the tight, overlapping crowd from the reference
-        overlap = -8 if row_idx < 3 else -10  # front rows overlap more
-        start = -rng.randint(0, 8) - row_idx * 5
+        top = row_tops[row_idx]
+        overlap = -6 if row_idx < 2 else -8  # tighter overlap in front rows
 
-        # For the front row, center the group horizontally
-        if row_idx == 4:
-            total_w = sum(f[1].width for f in row_frames) + overlap * (len(row_frames) - 1)
-            start = (CAST_W - total_w) // 2
+        # Calculate total width and center
+        total_w = sum(f[1].width for f in row_frames) + overlap * (len(row_frames) - 1)
+        start = (CAST_W - total_w) // 2
 
         x = float(start)
-        for fname, frame in row_frames:
+        for name, frame in row_frames:
             px = int(x)
             py = top + rng.randint(0, 1)
             canvas.alpha_composite(frame, (px, py))
-            # Record position of graduated members for sparkle overlay
-            if fname in GRADUATED_IDS:
-                # Sparkle appears near the top of the character's head
-                graduated_positions.append((fname, px + frame.width // 2, py))
             x += frame.width + overlap
 
     return canvas
