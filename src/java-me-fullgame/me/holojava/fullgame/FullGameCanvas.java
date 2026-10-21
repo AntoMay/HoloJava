@@ -183,7 +183,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // Bottom icon bar, rebuilt after the reference's horizontal entry bar. The icons keep their
     // native halved sizes and align on one baseline; the gap is what recentres the bar after any
     // art change, so both stay named constants instead of spreading through the draw code.
-    private static final int TITLE_CAST_Y = 85;
+    private static final int TITLE_CAST_Y = 80;
     private static final int TITLE_BAR_BASE = 202;
     // Recentred for the eight icons: their visual span (sum of widths + seven 23px gaps)
     // is 265px, so (320 - 265) / 2 = 27 keeps the same left/right margin the seven-icon
@@ -1080,10 +1080,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         Image logo = assets.titleLogo();
         if (logo != null) {
             int logoY = y + MENU_LOGO_Y + bob(600, 3);
-            g.drawImage(logo, x + MENU_LOGO_X, logoY, Graphics.TOP | Graphics.LEFT);
+            int logoX = x + MENU_LOGO_X;
+            int logoW = logo.getWidth();
+            int logoH = logo.getHeight();
 
-            // Subtle gold glow line under the logo (matches the title screen's lighting)
-            int glowY = logoY + logo.getHeight() + 2;
+            // Draw dark background behind logo for visibility
+            // Logo is semi-transparent (max alpha 145), so we need a dark backdrop
+            g.setColor(0, 0, 0); // solid black background
+            g.fillRect(logoX - 4, logoY - 2, logoW + 8, logoH + 4);
+
+            // Draw logo on top
+            g.drawImage(logo, logoX, logoY, Graphics.TOP | Graphics.LEFT);
+
+            // Gold glow underline (matches title screen lighting)
+            int glowY = logoY + logoH + 2;
             g.setColor(255, 200, 0); // warm gold
             g.drawLine(x + 60, glowY, x + 260, glowY);
             g.setColor(255, 230, 100);
