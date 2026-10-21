@@ -236,14 +236,18 @@ def character_collage(source: Path) -> Image.Image:
 
 
 def menu_logo(source: Path) -> None:
-    """Title logo from hud_titlebar_0.png (full title bar), scaled to canvas width.
+    """Title logo extracted from the reference title screen composite.
     
-    The hud_titlebar_0.png (640x125) is the full title bar used on the title screen.
-    Scaled to 320px wide = 62px tall, matching the reference title screen logo area height.
-    Note: source has max alpha 145, so we draw a dark backdrop at render time.
+    Extracted from spr_HoloCureTitle_full_0.png (rows 0-39, centered 240px wide).
+    Scaled to 320px wide maintaining aspect ratio = 320x53.
+    Fully opaque (extracted from composite where logo is fully visible).
     """
-    logo = Image.open(source / "textures" / "Sprites" / "hud_titlebar_0.png").convert("RGBA")
-    # Scale to 320px wide (full canvas width)
+    # Extract logo from reference composite
+    ref = Image.open(source / "textures" / "Sprites" / "spr_HoloCureTitle_full_0.png")
+    scaled = ref.resize((320, 240), Image.LANCZOS)
+    # Logo is at top, centered, ~240px wide x 40px tall in 320x240 scaled
+    logo = scaled.crop((40, 0, 280, 40))  # x=40-280 (240 wide), y=0-40 (40 tall)
+    # Scale to full canvas width (320px) maintaining aspect ratio
     target_w = 320
     scale = target_w / logo.width
     target_h = max(1, int(logo.height * scale))

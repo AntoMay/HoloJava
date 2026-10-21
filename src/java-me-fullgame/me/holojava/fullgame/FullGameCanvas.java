@@ -1074,18 +1074,18 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
         }
 
-        // 3. HoloCure logo - full-width title bar at top (from hud_titlebar_0.png)
+        // 3. HoloCure logo - centered at top (from extracted title screen logo)
         Image logo = assets.titleLogo();
         if (logo != null) {
-            int logoY = y + 2; // at top, matching reference (y=0-1 in ref)
-            int logoX = x; // full width, left-aligned
-            int logoW = logo.getWidth(); // 320
-            int logoH = logo.getHeight(); // 62
+            int logoY = y + 2; // at top, matching reference
+            int logoX = x + (Viewport.MIN_W - logo.getWidth()) / 2; // centered
+            int logoW = logo.getWidth();
+            int logoH = logo.getHeight();
 
             // Draw dark background behind logo for visibility
-            // Source has max alpha 145, so we need a dark backdrop
+            // Logo extracted from composite has varying alpha, ensure visibility
             g.setColor(0, 0, 0); // solid black background
-            g.fillRect(logoX, logoY, logoW, logoH);
+            g.fillRect(logoX - 2, logoY - 1, logoW + 4, logoH + 2);
 
             // Draw logo on top
             g.drawImage(logo, logoX, logoY, Graphics.TOP | Graphics.LEFT);
