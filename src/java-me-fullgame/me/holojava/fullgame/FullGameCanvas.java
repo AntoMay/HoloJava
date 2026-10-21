@@ -178,8 +178,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int TITLE_DEEP_R = 10, TITLE_DEEP_G = 22, TITLE_DEEP_B = 49;
     private static final int SPLASH_LOGO_X = 10, SPLASH_LOGO_Y = 42;
     private static final int SPLASH_PROMPT_Y = 196;
-    // The logo floats over the top of the roster collage, centred: 320 - 176 = 144, so x = 72.
-    private static final int MENU_LOGO_X = 72, MENU_LOGO_Y = 2;
     // Bottom icon bar, rebuilt after the reference's horizontal entry bar. The icons keep their
     // native halved sizes and align on one baseline; the gap is what recentres the bar after any
     // art change, so both stay named constants instead of spreading through the draw code.
@@ -1076,18 +1074,18 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             }
         }
 
-        // 3. HoloCure logo - floating above the crowd, centered with gentle bob
+        // 3. HoloCure logo - full-width title bar at top (from hud_titlebar_0.png)
         Image logo = assets.titleLogo();
         if (logo != null) {
-            int logoY = y + MENU_LOGO_Y + bob(600, 3);
-            int logoX = x + MENU_LOGO_X;
-            int logoW = logo.getWidth();
-            int logoH = logo.getHeight();
+            int logoY = y + 2; // at top, matching reference (y=0-1 in ref)
+            int logoX = x; // full width, left-aligned
+            int logoW = logo.getWidth(); // 320
+            int logoH = logo.getHeight(); // 62
 
             // Draw dark background behind logo for visibility
-            // Logo is semi-transparent (max alpha 145), so we need a dark backdrop
+            // Source has max alpha 145, so we need a dark backdrop
             g.setColor(0, 0, 0); // solid black background
-            g.fillRect(logoX - 4, logoY - 2, logoW + 8, logoH + 4);
+            g.fillRect(logoX, logoY, logoW, logoH);
 
             // Draw logo on top
             g.drawImage(logo, logoX, logoY, Graphics.TOP | Graphics.LEFT);
@@ -1095,9 +1093,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             // Gold glow underline (matches title screen lighting)
             int glowY = logoY + logoH + 2;
             g.setColor(255, 200, 0); // warm gold
-            g.drawLine(x + 60, glowY, x + 260, glowY);
+            g.drawLine(x, glowY, x + Viewport.MIN_W, glowY);
             g.setColor(255, 230, 100);
-            g.drawLine(x + 65, glowY + 1, x + 255, glowY + 1);
+            g.drawLine(x, glowY + 1, x + Viewport.MIN_W, glowY + 1);
         }
 
         g.setColor(TITLE_TEXT_R, TITLE_TEXT_G, TITLE_TEXT_B);

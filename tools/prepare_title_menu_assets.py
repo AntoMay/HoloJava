@@ -206,14 +206,15 @@ def character_collage(source: Path) -> Image.Image:
 
 
 def menu_logo(source: Path) -> None:
-    """Title logo from spr_gacha_holologo_0.png (fully opaque HoloCure wordmark).
+    """Title logo from hud_titlebar_0.png (full title bar), scaled to canvas width.
     
-    The hud_titlebar_0.png has very low alpha (max 145), making it nearly invisible.
-    spr_gacha_holologo_0.png is the HoloCure wordmark with full opacity (255).
+    The hud_titlebar_0.png (640x125) is the full title bar used on the title screen.
+    Scaled to 320px wide = 62px tall, matching the reference title screen logo area height.
+    Note: source has max alpha 145, so we draw a dark backdrop at render time.
     """
-    logo = Image.open(source / "textures" / "Sprites" / "spr_gacha_holologo_0.png").convert("RGBA")
-    # Scale to ~176px wide maintaining aspect ratio
-    target_w = 176
+    logo = Image.open(source / "textures" / "Sprites" / "hud_titlebar_0.png").convert("RGBA")
+    # Scale to 320px wide (full canvas width)
+    target_w = 320
     scale = target_w / logo.width
     target_h = max(1, int(logo.height * scale))
     logo.resize((target_w, target_h), Image.LANCZOS).save(UI / "menu_logo.png")
