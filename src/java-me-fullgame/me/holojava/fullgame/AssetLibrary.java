@@ -87,7 +87,6 @@ final class AssetLibrary {
     private Image menuCharSelBG;
     private Image pauseMenu;
     private Image optionsMenu;
-    private Image[] titlePortraits;  // 5 title screen portraits (spr_Title_*_0.png)
 
     Image tileGrass;
     Image tileGrassField;
@@ -800,20 +799,8 @@ final class AssetLibrary {
 
     /** hud_optionsmenu_0.png - options menu background. */
     Image optionsMenu() {
-        if (optionsMenu == null) optionsMenu = image("/assets/fullgame/ui/hud/hud_optionsmenu_0.png");
+        if (optionsMenu == null) optionsMenu = image("/assets/fullmenu/ui/hud/hud_optionsmenu_0.png");
         return optionsMenu;
-    }
-
-    /** 5 title screen portraits (spr_Title_*_0.png) for CHOOSE YOUR IDOL grid. */
-    Image[] titlePortraits() {
-        if (titlePortraits == null) {
-            titlePortraits = new Image[5];
-            String[] groups = { "Gura", "Ame", "Calli", "Kiara", "Ina" };
-            for (int i = 0; i < 5; i++) {
-                titlePortraits[i] = image("/assets/fullgame/portraits/title/spr_Title_" + groups[i] + "_0.png");
-            }
-        }
-        return titlePortraits;
     }
 
     private Image[] frames(String dir, int count) { return frames(dir, count, ""); }

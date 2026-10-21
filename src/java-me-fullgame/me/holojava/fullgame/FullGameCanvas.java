@@ -1197,8 +1197,6 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
 
         // Draw 5 character boxes (hanya portrait, tanpa nama)
-        // Uses title screen sprites (spr_Title_*_0.png) for authentic CHOOSE YOUR IDOL look
-        Image[] titlePortraits = assets.titlePortraits();
         for (int i = 0; i < charCount; i++) {
             int bx = startX + i * (boxW + IDOL_GAP);
             int by = startY;
@@ -1212,8 +1210,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                 g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
             }
 
-            // Character box: title screen portrait (centered vertically & horizontally)
-            Image portrait = (titlePortraits != null && i < titlePortraits.length) ? titlePortraits[i] : assets.characterPortrait(i);
+            // Character box: HANYA portrait (centered vertically & horizontally)
+            ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[i];
+            Image portrait = assets.characterPortrait(i);
             if (portrait != null) {
                 int px = x + bx + (boxW - portrait.getWidth()) / 2;
                 int py = y + by + (boxH - portrait.getHeight()) / 2;
