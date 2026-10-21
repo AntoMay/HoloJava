@@ -206,9 +206,13 @@ def character_collage(source: Path) -> Image.Image:
 
 
 def menu_logo(source: Path) -> None:
-    """Title logo from hud_titlebar_0.png, scaled to 176px wide (matches canvas)."""
-    logo = Image.open(source / "textures" / "Sprites" / "hud_titlebar_0.png").convert("RGBA")
-    # Scale to 176px wide (the logo width on the 320px canvas)
+    """Title logo from spr_gacha_holologo_0.png (fully opaque HoloCure wordmark).
+    
+    The hud_titlebar_0.png has very low alpha (max 145), making it nearly invisible.
+    spr_gacha_holologo_0.png is the HoloCure wordmark with full opacity (255).
+    """
+    logo = Image.open(source / "textures" / "Sprites" / "spr_gacha_holologo_0.png").convert("RGBA")
+    # Scale to ~176px wide maintaining aspect ratio
     target_w = 176
     scale = target_w / logo.width
     target_h = max(1, int(logo.height * scale))
