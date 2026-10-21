@@ -181,8 +181,34 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // Bottom icon bar, rebuilt after the reference's horizontal entry bar. The icons keep their
     // native halved sizes and align on one baseline; the gap is what recentres the bar after any
     // art change, so both stay named constants instead of spreading through the draw code.
-    private static final int TITLE_CAST_Y = 2;
     private static final int TITLE_BAR_BASE = 202;
+    // Main-menu logo, dropped into the gap in the top roster row (between Marine and Coco).
+    private static final int TITLE_LOGO_W = 118, TITLE_LOGO_X = 101, TITLE_LOGO_Y = 2;
+    // The 47-strong roster crowd. CAST_X/CAST_Y are screen-space top-left base positions baked
+    // by tools/prepare_title_menu_assets.py from the reference rm_Title room origins; index order
+    // matches title_char_*.png (top row left->right with the logo gap, then the lower rows).
+    // Back rows are drawn first so the front row overlaps them, like the reference crowd.
+    private static final int CAST_COUNT = 47;
+    private static final int[] CAST_X = {
+         12,  30,  54,  68, 195, 230, 238, 262, 280,   8,  32,  50,
+         74, 102, 120, 161, 181, 200, 222, 240, 264, 280,  26,  48,
+         68,  86, 102, 131, 142, 169, 186, 216, 235, 256, 278,  12,
+         39,  64,  81, 104, 131, 155, 162, 194, 227, 240, 269,
+    };
+    private static final int[] CAST_Y = {
+         29,  38,  34,  38,  35,  38,  36,  35,  32,  63,  63,  64,
+         68,  70,  69,  69,  71,  69,  71,  67,  59,  59,  87,  86,
+         83,  88,  92,  96,  93,  95,  91,  87,  91,  88,  88, 101,
+        112, 118, 122, 122, 121, 127, 127, 115, 116, 113, 117,
+    };
+    // Graduated members carry a sparkle over their head (Update 0.7+ detail), indexed like CAST_*:
+    // Coco, Kanata, Shion, Mel, Sana, Fauna, Mumei, Ame, Gura, Aqua.
+    private static final boolean[] GRADUATED = {
+        false, false, false, false,  true,  true, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false,  true, false, false, false,
+        false, false, false, false, false, false, false, false,  true, false, false, false,
+         true, false,  true,  true, false,  true,  true, false, false, false,  true,
+    };
     // Recentred for the eight icons: their visual span (sum of widths + seven 23px gaps)
     // is 265px, so (320 - 265) / 2 = 27 keeps the same left/right margin the seven-icon
     // bar used to have at x = 40.
@@ -1008,18 +1034,20 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Main Menu, rebuilt after the reference game's title screen: the star-stage backdrop fills
-     * the screen, the roster collage stands behind a gently floating logo, and the eight entries
-     * live in an icon bar along the bottom instead of a vertical list. The selected icon lifts
-     * off the bar and bobs on the clock, a white underline marks it for anyone who cannot track
-     * the motion, and the gold label box slides the entry's name in at the bottom right. The name
-     * comes pre-rendered (menu_text_*) at one notch below MIDP's smallest font, with the drawn
-     * SIZE_SMALL string kept as the partial-build fallback. All motion reads clockMs, recorded
-     * once per tick by update(long), so this method stays pure and a headless clock of 0 simply
-     * freezes every effect at rest.
+     * Main Menu, rebuilt after the reference game's title screen: the rainbow-burst backdrop
+     * fills the screen (with a baked dark icon bar at the bottom), the full 47-strong roster
+     * stands in four staggered rows behind a floating, occasionally glinting HoloCure logo, and
+     * the eight entries live in an icon bar along the bottom instead of a vertical list. Each
+     * crowd member bobs on its own phase and graduated members sparkle over the head. The
+     * selected icon lifts off the bar and bobs on the clock, a white underline marks it for
+     * anyone who cannot track the motion, and the gold label box slides the entry's name in at
+     * the bottom right. The name comes pre-rendered (menu_text_*) at one notch below MIDP's
+     * smallest font, with the drawn SIZE_SMALL string kept as the partial-build fallback. All
+     * motion reads clockMs, recorded once per tick by update(long), so this method stays pure
+     * and a headless clock of 0 simply freezes every effect at rest.
      */
     private void drawMainMenu(Graphics g, int x, int y) {
-        // 1. Star-stage backdrop (full screen)
+        // 1. Rainbow-burst backdrop (full 320x240, with a baked dark icon bar at the bottom).
         Image bg = assets.titleBg();
         if (bg != null) {
             g.drawImage(bg, x, y, Graphics.TOP | Graphics.LEFT);
@@ -1028,74 +1056,38 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
         }
 
-        // 2. Character crowd (roster) - positioned on the stage floor of the backdrop.
-        // The crowd (320x116) at y=64 aligns its bottom with the stage floor in the backdrop.
-        // To integrate it better, draw a subtle shadow line at the crowd's feet.
-        Image cast = assets.menuCast();
-        if (cast != null) {
-            int castY = y + TITLE_CAST_Y; // 2 - aligns with stage floor (matches reference)
-            g.drawImage(cast, x, castY, Graphics.TOP | Graphics.LEFT);
+        // 2. Roster crowd. Back rows first (low CAST index) so the front row overlaps them,
+        //    matching the reference. Each member bobs on its own phase for a lively crowd.
+        for (int i = 0; i < CAST_COUNT; i++) {
+            Image ch = assets.titleChar(i);
+            if (ch == null) continue;
+            g.drawImage(ch, x + CAST_X[i], y + CAST_Y[i] + charBob(i), Graphics.TOP | Graphics.LEFT);
+        }
 
-            // Subtle shadow line at the crowd's feet (where they stand on the stage)
-            // This grounds the characters into the backdrop instead of floating.
-            int feetY = castY + cast.getHeight(); // bottom of crowd = stage floor
-            g.setColor(0, 0, 0);
-            g.drawLine(x, feetY, x + Viewport.MIN_W, feetY);
-            g.setColor(40, 30, 20); // slightly lighter second line for depth
-            g.drawLine(x, feetY + 1, x + Viewport.MIN_W, feetY + 1);
-
-            // 2b. Sparkle animation on graduated members (Update 0.7+ feature)
-            // Graduated members: Coco, Sana, Mel, Aqua, Ame, Fauna, Shion, Mumei, Gura, Kanata
-            // Sparkle frames alternate every ~300ms at fixed positions on the crowd
-            long sparkleTick = clockMs / 300;
-            Image sparkle = (sparkleTick % 2 == 0) ? assets.sparkle0() : assets.sparkle1();
-            if (sparkle != null) {
-                // Sparkle positions (relative to crowd top-left at castY=64)
-                // These match the graduated members' positions in the crowd arch:
-                // Coco, Sana, Mel, Aqua, Ame, Fauna, Shion, Mumei, Gura, Kanata
-                // Positions are (x, y) relative to crowd top-left (x=0, y=0 at castY)
-                int[][] sparkles = {
-                    {  85,  20}, // Coco (back row, left side)
-                    { 120,  22}, // Sana
-                    { 200,  24}, // Mel
-                    { 260,  26}, // Aqua
-                    {  60,  50}, // Ame (middle row)
-                    { 180,  52}, // Fauna
-                    { 290,  54}, // Shion
-                    { 100,  80}, // Mumei (front row)
-                    { 160,  82}, // Gura
-                    { 220,  84}, // Kanata
-                };
-                for (int[] pos : sparkles) {
-                    int sx = x + pos[0] - sparkle.getWidth() / 2;
-                    int sy = y + TITLE_CAST_Y + pos[1] - sparkle.getHeight() / 2;
-                    g.drawImage(sparkle, sx, sy, Graphics.TOP | Graphics.LEFT);
-                }
+        // 2b. Sparkle over each graduated member's head, alternating two frames every ~300ms.
+        long sparkleTick = clockMs / 300;
+        Image sparkle = (sparkleTick % 2 == 0) ? assets.sparkle0() : assets.sparkle1();
+        if (sparkle != null) {
+            for (int i = 0; i < CAST_COUNT; i++) {
+                if (!GRADUATED[i]) continue;
+                Image ch = assets.titleChar(i);
+                int cw = (ch != null) ? ch.getWidth() : 24;
+                int sx = x + CAST_X[i] + cw / 2 - sparkle.getWidth() / 2;
+                int sy = y + CAST_Y[i] + charBob(i) - sparkle.getHeight() / 2;
+                g.drawImage(sparkle, sx, sy, Graphics.TOP | Graphics.LEFT);
             }
         }
 
-        // 3. HoloCure logo - centered at top (176x74 from hud_titlebar_0.png, matching reference)
+        // 3. HoloCure logo, centred in the top-row gap, bobbing, with a periodic shine sweep.
         Image logo = assets.titleLogo();
         if (logo != null) {
-            int logoY = y + 2; // at top, matching reference (y=2)
-            int logoX = x + 72; // centered: (320 - 176) / 2 = 72
-            int logoW = 176;
-            int logoH = 74;
-
-            // Draw dark background behind logo for visibility
-            // Source has max alpha 145, so we need a dark backdrop
-            g.setColor(0, 0, 0); // solid black background
-            g.fillRect(logoX, logoY, logoW, logoH);
-
-            // Draw logo on top
-            g.drawImage(logo, logoX, logoY, Graphics.TOP | Graphics.LEFT);
-
-            // Gold glow underline (matches title screen lighting)
-            int glowY = logoY + logoH + 2;
-            g.setColor(255, 200, 0); // warm gold
-            g.drawLine(x, glowY, x + Viewport.MIN_W, glowY);
-            g.setColor(255, 230, 100);
-            g.drawLine(x, glowY + 1, x + Viewport.MIN_W, glowY + 1);
+            int logoY = y + TITLE_LOGO_Y + bob(600, 3);
+            // Glint for a short window every ~1.6s so the wordmark shines like the reference.
+            if ((clockMs % 1600) < 320) {
+                Image shine = assets.menuLogoShine();
+                if (shine != null) logo = shine;
+            }
+            g.drawImage(logo, x + TITLE_LOGO_X, logoY, Graphics.TOP | Graphics.LEFT);
         }
 
         g.setColor(TITLE_TEXT_R, TITLE_TEXT_G, TITLE_TEXT_B);
@@ -1150,6 +1142,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     /** Sinusoidal offset in [-range, range] for the given period, in whole pixels. */
     private int bob(int periodMs, int range) {
         return (int) (Math.sin((double) clockMs / periodMs) * range);
+    }
+
+    /** Per-member crowd bob: a small sine offset, phase-shifted by index so the crowd ripples. */
+    private int charBob(int index) {
+        return (int) (Math.sin((double) clockMs / 800.0 + index * 0.5) * 2);
     }
 
     /** Centred title text; the caller sets the colour first, as drawText does. */

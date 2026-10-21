@@ -46,7 +46,8 @@ final class AssetLibrary {
     private Image sparkle0;
     private Image sparkle1;
     private Image titleBg;
-    private Image menuCast;
+    private Image menuLogoShine;
+    private Image[] titleChars;        // 47 roster sprites, pre-scaled, display order
     private Image menuLabel;
     private Image[] icons;
     private Image[] texts;
@@ -508,19 +509,39 @@ final class AssetLibrary {
     }
 
     /**
-     * Title-screen backdrop (the star stage), the roster collage drawn over it, and the gold
-     * label box behind the selected entry's name. All three are pre-scaled at asset-preparation
-     * time by tools/prepare_title_menu_assets.py, which also bakes the eight bar icons and the
-     * eight label texts below.
+     * Title-screen backdrop (the rainbow burst with a baked dark icon bar) and the gold label
+     * box behind the selected entry's name. Both are pre-scaled at asset-preparation time by
+     * tools/prepare_title_menu_assets.py, which also bakes the roster sprites, logo, the eight
+     * bar icons and the eight label texts below.
      */
     Image titleBg() {
         if (titleBg == null) titleBg = image("/assets/fullgame/ui/title_bg.png");
         return titleBg;
     }
 
-    Image menuCast() {
-        if (menuCast == null) menuCast = image("/assets/fullgame/ui/menu_cast.png");
-        return menuCast;
+    /**
+     * The second logo frame: the same wordmark with a bright diagonal shine swept across it.
+     * drawMainMenu alternates it against titleLogo() every ~1.6s as a shine sweep.
+     */
+    Image menuLogoShine() {
+        if (menuLogoShine == null) menuLogoShine = image("/assets/fullgame/ui/menu_logo_shine.png");
+        return menuLogoShine;
+    }
+
+    /**
+     * One roster sprite for the Main Menu crowd, indexed in display order (top row left-to-right
+     * with the logo dropped in the top-row gap, then the lower rows). Group-loaded on first use
+     * because every paint walks all 47, so one seek burst beats one per sprite. Each is pre-scaled
+     * to its on-screen size by tools/prepare_title_menu_assets.py.
+     */
+    Image titleChar(int index) {
+        if (titleChars == null) {
+            titleChars = new Image[47];   // 47 roster members; CAST_* in FullGameCanvas
+            for (int i = 0; i < titleChars.length; i++) {
+                titleChars[i] = image("/assets/fullgame/ui/title_char_" + i + ".png");
+            }
+        }
+        return titleChars[index];
     }
 
     Image menuLabel() {

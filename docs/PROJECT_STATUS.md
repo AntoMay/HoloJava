@@ -48,6 +48,22 @@ critters, and its fill loop wrapped around the directory list so half the strip 
 critters, and spaces each row from its own sprites instead of wrapping; the rest of the title
 assets rebuilt byte-identical.
 
+**Done 2026-10-21 (title screen to reference layout + HUD text):** two presentation asks.
+*Main menu:* the crowd moved from a pre-composed collage to the reference game's exact roster
+layout. `rm_Title`'s instance origins (from `HoloCure_Unpacked/index/Rooms_Detail.txt`) place all
+47 talents in four staggered rows with the HoloCure logo in the top-row gap — the same order the
+reference shows, now baked as 47 individual sprites (`title_char_0..46.png`) at `SPRITE_SCALE`,
+each drawn at its own screen spot so it can bob on its own phase (`charBob`, `CAST_X`/`CAST_Y`).
+`menu_cast.png` and its `menuCast()` accessor are gone. The backdrop is the reference game's own
+`hud_new_title_BG` (star stage) scaled to fill 320x240 with a slim dark bar over the floor, in
+place of the earlier procedural rainbow burst; the logo is `spr_HoloCureTitle_full` (bob + a
+periodic shine-sweep frame), and the graduated-member sparkles track each sprite's head. Gura is
+hand-nudged 8px left via `MANUAL_DX` in the prep script. All motion still reads `clockMs`.
+*Gameplay HUD text:* the timer, `Lv`, `Coins/Kill`, `W n | n`, `Fans a/b` and boss-HP numbers now
+draw as normal font strings instead of `digits_white`/`digits_yellow` sprites; `drawDigits` and
+`drawDigitsRightAlign` were deleted. The weapon and skill slot rows were lowered (`WEAPON_SLOT_Y`
++3 -> +7 under the special bar) so the boxes clear the SP bar; HP, SP and EXP bars are unchanged.
+
 **Known follow-ups from the same audit (not yet done):** per-frame allocation in the render
 path, `AssetLibrary.prepareStage` leaking `framesM`, no integrity check over the save record,
 duplicated helpers and dead classes, the legacy `src/java-me-{first-slice,phase3,diagnostic}`
