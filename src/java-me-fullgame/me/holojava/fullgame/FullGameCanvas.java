@@ -183,7 +183,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // art change, so both stay named constants instead of spreading through the draw code.
     private static final int TITLE_BAR_BASE = 202;
     // Main-menu logo, dropped into the gap in the top roster row (between Marine and Coco).
-    private static final int TITLE_LOGO_W = 118, TITLE_LOGO_X = 101, TITLE_LOGO_Y = 8;
+    private static final int TITLE_LOGO_W = 118, TITLE_LOGO_X = 101, TITLE_LOGO_Y = 14;
     // The 47-strong roster crowd. CAST_X/CAST_Y are screen-space top-left base positions baked
     // by tools/prepare_title_menu_assets.py from the reference rm_Title room origins; index order
     // matches title_char_*.png (top row left->right with the logo gap, then the lower rows).
