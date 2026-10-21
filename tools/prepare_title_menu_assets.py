@@ -236,18 +236,12 @@ def character_collage(source: Path) -> Image.Image:
     return canvas
 
 def menu_logo(source: Path) -> None:
-    """Title logo extracted from the reference title screen composite.
+    """Title logo from official HoloCure wiki (HoloCureLogo.png - fully opaque).
     
-    Extracted from spr_HoloCureTitle_full_0.png (rows 0-39, centered 240px wide).
-    Scaled to 320px wide maintaining aspect ratio = 320x53.
-    Fully opaque (extracted from composite where logo is fully visible).
+    Downloaded from https://holocure.wiki.gg/images/thumb/HoloCureLogo.png/540px-HoloCureLogo.png
+    Original: 540x228, fully opaque. Scaled to canvas width (320px) maintaining aspect ratio.
     """
-    # Extract logo from reference composite
-    ref = Image.open(source / "textures" / "Sprites" / "spr_HoloCureTitle_full_0.png")
-    scaled = ref.resize((320, 240), Image.LANCZOS)
-    # Logo is at top, centered, ~240px wide x 40px tall in 320x240 scaled
-    logo = scaled.crop((40, 0, 280, 40))  # x=40-280 (240 wide), y=0-40 (40 tall)
-    # Scale to full canvas width (320px) maintaining aspect ratio
+    logo = Image.open("/tmp/HoloCureLogo.png").convert("RGBA")
     target_w = 320
     scale = target_w / logo.width
     target_h = max(1, int(logo.height * scale))
