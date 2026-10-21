@@ -183,7 +183,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // Bottom icon bar, rebuilt after the reference's horizontal entry bar. The icons keep their
     // native halved sizes and align on one baseline; the gap is what recentres the bar after any
     // art change, so both stay named constants instead of spreading through the draw code.
-    private static final int TITLE_CAST_Y = 86;
+    private static final int TITLE_CAST_Y = 85;
     private static final int TITLE_BAR_BASE = 202;
     // Recentred for the eight icons: their visual span (sum of widths + seven 23px gaps)
     // is 265px, so (320 - 265) / 2 = 27 keeps the same left/right margin the seven-icon
