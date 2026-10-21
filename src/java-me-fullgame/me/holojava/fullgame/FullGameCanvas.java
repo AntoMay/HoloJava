@@ -969,7 +969,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * even in a partial build.
      */
     private void drawSplash(Graphics g, int x, int y) {
-        Image bg = assets.titleBg();
+        Image bg = assets.splashBg();
         if (bg != null) {
             g.drawImage(bg, x, y, Graphics.TOP | Graphics.LEFT);
         } else {

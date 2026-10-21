@@ -89,8 +89,13 @@ def load_title_sprite(name):
 def bake_background():
     """Star-stage backdrop taken straight from the reference game (hud_new_title_BG),
     scaled to fill 320x240 and centre-cropped, so the title screen stays calm instead of
-    the procedural rainbow burst. A slim dark icon bar is laid over the (already dark)
-    stage floor with a bright top edge, so the white bar icons keep their contrast."""
+    the procedural rainbow burst.
+
+    Two variants are emitted from the same base:
+      splash_bg.png - the plain stage, used by the Splash (which has no icon bar).
+      title_bg.png  - the same stage with a slim dark icon bar laid over the floor, so the
+                      Main Menu's white bar icons keep their contrast.
+    """
     src = Image.open(os.path.join(UNPACKED, "hud_new_title_BG",
                                   "hud_new_title_BG_0.png")).convert("RGB")
     scale = max(SCREEN_W / float(src.size[0]), SCREEN_H / float(src.size[1]))
@@ -100,8 +105,11 @@ def bake_background():
     top = (nh - SCREEN_H) // 2
     base = im.crop((left, top, left + SCREEN_W, top + SCREEN_H)).convert("RGB")
 
-    # Slim dark icon bar at the bottom: a gentle blend toward deep navy (the stage floor is
-    # already dark) plus a bright top edge, matching the reference's crisp menu bar.
+    # Plain stage for the Splash (no icon bar).
+    base.save(os.path.join(OUT, "splash_bg.png"))
+
+    # Slim dark icon bar at the bottom for the Main Menu: a gentle blend toward deep navy
+    # (the stage floor is already dark) plus a bright top edge, matching the reference bar.
     h = SCREEN_H
     bar_top = h - BAR_H
     db = ImageDraw.Draw(base)
