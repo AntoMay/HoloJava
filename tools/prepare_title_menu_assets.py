@@ -130,7 +130,7 @@ def character_collage(source: Path) -> Image.Image:
     Total: 47 characters + logo in row 1 center.
     Matches official HoloCure wiki title screen layout exactly.
     """
-    # Exact character order per wiki reference
+    # Exact character order per wiki reference - 4 rows
     row1_left = ["spr_Title_Pekora_0", "spr_Title_Noel_0", "spr_Title_Flare_0", "spr_Title_Marine_0"]
     row1_right = ["spr_Title_Coco_0", "spr_Title_Kanata_0", "spr_Title_Towa_0", "spr_Title_Watame_0", "spr_Title_Luna_0"]
     row2 = ["spr_Title_Kaela_0", "spr_Title_Kobo_0", "spr_Title_Zeta_0", "spr_Title_Anya_0",
@@ -163,43 +163,44 @@ def character_collage(source: Path) -> Image.Image:
     # Ensure last row bottom = CAST_H (116)
     row_tops[3] = CAST_H - 36
 
-    # Logo sprite
+    # Logo sprite (from spr_gacha_holologo_0.png - fully opaque)
     logo_path = Path("/home/antomay/Projects/HoloCure_Unpacked/textures/Sprites/spr_gacha_holologo_0.png")
     logo_img = load_trimmed(Path(logo_path))
     logo_scale = 40 / logo_img.height  # logo height ~40px in grid
     logo_img = logo_img.resize((int(logo_img.width * 40 / logo_img.height), 40), Image.LANCZOS)
 
-    all_rows = [["spr_Title_Pekora_0", "spr_Title_Noel_0", "spr_Title_Flare_0", "spr_Title_Marine_0"],  # row1 left
-                ["spr_Title_Kaela_0", "spr_Title_Kobo_0", "spr_Title_Zeta_0", "spr_Title_Anya_0",
-                 "spr_Title_Reine_0", "spr_Title_Ollie_0", "spr_Title_Iofi_0", "spr_Title_Moona_0",
-                 "spr_Title_Risu_0", "spr_Title_Aki_0", "spr_Title_Haato_0", "spr_Title_Shion_0", "spr_Title_Ayame_0"],
-                ["spr_Title_Korone_0", "spr_Title_Okayu_0", "spr_Title_Mio_0", "spr_Title_Fubuki_0",
-                 "spr_Title_Azki_0", "spr_Title_Roboco_0", "spr_Title_Sora_0", "spr_Title_Suisei_0",
-                 "spr_Title_Miko_0", "spr_Title_Matsuri_0", "spr_Title_Mel_0", "spr_Title_Choco_0", "spr_Title_Subaru_0"],
-                ["spr_Title_Kronii_0", "spr_Title_Sana_0", "spr_Title_Irys_0", "spr_Title_Fauna_0",
-                 "spr_Title_Mumei_0", "spr_Title_bae_0", "spr_Title_Ame_0", "spr_Title_Gura_0",
-                 "spr_Title_Ina_0", "spr_Title_Kiara_0", "spr_Title_Calli_0", "spr_Title_Aqua_0"]]
-    row1_right = ["spr_Title_Coco_0", "spr_Title_Kanata_0", "spr_Title_Towa_0", "spr_Title_Watame_0", "spr_Title_Luna_0"]
-
     rng = random.Random(20261018)
+
+    all_rows = [
+        ["spr_Title_Pekora_0", "spr_Title_Noel_0", "spr_Title_Flare_0", "spr_Title_Marine_0"],
+        ["spr_Title_Kaela_0", "spr_Title_Kobo_0", "spr_Title_Zeta_0", "spr_Title_Anya_0",
+         "spr_Title_Reine_0", "spr_Title_Ollie_0", "spr_Title_Iofi_0", "spr_Title_Moona_0",
+         "spr_Title_Risu_0", "spr_Title_Aki_0", "spr_Title_Haato_0", "spr_Title_Shion_0", "spr_Title_Ayame_0"],
+        ["spr_Title_Korone_0", "spr_Title_Okayu_0", "spr_Title_Mio_0", "spr_Title_Fubuki_0",
+         "spr_Title_Azki_0", "spr_Title_Roboco_0", "spr_Title_Sora_0", "spr_Title_Suisei_0",
+         "spr_Title_Miko_0", "spr_Title_Matsuri_0", "spr_Title_Mel_0", "spr_Title_Choco_0", "spr_Title_Subaru_0"],
+        ["spr_Title_Kronii_0", "spr_Title_Sana_0", "spr_Title_Irys_0", "spr_Title_Fauna_0",
+         "spr_Title_Mumei_0", "spr_Title_bae_0", "spr_Title_Ame_0", "spr_Title_Gura_0",
+         "spr_Title_Ina_0", "spr_Title_Kiara_0", "spr_Title_Calli_0", "spr_Title_Aqua_0"]
+    ]
+    row1_right = ["spr_Title_Coco_0", "spr_Title_Kanata_0", "spr_Title_Towa_0", "spr_Title_Watame_0", "spr_Title_Luna_0"]
 
     for row_idx, row_names in enumerate(all_rows):
         if row_idx == 0:
             # Row 1: left part, logo, right part
-            names = ["spr_Title_Pekora_0", "spr_Title_Noel_0", "spr_Title_Flare_0", "spr_Title_Marine_0"] + ["LOGO"] + ["spr_Title_Coco_0", "spr_Title_Kanata_0", "spr_Title_Towa_0", "spr_Title_Watame_0", "spr_Title_Luna_0"]
+            names = ["spr_Title_Pekora_0", "spr_Title_Noel_0", "spr_Title_Flare_0", "spr_Title_Marine_0"] + ["LOGO"] + row1_right
+        elif row_idx == 1:
+            names = ["spr_Title_Kaela_0", "spr_Title_Kobo_0", "spr_Title_Zeta_0", "spr_Title_Anya_0",
+                     "spr_Title_Reine_0", "spr_Title_Ollie_0", "spr_Title_Iofi_0", "spr_Title_Moona_0",
+                     "spr_Title_Risu_0", "spr_Title_Aki_0", "spr_Title_Haato_0", "spr_Title_Shion_0", "spr_Title_Ayame_0"]
+        elif row_idx == 2:
+            names = ["spr_Title_Korone_0", "spr_Title_Okayu_0", "spr_Title_Mio_0", "spr_Title_Fubuki_0",
+                     "spr_Title_Azki_0", "spr_Title_Roboco_0", "spr_Title_Sora_0", "spr_Title_Suisei_0",
+                     "spr_Title_Miko_0", "spr_Title_Matsuri_0", "spr_Title_Mel_0", "spr_Title_Choco_0", "spr_Title_Subaru_0"]
         else:
-            if row_idx == 1:
-                names = ["spr_Title_Kaela_0", "spr_Title_Kobo_0", "spr_Title_Zeta_0", "spr_Title_Anya_0",
-                         "spr_Title_Reine_0", "spr_Title_Ollie_0", "spr_Title_Iofi_0", "spr_Title_Moona_0",
-                         "spr_Title_Risu_0", "spr_Title_Aki_0", "spr_Title_Haato_0", "spr_Title_Shion_0", "spr_Title_Ayame_0"]
-            elif row_idx == 2:
-                names = ["spr_Title_Korone_0", "spr_Title_Okayu_0", "spr_Title_Mio_0", "spr_Title_Fubuki_0",
-                         "spr_Title_Azki_0", "spr_Title_Roboco_0", "spr_Title_Sora_0", "spr_Title_Suisei_0",
-                         "spr_Title_Miko_0", "spr_Title_Matsuri_0", "spr_Title_Mel_0", "spr_Title_Choco_0", "spr_Title_Subaru_0"]
-            else:
-                names = ["spr_Title_Kronii_0", "spr_Title_Sana_0", "spr_Title_Irys_0", "spr_Title_Fauna_0",
-                         "spr_Title_Mumei_0", "spr_Title_bae_0", "spr_Title_Ame_0", "spr_Title_Gura_0",
-                         "spr_Title_Ina_0", "spr_Title_Kiara_0", "spr_Title_Calli_0", "spr_Title_Aqua_0"]
+            names = ["spr_Title_Kronii_0", "spr_Title_Sana_0", "spr_Title_Irys_0", "spr_Title_Fauna_0",
+                     "spr_Title_Mumei_0", "spr_Title_bae_0", "spr_Title_Ame_0", "spr_Title_Gura_0",
+                     "spr_Title_Ina_0", "spr_Title_Kiara_0", "spr_Title_Calli_0", "spr_Title_Aqua_0"]
 
         # Load and resize frames for this row
         height = row_heights[row_idx]
@@ -233,7 +234,6 @@ def character_collage(source: Path) -> Image.Image:
             x += frame.width + overlap
 
     return canvas
-
 
 def menu_logo(source: Path) -> None:
     """Title logo extracted from the reference title screen composite.
