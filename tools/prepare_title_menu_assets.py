@@ -72,7 +72,6 @@ POS_Y_SCALE = 0.588
 # Gura sits a touch right of her neighbours, so nudge her left a little.
 MANUAL_DX = {42: -8}
 
-BAR_H = 58          # baked dark icon bar height at the bottom of title_bg
 LOGO_W = 118        # displayed logo width
 LOGO_Y = 2          # logo top
 
@@ -87,15 +86,10 @@ def load_title_sprite(name):
 
 
 def bake_background():
-    """Star-stage backdrop taken straight from the reference game (hud_new_title_BG),
-    scaled to fill 320x240 and centre-cropped, so the title screen stays calm instead of
-    the procedural rainbow burst.
-
-    Two variants are emitted from the same base:
-      splash_bg.png - the plain stage, used by the Splash (which has no icon bar).
-      title_bg.png  - the same stage with a slim dark icon bar laid over the floor, so the
-                      Main Menu's white bar icons keep their contrast.
-    """
+    """Plain star-stage backdrop taken straight from the reference game (hud_new_title_BG),
+    scaled to fill 320x240 and centre-cropped, so both the Splash and the Main Menu sit on the
+    calm original stage instead of the procedural rainbow burst. No icon bar is baked in: the
+    stage floor is already dark enough (mean luma ~41) to carry the white bar icons."""
     src = Image.open(os.path.join(UNPACKED, "hud_new_title_BG",
                                   "hud_new_title_BG_0.png")).convert("RGB")
     scale = max(SCREEN_W / float(src.size[0]), SCREEN_H / float(src.size[1]))
@@ -105,24 +99,7 @@ def bake_background():
     top = (nh - SCREEN_H) // 2
     base = im.crop((left, top, left + SCREEN_W, top + SCREEN_H)).convert("RGB")
 
-    # Plain stage for the Splash (no icon bar).
-    base.save(os.path.join(OUT, "splash_bg.png"))
-
-    # Slim dark icon bar at the bottom for the Main Menu: a gentle blend toward deep navy
-    # (the stage floor is already dark) plus a bright top edge, matching the reference bar.
-    h = SCREEN_H
-    bar_top = h - BAR_H
-    db = ImageDraw.Draw(base)
-    for yy in range(bar_top, h):
-        t = (yy - bar_top) / float(BAR_H)
-        r = int(12 + 16 * t)
-        g = int(26 + 26 * t)
-        b = int(64 + 40 * t)
-        db.rectangle([0, yy, SCREEN_W, yy + 1], fill=(r, g, b))
-    db.rectangle([0, bar_top, SCREEN_W, bar_top + 1], fill=(150, 214, 250))
-
     base.save(os.path.join(OUT, "title_bg.png"))
-    return bar_top
 
 
 def bake_logo():
@@ -202,11 +179,11 @@ def print_java_table(pos, sizes):
 
 def main():
     ensure_out()
-    bar_top = bake_background()
+    bake_background()
     logo_size = bake_logo()
     sizes = bake_chars()
     pos = compute_positions(sizes)
-    print("background bar_top=%d  logo=%dx%d  chars=%d" % (bar_top, logo_size[0], logo_size[1], len(sizes)))
+    print("logo=%dx%d  chars=%d" % (logo_size[0], logo_size[1], len(sizes)))
     print_java_table(pos, sizes)
 
 

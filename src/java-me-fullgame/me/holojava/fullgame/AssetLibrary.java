@@ -46,7 +46,6 @@ final class AssetLibrary {
     private Image sparkle0;
     private Image sparkle1;
     private Image titleBg;
-    private Image splashBg;
     private Image menuLogoShine;
     private Image[] titleChars;        // 47 roster sprites, pre-scaled, display order
     private Image menuLabel;
@@ -518,16 +517,6 @@ final class AssetLibrary {
     Image titleBg() {
         if (titleBg == null) titleBg = image("/assets/fullgame/ui/title_bg.png");
         return titleBg;
-    }
-
-    /**
-     * Splash-screen backdrop: the same star stage as titleBg() but without the baked dark icon
-     * bar, because the Splash carries no bar. tools/prepare_title_menu_assets.py emits both
-     * variants from one base.
-     */
-    Image splashBg() {
-        if (splashBg == null) splashBg = image("/assets/fullgame/ui/splash_bg.png");
-        return splashBg;
     }
 
     /**

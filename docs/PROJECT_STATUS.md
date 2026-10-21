@@ -55,7 +55,8 @@ layout. `rm_Title`'s instance origins (from `HoloCure_Unpacked/index/Rooms_Detai
 reference shows, now baked as 47 individual sprites (`title_char_0..46.png`) at `SPRITE_SCALE`,
 each drawn at its own screen spot so it can bob on its own phase (`charBob`, `CAST_X`/`CAST_Y`).
 `menu_cast.png` and its `menuCast()` accessor are gone. The backdrop is the reference game's own
-`hud_new_title_BG` (star stage) scaled to fill 320x240 with a slim dark bar over the floor, in
+`hud_new_title_BG` (star stage) scaled plain to fill 320x240 (no baked icon bar — the stage floor
+is dark enough for the white icons), shared by the Splash and the Main Menu, in
 place of the earlier procedural rainbow burst; the logo is `spr_HoloCureTitle_full` (bob + a
 periodic shine-sweep frame), and the graduated-member sparkles track each sprite's head. Gura is
 hand-nudged 8px left via `MANUAL_DX` in the prep script. All motion still reads `clockMs`.
@@ -63,9 +64,8 @@ hand-nudged 8px left via `MANUAL_DX` in the prep script. All motion still reads 
 draw as normal font strings instead of `digits_white`/`digits_yellow` sprites; `drawDigits` and
 `drawDigitsRightAlign` were deleted. The weapon and skill slot rows were lowered (`WEAPON_SLOT_Y`
 +3 -> +7 under the special bar) so the boxes clear the SP bar; HP, SP and EXP bars are unchanged.
-*Splash backdrop:* the Splash keeps its old plain star-stage (no icon bar) while the Main Menu
-keeps the bar variant — `prepare_title_menu_assets.py` now emits both `splash_bg.png` and
-`title_bg.png` from one `hud_new_title_BG` base, and `drawSplash` loads `splashBg()`.
+*Title backdrop:* both screens load `titleBg()` — the plain star stage, byte-identical to the
+pre-2026-10-21 look; the temporary `splash_bg.png`/`splashBg()` split was folded back in.
 
 **Known follow-ups from the same audit (not yet done):** per-frame allocation in the render
 path, `AssetLibrary.prepareStage` leaking `framesM`, no integrity check over the save record,
