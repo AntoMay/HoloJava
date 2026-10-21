@@ -58,7 +58,9 @@ each drawn at its own screen spot so it can bob on its own phase (`charBob`, `CA
 `hud_new_title_BG` (star stage) scaled plain to fill 320x240 (no baked icon bar — the stage floor
 is dark enough for the white icons), shared by the Splash and the Main Menu, in
 place of the earlier procedural rainbow burst; the logo is `spr_HoloCureTitle_full` (bob + a
-periodic shine-sweep frame), and the graduated-member sparkles track each sprite's head. Gura is
+periodic shine-sweep frame) drawn at `TITLE_LOGO_Y=22`, tuned so its lower edge grazes the
+transparent ear-tips of Iofi (roster idx 15) in the row below; the graduated-member sparkles
+track each sprite's head. Gura is
 hand-nudged 8px left via `MANUAL_DX` in the prep script. All motion still reads `clockMs`.
 *Gameplay HUD text:* the timer, `Lv`, `Coins/Kill`, `W n | n`, `Fans a/b` and boss-HP numbers now
 draw as normal font strings instead of `digits_white`/`digits_yellow` sprites; `drawDigits` and
