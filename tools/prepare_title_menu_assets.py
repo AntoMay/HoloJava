@@ -156,12 +156,12 @@ def character_collage(source: Path) -> Image.Image:
 
     canvas = Image.new("RGBA", (CAST_W, CAST_H), (0, 0, 0, 0))
 
-    # Row configuration: 4 rows, back to front
+    # Row configuration: 4 rows, back to front (matching reference menu_cast.png exactly)
+    # Reference menu_cast.png: crowd starts at y=2, height 114 (rows 2-115)
     # Row 0 (back): smallest, highest; Row 3 (front): largest, lowest
-    row_heights = [24, 28, 32, 36]  # increasing height per row
-    row_tops = [10, 34, 62, 86]     # vertical positions
-    # Ensure last row bottom = CAST_H (116)
-    row_tops[3] = CAST_H - 36
+    row_heights = [24, 28, 32, 30]  # increasing height per row, total=114
+    row_tops = [2, 26, 54, 86]       # vertical positions matching reference (starts at y=2)
+    # Last row bottom = 86 + 30 = 116 = CAST_H
 
     # Logo sprite (from spr_gacha_holologo_0.png - fully opaque)
     logo_path = Path("/home/antomay/Projects/HoloCure_Unpacked/textures/Sprites/spr_gacha_holologo_0.png")
