@@ -73,7 +73,7 @@ POS_Y_SCALE = 0.588
 MANUAL_DX = {42: -8}
 
 LOGO_W = 118        # displayed logo width
-LOGO_Y = 14         # logo top (kept in sync with TITLE_LOGO_Y in FullGameCanvas)
+LOGO_Y = 22         # logo top (kept in sync with TITLE_LOGO_Y in FullGameCanvas)
 
 
 def ensure_out():
