@@ -937,13 +937,24 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
     }
 
-    /** Shared page background: a slightly lifted title band behind the title row and the
-     *  near-black content band below it, split by the cyan rule HoloCure underlines its headers
-     *  with. The Main Menu paints its own, logo-driven variant of the same pair. */
+    /**
+     * Shared page background: the Main Menu's own star stage, drawn from the pre-dimmed
+     * backdrop so an inner page opens on the same scene the title screen shows. The dim is
+     * baked into menu_page_bg.png because MIDP 2.0 cannot darken at runtime; without it the
+     * bright stage floor would swallow the white ink. The cyan rule still closes the header
+     * band. When the asset is missing (partial build) the old flat bands stand in, which
+     * keeps every page readable without the backdrop.
+     */
     private void drawPageBackground(Graphics g, int x, int y) {
-        g.setColor(MENU_BG_R, MENU_BG_G, MENU_BG_B); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
-        g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
-        g.fillRect(x, y + MENU_BODY_Y, Viewport.MIN_W, Viewport.MIN_H - MENU_BODY_Y);
+        Image bg = assets.menuPageBg();
+        if (bg != null) {
+            g.drawImage(bg, x, y, Graphics.TOP | Graphics.LEFT);
+        } else {
+            g.setColor(MENU_BG_R, MENU_BG_G, MENU_BG_B);
+            g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
+            g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
+            g.fillRect(x, y + MENU_BODY_Y, Viewport.MIN_W, Viewport.MIN_H - MENU_BODY_Y);
+        }
         g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.fillRect(x, y + MENU_BODY_Y - 1, Viewport.MIN_W, 1);
     }

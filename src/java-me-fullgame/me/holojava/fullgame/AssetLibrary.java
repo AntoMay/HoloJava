@@ -46,6 +46,7 @@ final class AssetLibrary {
     private Image sparkle0;
     private Image sparkle1;
     private Image titleBg;
+    private Image menuPageBg;
     private Image menuLogoShine;
     private Image[] titleChars;        // 47 roster sprites, pre-scaled, display order
     private Image menuLabel;
@@ -517,6 +518,17 @@ final class AssetLibrary {
     Image titleBg() {
         if (titleBg == null) titleBg = image("/assets/fullgame/ui/title_bg.png");
         return titleBg;
+    }
+
+    /**
+     * The inner-menu page backdrop: the same star stage as the Main Menu, dimmed towards
+     * black at asset-preparation time because MIDP 2.0 cannot dim at runtime. Every inner
+     * page (CHOOSE YOUR IDOL, Toko, Papan Peringkat, ...) draws this instead of the flat
+     * bands it used before, so opening an entry keeps the title screen's look behind it.
+     */
+    Image menuPageBg() {
+        if (menuPageBg == null) menuPageBg = image("/assets/fullgame/ui/menu_page_bg.png");
+        return menuPageBg;
     }
 
     /**
