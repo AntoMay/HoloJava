@@ -3482,16 +3482,6 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
 
     private void drawDialogue(Graphics g, int offX, int offY, long now) {
         if (now >= dialogueShowUntil || dialogueLineCount == 0) return;
-        Image box = assets.dialogueBox();
-        if (box == null) box = assets.uiDialogueBox();
-        if (box == null) return;
-
-        int boxW = box.getWidth();
-        int boxH = box.getHeight();
-        int boxX = offX + (viewWidth - boxW) / 2;
-        int boxY = offY + viewHeight - boxH - 20;
-
-        g.drawImage(box, boxX, boxY, Graphics.TOP | Graphics.LEFT);
 
         g.setColor(255, 255, 255);
         Font small = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
@@ -3499,19 +3489,19 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
         int lineH = small.getHeight() + 2;
         for (int i = 0; i < dialogueLineCount; i++) {
             if (dialogueLines[i] != null) {
-                int textX = boxX + (boxW - g.getFont().stringWidth(dialogueLines[i])) / 2;
-                g.drawString(dialogueLines[i], textX, boxY + 8 + i * lineH, Graphics.TOP | Graphics.LEFT);
+                int textX = offX + (viewWidth - g.getFont().stringWidth(dialogueLines[i])) / 2;
+                int textY = offY + viewHeight - 40 + i * lineH;
+                // Subtle shadow for readability
+                g.setColor(0, 0, 0);
+                g.drawString(dialogueLines[i], textX + 1, textY + 1, Graphics.TOP | Graphics.LEFT);
+                g.setColor(255, 255, 255);
+                g.drawString(dialogueLines[i], textX, textY, Graphics.TOP | Graphics.LEFT);
             }
         }
     }
 
     private void checkDialogueTriggers(long now) {
-        if (playerLevel != lastPlayerLevel) {
-            showDialogue("Level up! Lv " + playerLevel + " reached!");
-        }
-        if (specialCharge >= SPECIAL_CHARGE_MAX && !specialLocked) {
-            showDialogue("Special ready! Press 9 to unleash!");
-        }
+        // Boss appearance notification only
         if (boss.active && boss.hp == boss.maxHp && now > 5000) {
             showDialogue("Boss appeared: " + bossName() + "!");
         }
