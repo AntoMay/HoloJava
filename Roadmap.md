@@ -1,8 +1,8 @@
 # HoloJava Master Roadmap
 
-Version: `0.2`  
+Version: `0.3`  
 Created: `2026-10-13`  
-Status: refreshed 2026-10-20 — Phases 0-6 complete (Phase 6 retired into the recurring audit cycle), Phase 7 active, Phase 8 not started  
+Status: refreshed 2026-10-22 — Phases 0-6 complete (Phase 6 retired into the recurring audit cycle), Phase 7 active, Phase 8 not started  
 Source of truth for scope, phase order, priorities, and project status.
 
 ---
@@ -518,6 +518,12 @@ Assumptions:
 | 2026-10-20 | Boss HP/ATK/EXP replaced with the wiki's per-stage figures; `*_hard` rows added for the Hard-page appearances; boss-HP ceiling raised to 400000 | The old table had EXP misread into HP and stages stepping backwards; provenance now recorded in `docs/GAME_MECHANICS.md` |
 | 2026-10-20 | README added; `TEST_PLAN.md`/`GAME_MECHANICS.md` rewritten; `SYSTEM_CATALOG.md`/`CONTENT_COVERAGE.md` archived to `docs/archive/`; phase statuses in this file caught up | The status documents still described the 2026-10-13 research phase, not the implemented game |
 | 2026-10-20 | Research manifests (`asset_manifest.json`, `asset_manifest.csv`, `symbol_classification.csv`) untracked as regenerable outputs | ~33 MB of machine-generated data in git; regenerate with `tools/build_asset_manifest.py` and `tools/classify_symbols.py` |
+| 2026-10-22 | Boss HP bar overhaul: wider, gradient fill, phase indicators, multi-boss stacking | Boss UI polish + multi-boss support for single map
+| 2026-10-22 | Multi-boss system (max 3): spawnAdditionalBoss, phase transitions, universal collision | Single-map multi-boss encounters
+| 2026-10-22 | Timer pauses during LEVEL UP & pause popups | suspension ledger freezes elapsed time during popups
+| 2026-10-22 | freej2me-plus fixes: number row→numpad, PC numpad direct KEY_NUM, super(false) | Emulator input fixes for special key (9)
+| 2026-10-22 | Notifications: removed Level-up/Special-ready popups; Boss notification text-only | Clean UI, no box/border
+| 2026-10-22 | Special skill visual effects: 5 character-specific procedural animations | No new assets, procedural only
 
 ## 13. Current Status and Next Step
 

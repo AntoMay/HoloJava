@@ -24,6 +24,10 @@ HoloCure.
 |---|---|---|---|
 | Boss HP / ATK / EXP | Verified | Wiki stage pages, "Enemy Composition" tables, read 2026-10-20 | Every row flagged `documentedBaseStats = true` in `ContentCatalog.BOSSES`; bosses spawning on both a Normal and a Hard page have one row per appearance (`*_hard`); group bosses carry the mean of the members the wiki lists |
 | Stage and boss schedule | Verified | Same stage pages (`documentedSource` per stage row) | 10:00 opener and 20:00 final gates; Stage 1 (Hard) also runs a second boss at 10:00 |
+| Multi-boss system (single map) | Designed | — | Up to 3 simultaneous bosses via `spawnAdditionalBoss()`; each tracks own phase, HP, ATK; universal collision (melee, shots, AoE, homing) checks all active bosses |
+| Boss phase transitions | Designed | — | Auto-transition at HP thresholds (25%/50%/75% per phase); HP ×1.5, ATK ×1.25 per phase, full heal, 1s white flash; max phases per boss configurable |
+| Boss HP bar UI (enhanced) | Designed | — | 260×20 bar, gradient fill (red→orange→pulsing red), phase diamonds, phase flash, name+phase suffix, portrait placeholder, stacked multi-boss bars |
+| Timer pause during popups | Designed | — | `elapsedMsAt(now)` subtracts suspension time during LEVEL_UP & PAUSED states; boss gates, wave spawns, minute scaling all respect suspension; timer resumes seamlessly |
 | Stage clear-coin bonuses | Verified | Wiki Stage article, recorded in `data/wiki/modes.csv` | `StageDef.coinClear` (3000..50000) matches the documented `clearAmount` list |
 | Shop upgrade prices | Verified | Wiki per-level price tables | `UpgradeDef.prices`; pinned by `CharacterShopTest` |
 | EXP: level 1→2 threshold | Verified | Wiki Level Up page ("79 EXP") | Pinned in `RunWorld.requiredForLevel` |
@@ -47,3 +51,8 @@ HoloCure.
    only flip together with the evidence.
 4. New original content is labelled as original where it is defined (catalog
    comment) and where it is recorded (`docs/PROJECT_STATUS.md`).
+
+| Multi-boss system (single map) | Designed | — | Up to 3 simultaneous bosses via `spawnAdditionalBoss()`; each tracks own phase, HP, ATK; universal collision (melee, shots, AoE, homing) checks all active bosses |
+| Boss phase transitions | Designed | — | Auto-transition at HP thresholds (25%/50%/75% per phase); HP ×1.5, ATK ×1.25 per phase, full heal, 1s white flash; max phases per boss configurable |
+| Boss HP bar UI (enhanced) | Designed | — | 260×20 bar, gradient fill (red→orange→pulsing red), phase diamonds, phase flash, name+phase suffix, portrait placeholder, stacked multi-boss bars |
+| Timer pause during popups | Designed | — | `elapsedMsAt(now)` subtracts suspension time during LEVEL_UP & PAUSED states; boss gates, wave spawns, minute scaling all respect suspension; timer resumes seamlessly |

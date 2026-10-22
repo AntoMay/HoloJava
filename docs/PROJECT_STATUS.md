@@ -69,6 +69,27 @@ draw as normal font strings instead of `digits_white`/`digits_yellow` sprites; `
 *Title backdrop:* both screens load `titleBg()` — the plain star stage, byte-identical to the
 pre-2026-10-21 look; the temporary `splash_bg.png`/`splashBg()` split was folded back in.
 
+**Done 2026-10-22 (boss UI, multi-boss, timer, emulator, notifications):**
+
+- **Boss HP bar overhaul:** Wider bar (260×20), dark panel with double border, two-tone gradient fill (red→orange→pulsing red <25% HP), top highlight line, phase indicator diamonds (green/yellow/gray), phase transition flash (1s white), boss name with phase suffix ("Fubuzilla Phase 2"), portrait placeholder. Supports stacked multi-boss bars with vertical spacing.
+
+- **Multi-boss system (max 3 simultaneous):** `spawnAdditionalBoss(id, x, y)` for custom-position bosses; phase system with automatic transitions at HP thresholds (25%/50%/75% per phase); `triggerBossPhaseTransition()` scales HP ×1.5 and ATK ×1.25 per phase with full heal; 1s white flash on transition. Each boss tracks phase independently.
+
+- **Universal collision:** Melee, shots (including piercing/orbs), AoE, and homing projectiles check ALL active bosses. `damageBoss()` and `defeatBoss()` overloaded for specific instances. Additional bosses drop loot and increment defeatCount.
+
+- **Timer pauses during popups:** New suspension ledger (`suspendedAt`/`suspendedTotalMs`) freezes `elapsedMsAt(now)` during `STATE_LEVEL_UP` (LEVEL UP popup) and `STATE_PAUSED` (pause menu). Boss spawn gates, wave spawns, timed events, minute scaling, and displayed timer all respect suspension. Clock resumes exactly where it left off.
+
+- **Emulator input fixes (freej2me-plus):**
+  - Number row (VK_0–9) redirected to numpad mirror (NP7→'1'…NP3→'9') so row digits reach MIDlet
+  - PC numpad keys (VK_NUMPAD0–9) now map directly to `Canvas.KEY_NUM0–9` (NP9='9', NP3='3', etc.)
+  - `FullGameCanvas` now `super(false)` → key events delivered alongside polling (was `super(true)` suppressing them entirely)
+
+- **Notifications cleaned up:** Level-up and Special-ready dialogue popups removed; only Boss appearance notification remains — rendered text-only (white + black shadow, no box/border asset, bottom-center).
+
+- **Special skill visual effects (procedural, no new assets):** Each character gets unique 3s animation on activation — Amelia: cyan expanding ring; Gura: pulsing blue aura (3 rings); Calliope: green rising heal particles; Kiara: double orange fire rings; Ina: purple shield bubble + shot-clear flash.
+
+- **Documentation updated:** `PROJECT_STATUS.md`, `ROADMAP.md`, `GAME_MECHANICS.md` refreshed; all 41 suites pass (4385 checks), 4 artifacts build.
+
 **Known follow-ups from the same audit (not yet done):** per-frame allocation in the render
 path, `AssetLibrary.prepareStage` leaking `framesM`, no integrity check over the save record,
 duplicated helpers and dead classes, the legacy `src/java-me-{first-slice,phase3,diagnostic}`
