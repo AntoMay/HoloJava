@@ -719,20 +719,47 @@ public final class UiStateMachineTest {
             + lockedLastRow);
     }
 
-    /** Help absorbed the old controls page; any confirming input still backs out to settings. */
+    /**
+     * Help absorbed the old controls page; a confirming press backs out to settings, while the
+     * direction keys scroll the body (it runs past the bottom of the page).
+     */
     private static void testHelpScreenReturnsToSettings() throws Exception {
-        System.out.println("[12] the help page returns to settings");
-        String[] kinds = { "left", "right", "fire", "up", "down" };
+        System.out.println("[12] the help page scrolls and returns to settings");
+        String[] kinds = { "left", "right", "fire" };
         for (int k = 0; k < kinds.length; k++) {
             Object c = canvas(HELP, 0);
             call(c, "updateHelp", new Class<?>[] { boolean.class, boolean.class, boolean.class,
                             boolean.class, boolean.class },
-                    new Object[] { Boolean.valueOf(k == 3), Boolean.valueOf(k == 4),
+                    new Object[] { Boolean.FALSE, Boolean.FALSE,
                             Boolean.valueOf(k == 2), Boolean.valueOf(k == 0),
                             Boolean.valueOf(k == 1) });
             expectEq(getInt(c, "screen"), SETTINGS,
                 kinds[k] + " on the help page returned to settings");
         }
+        // Down scrolls the body instead of leaving it, and the scroll clamps at the bottom.
+        Object down = canvas(HELP, 0);
+        call(down, "updateHelp", new Class<?>[] { boolean.class, boolean.class, boolean.class,
+                        boolean.class, boolean.class },
+                new Object[] { Boolean.FALSE, Boolean.TRUE, Boolean.FALSE, Boolean.FALSE,
+                        Boolean.FALSE });
+        expectEq(getInt(down, "screen"), HELP, "down on the help page stayed on the page");
+        expect(getInt(down, "helpScroll") > 0, "down scrolled the help body");
+        for (int i = 0; i < 20; i++) {
+            call(down, "updateHelp", new Class<?>[] { boolean.class, boolean.class, boolean.class,
+                            boolean.class, boolean.class },
+                    new Object[] { Boolean.FALSE, Boolean.TRUE, Boolean.FALSE, Boolean.FALSE,
+                            Boolean.FALSE });
+        }
+        int maxScroll = getStaticInt(canvasClass(), "HELP_MAX_SCROLL");
+        expectEq(getInt(down, "helpScroll"), maxScroll, "the help scroll stops at its bound");
+        // Up at the top scrolls nowhere but stays on the page.
+        Object up = canvas(HELP, 0);
+        call(up, "updateHelp", new Class<?>[] { boolean.class, boolean.class, boolean.class,
+                        boolean.class, boolean.class },
+                new Object[] { Boolean.TRUE, Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                        Boolean.FALSE });
+        expectEq(getInt(up, "screen"), HELP, "up on the help page stayed on the page");
+        expectEq(getInt(up, "helpScroll"), 0, "up at the top kept the scroll at zero");
         // Nothing pressed must leave the page up.
         Object idle = canvas(HELP, 0);
         call(idle, "updateHelp", new Class<?>[] { boolean.class, boolean.class, boolean.class,

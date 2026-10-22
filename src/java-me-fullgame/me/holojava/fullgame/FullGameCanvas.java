@@ -137,6 +137,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * leaving the band itself empty. See {@link #drawCoin}.
      */
     private static final int COIN_TOP = 44;
+    /**
+     * Help body scroll, in rows of {@code lh} (16px). The bindings list ends at row 236, past
+     * the 240px screen, so Up/Down scroll it by one row each and {@link #HELP_MAX_SCROLL} is
+     * the offset that brings the last line just clear of the bottom edge.
+     */
+    private static final int HELP_SCROLL_STEP = 16;
+    private static final int HELP_MAX_SCROLL = 12;
+    private int helpScroll = 0;
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
@@ -158,12 +166,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     // Shared HoloJava UI palette — the menu language the original HoloCure speaks: near-black
-    // panels framed in the bright cyan sampled from hud_dialogueBox and
-    // ui_menu_upgrade_window_selected (#31E0FF), white body text, and the gold sampled from
-    // menu_first (#FFDB50) for names and prices. MENU_BG is the title band, MENU_PANEL the
-    // content band and every floating popup, MENU_DEEP the backing behind portraits plus the
-    // text colour that sits ON the cyan selection bar, MENU_DIM the recessive label grey, and
-    // MENU_EDGE the idle frame that keeps the bright cyan for the picked window.
+    // panels framed in plain white, white body text, and the gold sampled from menu_first
+    // (#FFDB50) for names and prices. MENU_BG is the title band, MENU_PANEL the content band
+    // and every floating popup, MENU_DEEP the backing behind portraits plus the text colour
+    // that sits ON the selection bar, and MENU_DIM the recessive label grey. The bright cyan
+    // accent (#31E0FF, once every frame's colour) now only fills the selected row's bar; every
+    // border, frame and rule is white, which reads cleaner against the dark panels.
     private static final int MENU_BG_R = 18, MENU_BG_G = 35, MENU_BG_B = 59;                // #12233B
     private static final int MENU_PANEL_R = 10, MENU_PANEL_G = 20, MENU_PANEL_B = 36;        // #0A1424
     private static final int MENU_INK_R = 255, MENU_INK_G = 255, MENU_INK_B = 255;           // #FFFFFF
@@ -171,7 +179,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int MENU_GOLD_R = 255, MENU_GOLD_G = 219, MENU_GOLD_B = 80;         // #FFDB50
     private static final int MENU_DEEP_R = 6, MENU_DEEP_G = 16, MENU_DEEP_B = 28;            // #06101C
     private static final int MENU_DIM_R = 143, MENU_DIM_G = 163, MENU_DIM_B = 181;           // #8FA3B5
-    private static final int MENU_EDGE_R = 46, MENU_EDGE_G = 107, MENU_EDGE_B = 133;         // #2E6B85
+
     private static final int MENU_BODY_Y = 40;     // header band height; all content starts below
 
     // Splash/Main Menu layout, in logical 320x240 pixels. Both screens now sit on the reference
@@ -218,7 +226,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // is 265px, so (320 - 265) / 2 = 27 keeps the same left/right margin the seven-icon
     // bar used to have at x = 40.
     private static final int TITLE_BAR_X = 27, TITLE_ICON_GAP = 23;
-    private static final int TITLE_LABEL_X = 200, TITLE_LABEL_Y = 230, TITLE_LABEL_W = 116;
+    private static final int TITLE_LABEL_X = 200, TITLE_LABEL_Y = 210, TITLE_LABEL_W = 116;
     // The eight bar entries, in bar order, mirroring MAIN_* above. The bar reads left to right
     // like the reference, so this order is also the sweep order of Up/Down/Left/Right.
     //
@@ -831,7 +839,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             if (save != null) save.setAudioEnabled(on);
             bgm().setEnabled(on);
         }
-        else if (menuIndex == 1) screen = HELP;
+        else if (menuIndex == 1) { screen = HELP; helpScroll = 0; }
         else { screen = MENU; menuIndex = MAIN_SETTINGS; }
     }
 
@@ -941,7 +949,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      * Shared page background: the Main Menu's own star stage, drawn from the pre-dimmed
      * backdrop so an inner page opens on the same scene the title screen shows. The dim is
      * baked into menu_page_bg.png because MIDP 2.0 cannot darken at runtime; without it the
-     * bright stage floor would swallow the white ink. The cyan rule still closes the header
+     * bright stage floor would swallow the white ink. The white rule still closes the header
      * band. When the asset is missing (partial build) the old flat bands stand in, which
      * keeps every page readable without the backdrop.
      */
@@ -955,7 +963,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
             g.fillRect(x, y + MENU_BODY_Y, Viewport.MIN_W, Viewport.MIN_H - MENU_BODY_Y);
         }
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         g.fillRect(x, y + MENU_BODY_Y - 1, Viewport.MIN_W, 1);
     }
 
@@ -1195,9 +1203,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     /**
      * CHOOSE YOUR IDOL — grid 5 karakter (tanpa tombol Kembali).
      * Layout: 5 kotak horizontal (48x56), detail panel di bawah dengan scroll.
-     * Setiap kotak: portrait di atas mat gelap, border cyan (dipilih = frame cyan terang berlapis).
-     * Detail panel: border 1px, nama karakter di baris penuh atas, idle sprite berdiri
-     *               di garis tanah bersama di kiri, kolom status di kanan (scroll Atas/Bawah).
+     * Setiap kotak: portrait di atas backdrop stage (transparan), border putih (dipilih =
+     *               frame putih berlapis).
+     * Detail panel: border 1px transparan, nama karakter di baris penuh atas, idle sprite
+     *               berdiri di garis tanah bersama di kiri, kolom status di kanan (scroll
+     *               Atas/Bawah).
      * Semua konstanta layout ada di blok IDOL_* di atas file.
      */
     private void drawChooseIdol(Graphics g, int x, int y) {
@@ -1226,16 +1236,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             int by = startY;
             boolean selected = (i == menuIndex);
 
-            // Box: dark mat behind the bright portrait, recessive edge when idle, and the bright
-            // cyan frame HoloCure marks a picked window with — outer ring plus box edge.
-            g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
-            g.fillRect(x + bx, y + by, boxW - 1, boxH - 1);
+            // Box: just a frame over the stage backdrop — the mat is gone so the star field
+            // shows through behind each portrait; the picked window is a doubled white ring,
+            // the idle one a single white edge.
             if (selected) {
-                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
                 g.drawRect(x + bx - 2, y + by - 2, boxW + 3, boxH + 3);
                 g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
             } else {
-                g.setColor(MENU_EDGE_R, MENU_EDGE_G, MENU_EDGE_B);
+                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
                 g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
             }
 
@@ -1256,11 +1265,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int pw = IDOL_PANEL_W;          // 296
         int ph = IDOL_PANEL_H;          // 114
 
-        // Dark chip fill with the same 1px cyan frame the selection boxes use, so the two read
-        // as the same kind of window HoloCure frames its panels with.
-        g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
-        g.fillRect(px, py, pw, ph);
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        // The panel is a bare frame with no fill, matching the boxes above: the stage backdrop
+        // runs behind the whole window, and the 1px white edge is what defines it.
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         g.drawRect(px, py, pw - 1, ph - 1);
 
         // The name gets its own full-width row across the top of the panel, so the status column
@@ -1417,11 +1424,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         // Middle column: the selected character's portrait, native size, centred in the box. The
         // frame geometry is untouched; only its colours changed. The mat uses the deep panel
         // colour because the portraits are bright sprites (median luma 195) and need a dark
-        // backing, and the outline uses the cyan accent. The caption sits below the frame on the
+        // backing, and the outline uses the white ink. The caption sits below the frame on the
         // dark page, so it stays in the white ink.
         g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
         g.fillRect(x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y, CHARS_PORTRAIT_W, CHARS_PORTRAIT_H);
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         g.drawRect(x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y, CHARS_PORTRAIT_W - 1, CHARS_PORTRAIT_H - 1);
         Image portrait = assets.characterPortrait(selected);
         if (portrait != null) {
@@ -1501,14 +1508,18 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
     /**
      * Toko page, reached from the main menu: the submenu Beli Upgrade / Armory / Keluar with the
-     * live global balance above it. Every purchase now lives one level deeper — the old single
-     * "Shop" page is gone, and its Skill Pasif row with it, because the skill is free forever now.
+     * live global balance as a fourth row of its own, so the coin no longer floats top-right
+     * squeezed against the header rule. Every purchase now lives one level deeper — the old
+     * single "Shop" page is gone, and its Skill Pasif row with it, because the skill is free
+     * forever now.
      */
     private void drawShop(Graphics g, int x, int y) {
         title(g, x, y, "TOKO");
-        drawCoin(g, x, y, save.coinBalance());
         String[] items = { "Beli Upgrade", "Armory", "Keluar" };
         list(g, x, y + 70, items, menuIndex);
+        // Fourth row of the list: the balance chip on the list's own left margin. It is a
+        // status, not an entry, so it is drawn outside the selectable list.
+        drawCoinChip(g, x + 12, y + 136, save.coinBalance());
         ink(g);
         drawText(g, x + 12, y + 176, "Beli Upgrade: submenu tab Ability / Stat / Lainnya.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 12, y + 194, "Armory: katalog senjata & item.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
@@ -1548,7 +1559,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         for (int slot = 0; slot < SHOP_PAGE_SIZE; slot++) {
             int i = shopScroll + slot;
             if (i >= rows) break;
-            int rowY = y + 56 + slot * 26;
+            // Rows start at 62 rather than 56: the selection frame sits two rows above its text,
+            // and 56 would put that frame's top edge at 54, under the coin chip's floor at 55.
+            int rowY = y + 62 + slot * 26;
             boolean selected = i == menuIndex;
             if (i < count) drawUpgradeRow(g, x, rowY, start + i, selected, balance);
             else {
@@ -1557,14 +1570,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                         selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
             }
             if (selected) {
-                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
                 g.drawRect(x + 8, rowY - 2, 288, 16);
             }
         }
 
         // Detail panel: separator, the highlighted row's full text, and the key hint. The pending
         // question itself lives in the popup below rather than replacing this line.
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         g.drawLine(x + 8, y + 184, x + 312, y + 184);
         ink(g);
         if (menuIndex >= 0 && menuIndex < count) {
@@ -1623,7 +1636,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int px = x + (Viewport.MIN_W - w) / 2, py = y + 58;
         g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
         g.fillRect(px, py, w, h);
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         g.drawRect(px + 1, py + 1, w - 3, h - 3);
         ink(g);
         drawText(g, px + 12, py + 10, heading, Font.STYLE_BOLD, Font.SIZE_SMALL);
@@ -1710,7 +1723,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         for (int slot = 0; slot < SHOP_PAGE_SIZE; slot++) {
             int i = shopScroll + slot;
             if (i >= rows) break;
-            int rowY = y + 56 + slot * 22;
+            // Same 62px start as the upgrade list: the selection frame clears the coin chip.
+            int rowY = y + 62 + slot * 22;
             boolean selected = i == menuIndex;
             String name = i < weapons
                     ? ContentCatalog.WEAPONS[i].name
@@ -1721,14 +1735,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             g.setColor(STAGE_UNLOCKED_R, STAGE_UNLOCKED_G, STAGE_UNLOCKED_B);
             drawText(g, x + 214, rowY, "[aktif]", Font.STYLE_PLAIN, Font.SIZE_SMALL);
             if (selected) {
-                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
                 g.drawRect(x + 8, rowY - 2, 288, 16);
             }
         }
         ink(g);
         drawText(g, x + 12, y + 190, "Nonaktifkan senjata/item: butuh Kustomisasi.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 12, y + 208, "Kustomisasi masih terkunci, jadi semua tetap aktif.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        drawText(g, x + 12, y + 226, "L/R: kembali", Font.STYLE_PLAIN, Font.SIZE_SMALL);
     }
 
     /**
@@ -1738,14 +1751,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      *
      * <p>Everything here is centred and laid out from the 240px page height rather than from
      * hand-picked offsets, so the block reads as one composed panel and stays put if the heading
-     * grows a line. The word TERKUNCI is bare: no frame around it and no brackets, just the word
-     * in the locked colour. A box and {@code [ ]} made it look like a button; it is a status.
+     * grows a line. The word TERKUNCI is bare: no frame around it and no brackets, just the
+     * word in the white ink — the big status word reads as a headline, while the small
+     * "[Terkunci]" / "[locked]" suffixes on rows keep the recessive locked colour. A box and
+     * {@code [ ]} made it look like a button; it is a status.
      */
     private void drawLocked(Graphics g, int x, int y) {
         title(g, x, y, lockedTitle);
 
         int ty = y + 84;
-        g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
+        ink(g);
         drawCentered(g, ty, "TERKUNCI", Font.STYLE_BOLD, Font.SIZE_MEDIUM);
         ty += 26;
 
@@ -1758,7 +1773,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
         // A single accent rule under the block, centred, closes the composition without needing
         // a "press anything to go back" line.
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         int ruleW = 96;
         g.fillRect(x + (Viewport.MIN_W - ruleW) / 2, y + 214, ruleW, 1);
     }
@@ -1856,7 +1871,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int trackW = 96;
         int trackX = x + (Viewport.MIN_W - trackW) / 2;
         int trackY = y + CREDIT_BOTTOM + 4;
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         g.fillRect(trackX, trackY, trackW, 2);
         int thumbW = trackW * visible / total;
         if (thumbW < 6) thumbW = 6;
@@ -1865,7 +1880,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
     /** A short centred accent rule between credit blocks. */
     private void creditsRule(Graphics g, int x, int y) {
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         int ruleW = 72;
         g.fillRect(x + (Viewport.MIN_W - ruleW) / 2, y + 5, ruleW, 1);
     }
@@ -1887,7 +1902,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             drawText(g, x + STAGE_ROW_X, rowY, prefix + s.name + suffix,
                     selected ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
             if (selected) {
-                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
                 g.drawRect(x + STAGE_FRAME_X, rowY - 2, STAGE_FRAME_W, STAGE_FRAME_H);
             }
         }
@@ -1904,8 +1919,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     private void updateHelp(boolean up, boolean down, boolean fire, boolean left, boolean right) {
-        if (left || right || fire || up || down) {
-            screen = SETTINGS;
+        // The bindings list runs past the bottom of the page, so Up/Down scroll it the way
+        // Credits does; the confirming keys (fire, and the L/R pair every submenu uses)
+        // still back out to Pengaturan.
+        if (left || right || fire) { screen = SETTINGS; helpScroll = 0; return; }
+        if (up) helpScroll = helpScroll > HELP_SCROLL_STEP ? helpScroll - HELP_SCROLL_STEP : 0;
+        if (down && helpScroll < HELP_MAX_SCROLL) {
+            helpScroll += HELP_SCROLL_STEP;
+            if (helpScroll > HELP_MAX_SCROLL) helpScroll = HELP_MAX_SCROLL;
         }
     }
 
@@ -1920,7 +1941,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private void drawHelp(Graphics g, int x, int y) {
         title(g, x, y, "BANTUAN");
         ink(g);
-        int ty = y + 48;
+        // The bindings run past the bottom of the page, so the body scrolls under the title
+        // band: clip to the band below the header rule, then shift every row up by the scroll.
+        g.clipRect(x, y + 42, Viewport.MIN_W, Viewport.MIN_H - 42);
+        int ty = y + 48 - helpScroll;
         int lh = 16;
         drawText(g, x + 16, ty, "Navigasi Menu:", Font.STYLE_BOLD, Font.SIZE_SMALL);
         ty += lh;
@@ -1999,6 +2023,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, x + 24, ty, "Skill karakter aktif sendiri tiap 15 detik.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         ty += lh;
         drawText(g, x + 24, ty, "Senjata orbiting & pasif menembak sendiri.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        // Restore the full-page clip so the next screen cannot inherit the scrolled band.
+        g.clipRect(0, 0, Viewport.MIN_W, Viewport.MIN_H);
     }
 
     private void drawPrep(Graphics g, int x, int y) {
@@ -2015,7 +2041,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      *  popup closes (see render). The window slides so the selected row always stays visible. */
     private int levelUpScroll;
 
-    /** Level-up popup: a dark panel with the double cyan frame HoloCure windows wear, floating
+    /** Level-up popup: a dark panel with the double white frame HoloCure windows wear, floating
      *  over the frozen run behind it. The offer list scrolls inside the box once the rows no
      *  longer fit, so the popup keeps one fixed size no matter how many offers (or Reroll/Tahan
      *  rows) the roll produced. */
@@ -2028,10 +2054,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int panelH = 34 + rows * rowH + 6;
         int px = x + (Viewport.MIN_W - panelW) / 2;
         int py = y + (Viewport.MIN_H - panelH) / 2;
-        // Same panel trio as every menu page, framed in the cyan every HoloCure window wears.
+        // Same panel trio as every menu page, framed in the white every HoloCure window wears.
         g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
         g.fillRect(px, py, panelW, panelH);
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         g.drawRect(px, py, panelW - 1, panelH - 1);
         g.drawRect(px + 2, py + 2, panelW - 5, panelH - 5);
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
@@ -2094,10 +2120,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int px = x + (Viewport.MIN_W - panelW) / 2;
         int py = y + (Viewport.MIN_H - panelH) / 2;
 
-        // Panel with the level-up popup's double cyan frame, so both floaters agree.
+        // Panel with the level-up popup's double white frame, so both floaters agree.
         g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
         g.fillRect(px, py, panelW, panelH);
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         g.drawRect(px, py, panelW - 1, panelH - 1);
         g.drawRect(px + 2, py + 2, panelW - 5, panelH - 5);
 
@@ -2163,29 +2189,39 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Coin balance, right-aligned on every Toko-family page as a dark chip inside a cyan frame —
-     * the shape the original HoloCure puts its balance in.
+     * Coin balance on every Toko-family page as a dark chip inside a white frame — the shape
+     * the original HoloCure puts its balance in. On the list pages it floats top-right; on the
+     * Toko menu itself it takes the fourth list row (see {@link #drawShop}), so the two
+     * placements share one chip renderer.
      *
      * <p>{@code COIN_TOP} (44) sits below the heading rather than level with it: the heading is
      * {@code TITLE_TOP} (8) in {@link Font#SIZE_LARGE}, which reaches about row 24, and the chip
-     * then starts clear of the cyan rule that closes the header band, so the balance reads as its
-     * own element instead of running into the title.
+     * then starts clear of the white rule that closes the header band, so the balance reads as
+     * its own element instead of running into the title.
      */
     private void drawCoin(Graphics g, int x, int y, long balance) {
         String text = "Koin: " + balance;
         Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
         int tw = f.stringWidth(text);
         // Chip hugs rows 41-55: its floor stops short of the first list row (56) on the pages
-        // that carry one, so the box can never overprint a row.
+        // that carry one, so the box can never overprint a row. The box starts three rows
+        // above COIN_TOP because the chip draws its text three rows below its own top.
         int bx = x + Viewport.MIN_W - tw - 12;
-        int by = y + 41;
+        int by = y + COIN_TOP - 3;
+        drawCoinChip(g, bx, by, balance);
+    }
+
+    /** The balance chip at an exact box origin — the shared body of both placements. */
+    private void drawCoinChip(Graphics g, int bx, int by, long balance) {
+        String text = "Koin: " + balance;
+        Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
+        int tw = f.stringWidth(text);
         g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
         g.fillRect(bx, by, tw + 8, 15);
-        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-        g.drawRect(bx, by, tw + 7, 14);
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        g.drawRect(bx, by, tw + 7, 14);
         g.setFont(f);
-        g.drawString(text, bx + 4, y + COIN_TOP, Graphics.TOP | Graphics.LEFT);
+        g.drawString(text, bx + 4, by + 3, Graphics.TOP | Graphics.LEFT);
     }
 
     /** Shared selectable list. The selected row is marked the same way everywhere: the "> " arrow,
