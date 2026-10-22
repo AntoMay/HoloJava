@@ -98,6 +98,16 @@ public final class RunWorldBossEncounterTest {
         }
     }
 
+    private static String getString(Object target, String field) {
+        try {
+            Field f = target.getClass().getDeclaredField(field);
+            f.setAccessible(true);
+            return (String) f.get(target);
+        } catch (Exception e) {
+            throw new IllegalStateException("cannot read " + field, e);
+        }
+    }
+
     private static boolean[] bools(Object target, String field) throws Exception {
         Field f = target.getClass().getDeclaredField(field);
         f.setAccessible(true);
@@ -343,6 +353,7 @@ public final class RunWorldBossEncounterTest {
         testBossHpIsNotPinnedByACap();
         testBossHitboxMatchesItsSprite();
         testAimedShotsTrackTheBoss();
+        testBossHudNameIsAssignedAtSpawn();
 
         System.out.println("checks=" + checks + " failures=" + failures);
         if (failures > 0) {
@@ -350,6 +361,40 @@ public final class RunWorldBossEncounterTest {
             System.exit(1);
         }
         System.out.println("RESULT: PASS");
+    }
+
+    /**
+     * The HUD boss label must be assigned by the time the boss is live.
+     *
+     * <p>{@code drawHud} draws {@code cachedBossName} the instant {@code boss.active} turns true,
+     * and platforms that reject a null string freeze the run thread there -- exactly the crash a
+     * digit-font refactor once caused by deleting the label's refresh block while leaving the
+     * draw call behind. The label is assigned in {@code spawnBossById}, so this pins both spawns
+     * of stage 1: non-null at boss A, and following the new boss after A falls.
+     */
+    private static void testBossHudNameIsAssignedAtSpawn() throws Exception {
+        System.out.println("[12] the boss HUD name is assigned when a boss spawns");
+        int gateA = ContentCatalog.stage(0).bossATimeSec;
+        int gateB = ContentCatalog.stage(0).bossBTimeSec;
+
+        Object w = world(0, 0);
+        director(w, gateA * 1000L);
+        expect(getBool(boss(w), "active"), "the director spawned boss A");
+        String nameA = getString(w, "cachedBossName");
+        expect(nameA != null, "the HUD boss label is non-null while the boss bar is drawn");
+        if (nameA != null) {
+            expect(ContentCatalog.BOSSES[getInt(boss(w), "defIndex")].name.equals(nameA),
+                "the label names the spawned boss, got " + nameA);
+        }
+
+        defeat(w);
+        director(w, gateB * 1000L);
+        expect(getBool(boss(w), "active"), "the director spawned boss B after A fell");
+        String nameB = getString(w, "cachedBossName");
+        expect(nameB != null, "the label stays non-null for the second boss");
+        if (nameA != null && nameB != null) {
+            expect(!nameA.equals(nameB), "the label follows the new boss, got " + nameB);
+        }
     }
 
     /** Stage 0: boss A at bossATimeSec, boss B at bossBTimeSec. */

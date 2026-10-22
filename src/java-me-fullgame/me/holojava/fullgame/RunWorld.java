@@ -1051,6 +1051,11 @@ final class RunWorld {
         bossEncounterIndex = encounter;
         encounterStarted[Math.min(encounter, 3)] = true;
         boss.defIndex = index;
+        // The HUD boss bar draws this field the moment boss.active turns true. It once lived in a
+        // refresh block inside drawHud that the digit-font refactor deleted, so drawString(null)
+        // killed the game thread on the first boss spawn (platforms that reject a null string
+        // freeze the run); the label is therefore assigned here, at the only activation site.
+        cachedBossName = def.name;
         boss.maxHp = scaledBossHp(def.hp);
         boss.hp = boss.maxHp;
         boss.atk = (int) MathUtil.power(def.atk + 2.0 * scaleA, 1.0 + scaleB / 25.0);
