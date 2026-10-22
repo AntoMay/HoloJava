@@ -1507,19 +1507,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private static final int STAGE_FRAME_H = 14;
 
     /**
-     * Toko page, reached from the main menu: the submenu Beli Upgrade / Armory / Keluar with the
-     * live global balance as a fourth row of its own, so the coin no longer floats top-right
-     * squeezed against the header rule. Every purchase now lives one level deeper — the old
-     * single "Shop" page is gone, and its Skill Pasif row with it, because the skill is free
+     * Toko page, reached from the main menu: the submenu Beli Upgrade / Armory / Keluar, and
+     * nothing else — the balance deliberately does not appear here, so the page is only ever
+     * the three entries. Every purchase now lives one level deeper — the old single
+     * "Shop" page is gone, and its Skill Pasif row with it, because the skill is free
      * forever now.
      */
     private void drawShop(Graphics g, int x, int y) {
         title(g, x, y, "TOKO");
         String[] items = { "Beli Upgrade", "Armory", "Keluar" };
         list(g, x, y + 70, items, menuIndex);
-        // Fourth row of the list: the balance chip on the list's own left margin. It is a
-        // status, not an entry, so it is drawn outside the selectable list.
-        drawCoinChip(g, x + 12, y + 136, save.coinBalance());
         ink(g);
         drawText(g, x + 12, y + 176, "Beli Upgrade: submenu tab Ability / Stat / Lainnya.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         drawText(g, x + 12, y + 194, "Armory: katalog senjata & item.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
@@ -1560,7 +1557,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             int i = shopScroll + slot;
             if (i >= rows) break;
             // Rows start at 62 rather than 56: the selection frame sits two rows above its text,
-            // and 56 would put that frame's top edge at 54, under the coin chip's floor at 55.
+            // and 56 would put that frame's top edge at 54, under the coin plate's floor at 55.
             int rowY = y + 62 + slot * 26;
             boolean selected = i == menuIndex;
             if (i < count) drawUpgradeRow(g, x, rowY, start + i, selected, balance);
@@ -1723,7 +1720,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         for (int slot = 0; slot < SHOP_PAGE_SIZE; slot++) {
             int i = shopScroll + slot;
             if (i >= rows) break;
-            // Same 62px start as the upgrade list: the selection frame clears the coin chip.
+            // Same 62px start as the upgrade list: the selection frame clears the coin plate.
             int rowY = y + 62 + slot * 22;
             boolean selected = i == menuIndex;
             String name = i < weapons
@@ -2189,13 +2186,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /**
-     * Coin balance on every Toko-family page as a dark chip inside a white frame — the shape
-     * the original HoloCure puts its balance in. On the list pages it floats top-right; on the
-     * Toko menu itself it takes the fourth list row (see {@link #drawShop}), so the two
-     * placements share one chip renderer.
+     * Coin balance on the purchase pages (Beli Upgrade, its tab submenu, Armory), top-right of
+     * the header: a dark plate behind the white number and no frame around it — the white ring
+     * it used to wear read as a button, while the balance is plain status. The Toko menu itself
+     * carries no balance at all (see {@link #drawShop}).
      *
      * <p>{@code COIN_TOP} (44) sits below the heading rather than level with it: the heading is
-     * {@code TITLE_TOP} (8) in {@link Font#SIZE_LARGE}, which reaches about row 24, and the chip
+     * {@code TITLE_TOP} (8) in {@link Font#SIZE_LARGE}, which reaches about row 24, and the plate
      * then starts clear of the white rule that closes the header band, so the balance reads as
      * its own element instead of running into the title.
      */
@@ -2203,23 +2200,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         String text = "Koin: " + balance;
         Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
         int tw = f.stringWidth(text);
-        // Chip hugs rows 41-55: its floor stops short of the first list row (56) on the pages
-        // that carry one, so the box can never overprint a row. The box starts three rows
-        // above COIN_TOP because the chip draws its text three rows below its own top.
+        // Plate hugs rows 41-55: its floor stops short of the first list row (56) on the pages
+        // that carry one, so it can never overprint a row. It starts three rows above COIN_TOP
+        // because the text is drawn three rows below its own top.
         int bx = x + Viewport.MIN_W - tw - 12;
         int by = y + COIN_TOP - 3;
-        drawCoinChip(g, bx, by, balance);
-    }
-
-    /** The balance chip at an exact box origin — the shared body of both placements. */
-    private void drawCoinChip(Graphics g, int bx, int by, long balance) {
-        String text = "Koin: " + balance;
-        Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
-        int tw = f.stringWidth(text);
         g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
         g.fillRect(bx, by, tw + 8, 15);
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-        g.drawRect(bx, by, tw + 7, 14);
         g.setFont(f);
         g.drawString(text, bx + 4, by + 3, Graphics.TOP | Graphics.LEFT);
     }
