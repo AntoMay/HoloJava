@@ -132,11 +132,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      */
     private static final int TITLE_TOP = 8;
     /**
-     * Top of the coin readout on the Toko pages, measured from the top of the screen. It has to
-     * clear the heading, which is {@link #TITLE_TOP} in {@link Font#SIZE_LARGE} and reaches about
-     * row 24, while staying inside the 40px title band. See {@link #drawCoin}.
+     * Top of the coin readout on the Toko pages, measured from the top of the screen. It sits
+     * clear below the heading (which reaches about row 24) and just under the 40px title band,
+     * leaving the band itself empty. See {@link #drawCoin}.
      */
-    private static final int COIN_TOP = 28;
+    private static final int COIN_TOP = 44;
     // Animasi idle di panel
     private static final int IDOL_ANIM_FPS = 8;                // 8 FPS = 125ms/frame
     private int idolAnimFrame = 0;
@@ -213,7 +213,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // is 265px, so (320 - 265) / 2 = 27 keeps the same left/right margin the seven-icon
     // bar used to have at x = 40.
     private static final int TITLE_BAR_X = 27, TITLE_ICON_GAP = 23;
-    private static final int TITLE_LABEL_X = 200, TITLE_LABEL_Y = 206, TITLE_LABEL_W = 116;
+    private static final int TITLE_LABEL_X = 200, TITLE_LABEL_Y = 230, TITLE_LABEL_W = 116;
     // The eight bar entries, in bar order, mirroring MAIN_* above. The bar reads left to right
     // like the reference, so this order is also the sweep order of Up/Down/Left/Right.
     //
