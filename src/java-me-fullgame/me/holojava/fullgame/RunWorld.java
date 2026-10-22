@@ -76,9 +76,16 @@ final class RunWorld {
     private static final int SPECIAL_BAR_INSET = 1;
     private static final int SPECIAL_READY_R = 255, SPECIAL_READY_G = 206, SPECIAL_READY_B = 74;  // #FFCE4A
     private static final int SPECIAL_TRACK_R = 58, SPECIAL_TRACK_G = 44, SPECIAL_TRACK_B = 92;   // #3A2C5C
-    private static final int BOSS_BAR_W = 250;
-    private static final int BOSS_BAR_H = 18;
-    private static final int BOSS_BAR_INSET = 3;
+    private static final int BOSS_BAR_W = 260;
+    private static final int BOSS_BAR_H = 20;
+    private static final int BOSS_BAR_INSET = 2;
+    private static final int BOSS_PORTRAIT_SIZE = 24;
+    private static final int BOSS_PHASE_MAX = 4;
+
+    // Multi-boss support
+    private static final int MAX_ACTIVE_BOSSES = 3;
+    private Boss[] activeBosses = new Boss[MAX_ACTIVE_BOSSES];
+    private int activeBossCount = 0;
 
     // Compact slot rows: six equal cells spanning HP_BAR_W. The weapon row sits a clear gap
     // under the special bar (so the boxes never touch it); the item row mirrors it one row
@@ -436,6 +443,16 @@ final class RunWorld {
         vacuumUntil = 0L;
         for (int i = 0; i < encounterStarted.length; i++) { encounterStarted[i] = false; encounterDefeated[i] = false; }
         boss.active = false; bossEncounterIndex = -1; nextEndlessEncounter = 0;
+        activeBossCount = 0;
+        for (int i = 0; i < MAX_ACTIVE_BOSSES; i++) {
+            if (activeBosses[i] != null) {
+                activeBosses[i].active = false;
+                activeBosses[i].phase = 1;
+                activeBosses[i].maxPhase = 1;
+                activeBosses[i].phaseTransitionUntil = 0;
+                activeBosses[i].isPhaseTransition = false;
+            }
+        }
         ringEventDone = false; hordeEventDone = false;
         nextSpawnAt = startTime + 1000;
         nextWaveAt = startTime + 180000L;
@@ -1299,97 +1316,227 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
         boss.nextAnim = nowAnimDelay();
         boss.hitMask = 0L;
         boss.chargeUntil = 0;
+        boss.phase = 1;
+        boss.maxPhase = 1;
+        boss.phaseTransitionUntil = 0;
+        boss.isPhaseTransition = false;
+    }
+
+    /** Spawns an additional boss (for multi-boss encounters). Returns the boss instance or null if full. */
+    Boss spawnAdditionalBoss(String bossId, int x, int y) {
+        if (activeBossCount >= MAX_ACTIVE_BOSSES) return null;
+        int index = bossIndex(bossId);
+        if (index == -1) return null;
+        ContentCatalog.BossDef def = ContentCatalog.BOSSES[index];
+        // Find free slot
+        int slot = -1;
+        for (int i = 0; i < MAX_ACTIVE_BOSSES; i++) {
+            if (activeBosses[i] == null) {
+                activeBosses[i] = new Boss();
+                slot = i;
+                break;
+            } else if (!activeBosses[i].active) {
+                slot = i;
+                break;
+            }
+        }
+        if (slot == -1) return null;
+        Boss bb = activeBosses[slot];
+        bb.active = true;
+        bb.defIndex = index;
+        bb.maxHp = scaledBossHp(def.hp);
+        bb.hp = bb.maxHp;
+        bb.atk = (int) MathUtil.power(def.atk + 2.0 * scaleA, 1.0 + scaleB / 25.0);
+        bb.speed = 0.55 + Math.min(0.5, scaleA * 0.005);
+        bb.x = x;
+        bb.y = y;
+        bb.nextAttack = nowAttackDelay();
+        bb.anim = 0;
+        bb.nextAnim = nowAnimDelay();
+        bb.hitMask = 0L;
+        bb.chargeUntil = 0;
+        bb.phase = 1;
+        bb.maxPhase = 1;
+        bb.phaseTransitionUntil = 0;
+        bb.isPhaseTransition = false;
+        activeBossCount++;
+        return bb;
+    }
+
+    /** Triggers a phase transition for a boss (visual + stat changes). */
+    void triggerBossPhaseTransition(Boss bb, int newPhase, int newMaxPhase) {
+        if (bb == null || newPhase <= bb.phase) return;
+        bb.phase = newPhase;
+        bb.maxPhase = Math.max(bb.maxPhase, newMaxPhase);
+        bb.isPhaseTransition = true;
+        bb.phaseTransitionUntil = System.currentTimeMillis() + 1000; // 1 second flash
+        // Could add stat scaling per phase here
+        if (bb.maxPhase > 1) {
+            // Scale HP/ATK for new phase
+            double phaseMultiplier = 1.0 + (bb.phase - 1) * 0.5; // 50% more per phase
+            bb.maxHp = (int) (bb.maxHp * phaseMultiplier);
+            bb.hp = bb.maxHp; // Full heal on phase transition
+            bb.atk = (int) (bb.atk * (1.0 + (bb.phase - 1) * 0.25));
+        }
+    }
+
+    /** Checks if any boss should transition to next phase based on HP thresholds. */
+    private void checkBossPhaseTransitions(long now) {
+        // Primary boss
+        if (boss.active && boss.maxPhase > 1) {
+            double hpRatio = (double) boss.hp / (double) boss.maxHp;
+            int targetPhase = (int) ((1.0 - hpRatio) * boss.maxPhase) + 1;
+            if (targetPhase > boss.phase && targetPhase <= boss.maxPhase) {
+                triggerBossPhaseTransition(boss, targetPhase, boss.maxPhase);
+            }
+        }
+        // Additional bosses
+        if (activeBosses != null) {
+            for (int i = 0; i < MAX_ACTIVE_BOSSES; i++) {
+                Boss bb = activeBosses[i];
+                if (bb != null && bb.active && bb.maxPhase > 1) {
+                    double hpRatio = (double) bb.hp / (double) bb.maxHp;
+                    int targetPhase = (int) ((1.0 - hpRatio) * bb.maxPhase) + 1;
+                    if (targetPhase > bb.phase && targetPhase <= bb.maxPhase) {
+                        triggerBossPhaseTransition(bb, targetPhase, bb.maxPhase);
+                    }
+                }
+            }
+        }
     }
 
     private long nowAttackDelay() { return System.currentTimeMillis() + 900L; }
     private long nowAnimDelay() { return System.currentTimeMillis() + 180L; }
 
     private void updateBoss(long now) {
-        if (!boss.active) return;
-        ContentCatalog.BossDef def = ContentCatalog.BOSSES[boss.defIndex];
-        int dx = playerCenterX() - (boss.x + bossWidth() / 2);
-        int dy = playerCenterY() - (boss.y + bossHeight() / 2);
+        // Check phase transitions for all bosses
+        checkBossPhaseTransitions(now);
+
+        // Update primary boss
+        if (boss.active) {
+            updateSingleBoss(boss, now);
+        }
+
+        // Update additional bosses
+        if (activeBosses != null) {
+            for (int i = 0; i < MAX_ACTIVE_BOSSES; i++) {
+                Boss bb = activeBosses[i];
+                if (bb != null && bb.active) {
+                    updateSingleBoss(bb, now);
+                }
+            }
+        }
+    }
+
+    /** Updates a single boss instance (primary or additional). */
+    private void updateSingleBoss(Boss bb, long now) {
+        ContentCatalog.BossDef def = ContentCatalog.BOSSES[bb.defIndex];
+        int dx = playerCenterX() - (bb.x + bossWidth(bb) / 2);
+        int dy = playerCenterY() - (bb.y + bossHeight(bb) / 2);
         int distSq = dx * dx + dy * dy;
-        double speed = boss.speed * (now < slowEnemiesUntil ? 0.35 : 1.0);
+        double speed = bb.speed * (now < slowEnemiesUntil ? 0.35 : 1.0);
         if (def.behavior == ContentCatalog.AI_SHOOTER) {
             if (distSq > 2500) {
-                boss.x += MathUtil.clampInt(dx, -2, 2);
-                boss.y += MathUtil.clampInt(dy, -1, 1);
+                bb.x += MathUtil.clampInt(dx, -2, 2);
+                bb.y += MathUtil.clampInt(dy, -1, 1);
             }
-            if (now >= boss.nextAttack) {
+            if (now >= bb.nextAttack) {
                 int shots = 5 + (int) Math.min(6.0, scaleA / 8.0);
-                int originX = boss.x + bossWidth() / 2;
-                int originY = boss.y + bossHeight() / 2;
+                int originX = bb.x + bossWidth(bb) / 2;
+                int originY = bb.y + bossHeight(bb) / 2;
                 for (int i = 0; i < shots; i++) {
                     double angle = (Math.PI * 2.0 * i / shots) + (now / 1000.0);
                     int tx = originX + (int) (Math.cos(angle) * 100.0);
                     int ty = originY + (int) (Math.sin(angle) * 100.0);
-                    fireEnemyShot(originX, originY, tx, ty, boss.atk, 65);
+                    fireEnemyShot(originX, originY, tx, ty, bb.atk, 65);
                 }
-                boss.nextAttack = now + def.cooldownMs;
+                bb.nextAttack = now + def.cooldownMs;
             }
         } else if (def.behavior == ContentCatalog.AI_CHARGER) {
-            if (now < boss.chargeUntil) {
-                boss.x += boss.chargeDx;
-                boss.y += boss.chargeDy;
+            if (now < bb.chargeUntil) {
+                bb.x += bb.chargeDx;
+                bb.y += bb.chargeDy;
             } else {
-                if (dx > 0) boss.x += step(speed * 1.25);
-                if (dx < 0) boss.x -= step(speed * 1.25);
-                if (dy > 0) boss.y += step(speed * 0.75);
-                if (dy < 0) boss.y -= step(speed * 0.75);
-                if (distSq < 20000 && now >= boss.nextAttack) {
+                if (dx > 0) bb.x += step(speed * 1.25);
+                if (dx < 0) bb.x -= step(speed * 1.25);
+                if (dy > 0) bb.y += step(speed * 0.75);
+                if (dy < 0) bb.y -= step(speed * 0.75);
+                if (distSq < 20000 && now >= bb.nextAttack) {
                     double len = Math.sqrt((double) distSq);
-                    boss.chargeDx = len > 0.0 ? (int) (dx / len * 9.0) : facingX;
-                    boss.chargeDy = len > 0.0 ? (int) (dy / len * 9.0) : 0;
-                    boss.chargeUntil = now + 900L;
-                    boss.nextAttack = now + def.cooldownMs;
+                    bb.chargeDx = len > 0.0 ? (int) (dx / len * 9.0) : facingX;
+                    bb.chargeDy = len > 0.0 ? (int) (dy / len * 9.0) : 0;
+                    bb.chargeUntil = now + 900L;
+                    bb.nextAttack = now + def.cooldownMs;
                 }
             }
         } else {
-            if (dx > 0) boss.x += step(speed);
-            if (dx < 0) boss.x -= step(speed);
-            if (dy > 0) boss.y += step(speed);
-            if (dy < 0) boss.y -= step(speed);
-            if (now >= boss.nextAttack) {
+            if (dx > 0) bb.x += step(speed);
+            if (dx < 0) bb.x -= step(speed);
+            if (dy > 0) bb.y += step(speed);
+            if (dy < 0) bb.y -= step(speed);
+            if (now >= bb.nextAttack) {
                 if (def.behavior == ContentCatalog.AI_BOMBER && distSq < 2000) {
-                    damagePlayer(boss.atk, now);
-                    defeatBoss();
+                    damagePlayer(bb.atk, now);
+                    defeatBoss(bb, -1);
                     return;
                 }
-                fireEnemyShot(boss.x + bossWidth() / 2, boss.y + bossHeight() / 2,
-                        playerCenterX(), playerCenterY(), boss.atk, 80);
-                boss.nextAttack = now + def.cooldownMs;
+                fireEnemyShot(bb.x + bossWidth(bb) / 2, bb.y + bossHeight(bb) / 2,
+                        playerCenterX(), playerCenterY(), bb.atk, 80);
+                bb.nextAttack = now + def.cooldownMs;
             }
         }
-        if (boss.x < -60) boss.x = -60;
-        if (boss.y < -80) boss.y = -80;
-        if (boss.x > worldWidth) boss.x = worldWidth;
-        if (boss.y > worldHeight) boss.y = worldHeight;
-        if (now >= boss.nextAnim) { boss.nextAnim = now + 180L; boss.anim++; }
-        if (now >= invulUntil && overlap(px, py, 24, 24, boss.x, boss.y, bossWidth(), bossHeight())) {
-            damagePlayer(boss.atk, now);
+        if (bb.x < -60) bb.x = -60;
+        if (bb.y < -80) bb.y = -80;
+        if (bb.x > worldWidth) bb.x = worldWidth;
+        if (bb.y > worldHeight) bb.y = worldHeight;
+        if (now >= bb.nextAnim) { bb.nextAnim = now + 180L; bb.anim++; }
+        if (now >= invulUntil && overlap(px, py, 24, 24, bb.x, bb.y, bossWidth(bb), bossHeight(bb))) {
+            damagePlayer(bb.atk, now);
         }
     }
 
+
+
+    private int bossWidth() { return bossWidth(boss); }
+    private int bossHeight() { return bossHeight(boss); }
+
+    private int bossWidth(Boss bb) {
+        if (bb.active && bb.defIndex >= 0 && bb.defIndex < ContentCatalog.BOSSES.length) {
+            return ContentCatalog.BOSSES[bb.defIndex].collW;
+        }
+        return 42;
+    }
+
+    private int bossHeight(Boss bb) {
+        if (bb.active && bb.defIndex >= 0 && bb.defIndex < ContentCatalog.BOSSES.length) {
+            return ContentCatalog.BOSSES[bb.defIndex].collH;
+        }
+        return 42;
+    }
+
     private void defeatBoss() {
-        // Idempotence guard. The reference has none, but there the clear reward only inflated a
-        // run-local counter. That reward now credits a permanent balance, so paying it twice would
-        // duplicate coins forever. Every current caller already checks boss.active, so this is
-        // unreachable in play today and changes no existing outcome; it exists so that no future
-        // caller can duplicate permanent coins by forgetting that check.
-        if (!boss.active) return;
-        boss.active = false;
-        int slot = bossEncounterIndex;
-        bossEncounterIndex = -1;
-        if (slot >= 0 && slot < encounterDefeated.length) encounterDefeated[slot] = true;
+        defeatBoss(boss, bossEncounterIndex);
+    }
+
+    /** Defeats a specific boss instance (primary or additional). */
+    private void defeatBoss(Boss bb, int encounterSlot) {
+        // Idempotence guard.
+        if (!bb.active) return;
+        bb.active = false;
+        if (bb == boss) {
+            bossEncounterIndex = -1;
+        } else {
+            activeBossCount--;
+        }
+        if (encounterSlot >= 0 && encounterSlot < encounterDefeated.length) encounterDefeated[encounterSlot] = true;
         // A defeated boss is a defeated enemy: the wiki counts bosses and mini-bosses among the
         // enemies defeated (they feed the score and the clear reward's defeatCount/4 term), so
         // both counters move here exactly as damageEnemy does for a regular fan.
         kills++;
         defeatCount++;
-        ContentCatalog.BossDef def = ContentCatalog.BOSSES[boss.defIndex];
-        dropPickup(boss.x + bossWidth() / 2, boss.y + bossHeight() / 2, 0, def.exp, System.currentTimeMillis());
-        for (int i = 0; i < 5; i++) dropPickup(boss.x + bossWidth() / 2, boss.y + bossHeight() / 2, 1, 10, System.currentTimeMillis());
+        ContentCatalog.BossDef def = ContentCatalog.BOSSES[bb.defIndex];
+        dropPickup(bb.x + bossWidth(bb) / 2, bb.y + bossHeight(bb) / 2, 0, def.exp, System.currentTimeMillis());
+        for (int i = 0; i < 5; i++) dropPickup(bb.x + bossWidth(bb) / 2, bb.y + bossHeight(bb) / 2, 1, 10, System.currentTimeMillis());
         if (mode.completion == ContentCatalog.COMPLETE_FINAL_BOSS) {
             // The final boss is the 20:00 encounter (slot 1) on every stage:
             // the unsourced 30:00 duplicate was removed, so hard stages no
@@ -1560,14 +1707,24 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
             }
             if (boss.active && !m.bossHit && overlap(mx, my, boxW, boxH, boss.x, boss.y, bossWidth(), bossHeight())) {
                 m.bossHit = true;
-                damageBoss(m.damage, m.critical, m.knockback);
+                damageBoss(boss, m.damage, m.critical, m.knockback);
+            }
+            // Check additional bosses
+            if (activeBosses != null) {
+                for (int bi = 0; bi < MAX_ACTIVE_BOSSES; bi++) {
+                    Boss bb = activeBosses[bi];
+                    if (bb != null && bb.active && !m.bossHit && overlap(mx, my, boxW, boxH, bb.x, bb.y, bossWidth(bb), bossHeight(bb))) {
+                        m.bossHit = true;
+                        damageBoss(bb, m.damage, m.critical, m.knockback);
+                    }
+                }
             }
         }
     }
 
     private void updateShots(long now) {
-        for (int i = 0; i < shots.length; i++) {
-            Shot s = shots[i];
+        for (int si = 0; si < shots.length; si++) {
+            Shot s = shots[si];
             if (!s.active) continue;
             s.life--;
             s.age++;
@@ -1649,10 +1806,20 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
                 if (!remove && boss.active && !s.bossHit
                         && overlap(s.x, s.y, shotWidth(s), shotHeight(s), boss.x, boss.y, bossWidth(), bossHeight())) {
                     s.bossHit = true;
-                    damageBoss(s.damage, s.critical, s.knockback);
-                    // Same rule as against a mob: an orb keeps sweeping the boss, a boomerang
-                    // comes back, only a plain shot is spent.
+                    damageBoss(boss, s.damage, s.critical, s.knockback);
                     if (!s.attached && s.pattern != ContentCatalog.PATTERN_PIERCING) remove = true;
+                }
+                // Check additional bosses
+                if (activeBosses != null) {
+                    for (int bi = 0; bi < MAX_ACTIVE_BOSSES; bi++) {
+                        Boss bb = activeBosses[bi];
+                        if (bb != null && bb.active && !s.bossHit
+                                && overlap(s.x, s.y, shotWidth(s), shotHeight(s), bb.x, bb.y, bossWidth(bb), bossHeight(bb))) {
+                            s.bossHit = true;
+                            damageBoss(bb, s.damage, s.critical, s.knockback);
+                            if (!s.attached && s.pattern != ContentCatalog.PATTERN_PIERCING) remove = true;
+                        }
+                    }
                 }
                 if (remove) {
                     if (s.pattern == ContentCatalog.PATTERN_AOE) explode(s.x, s.y, s.area, s.damage, s.critical);
@@ -1840,8 +2007,12 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
     }
 
     private void damageBoss(int damage, boolean critical, int knockback) {
-        boss.hp -= damage;
-        if (boss.hp <= 0) defeatBoss();
+        damageBoss(boss, damage, critical, knockback);
+    }
+
+    private void damageBoss(Boss bb, int damage, boolean critical, int knockback) {
+        bb.hp -= damage;
+        if (bb.hp <= 0) defeatBoss(bb, bb == boss ? bossEncounterIndex : -1);
     }
 
     private void applyKnockback(Enemy enemy, int dx, int dy, int strength) {
@@ -2454,16 +2625,6 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
 
     private int enemyWidth(int index) { return ContentCatalog.ENEMIES[index].collW; }
     private int enemyHeight(int index) { return ContentCatalog.ENEMIES[index].collH; }
-    private int bossWidth() {
-        if (boss.defIndex < 0 || boss.defIndex >= ContentCatalog.BOSSES.length) return 42;
-        int w = ContentCatalog.BOSSES[boss.defIndex].collW;
-        return w > 0 ? w : 42;
-    }
-    private int bossHeight() {
-        if (boss.defIndex < 0 || boss.defIndex >= ContentCatalog.BOSSES.length) return 42;
-        int h = ContentCatalog.BOSSES[boss.defIndex].collH;
-        return h > 0 ? h : 42;
-    }
     /**
      * Measures a shot's hitbox from the sprite it will be drawn with, once, when it is fired.
      *
@@ -2690,25 +2851,44 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
                 g.setColor(255, 100, 100); g.drawRect(x - 3, y - 3, enemyWidth(e.defIndex) + 6, enemyHeight(e.defIndex) + 6);
             }
         }
+        // Draw all active bosses
         if (boss.active) {
-            Image[] frames = facingFrames(assets.bossFrames(boss.defIndex),
-                assets.bossFramesM(boss.defIndex),
-                faceToward(boss.x + bossWidth() / 2, playerCenterX()));
-            Image im = frame(frames, boss.anim);
-            int x = worldOffX + boss.x; int y = offY + boss.y;
-            if (im != null) g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
-            else { g.setColor(140, 0, 0); g.fillRect(x, y, bossWidth(), bossHeight()); }
-            drawPlayer(g, worldOffX, offY, now);
-            drawMelee(g, worldOffX, offY, now);
-            drawEffects(g, offX, offY);
-            drawHud(g, offX, offY, now);
-            drawDialogue(g, offX, offY, now);
-            return;
+            drawBossSprite(g, boss, worldOffX, offY);
+        }
+        for (int i = 0; i < MAX_ACTIVE_BOSSES; i++) {
+            Boss bb = activeBosses[i];
+            if (bb != null && bb.active) {
+                drawBossSprite(g, bb, worldOffX, offY);
+            }
         }
         drawPlayer(g, worldOffX, offY, now);
         drawMelee(g, worldOffX, offY, now);
         drawEffects(g, offX, offY);
         drawHud(g, offX, offY, now);
+        drawDialogue(g, offX, offY, now);
+    }
+
+    /** Draws a single boss sprite. */
+    private void drawBossSprite(Graphics g, Boss bb, int worldOffX, int offY) {
+        Image[] frames = facingFrames(assets.bossFrames(bb.defIndex),
+                assets.bossFramesM(bb.defIndex),
+                faceToward(bb.x + bossWidth(bb) / 2, playerCenterX()));
+        Image im = frame(frames, bb.anim);
+        int x = worldOffX + bb.x; int y = offY + bb.y;
+        if (im != null) {
+            // Phase transition flash effect
+            if (bb.isPhaseTransition && bb.phaseTransitionUntil > System.currentTimeMillis()) {
+                // Draw with white tint overlay
+                g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
+                g.setColor(255, 255, 255);
+                g.fillRect(x, y, im.getWidth(), im.getHeight());
+            } else {
+                g.drawImage(im, x, y, Graphics.TOP | Graphics.LEFT);
+            }
+        } else {
+            g.setColor(140, 0, 0);
+            g.fillRect(x, y, bossWidth(bb), bossHeight(bb));
+        }
     }
 
     /**
@@ -3068,19 +3248,118 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
             g.drawString(cachedFansString, statusX, offY + STATUS_FANS_Y, Graphics.TOP | Graphics.RIGHT);
         }
 
-        // Boss HP bar and name. The bar is centred on the visible playfield, the same axis as the
-        // HCENTER name text, so both stay aligned and stay on screen for any view size.
-        if (boss.active) {
-            int bossBarX = offX + (viewWidth - BOSS_BAR_W) / 2;
-            g.setColor(40, 0, 0); g.fillRect(bossBarX, offY + 92, BOSS_BAR_W, BOSS_BAR_H);
-            g.setColor(220, 30, 30);
-            g.fillRect(bossBarX + BOSS_BAR_INSET, offY + 95,
-                    (int) ((BOSS_BAR_W - 2 * BOSS_BAR_INSET) * MathUtil.clamp((double) boss.hp / (double) boss.maxHp, 0.0, 1.0)),
-                    BOSS_BAR_H - 2 * BOSS_BAR_INSET);
-            g.setColor(255, 255, 255);
-            g.drawString(cachedBossName, offX + viewWidth / 2, offY + 90, Graphics.TOP | Graphics.HCENTER);
-            // Boss HP numbers as normal text, centred on the bar.
-            g.drawString(boss.hp + "/" + boss.maxHp, offX + viewWidth / 2, offY + 92, Graphics.TOP | Graphics.HCENTER);
+        // Boss HP bar and name — enhanced UI with multi-boss & phase support.
+        // Collect all active bosses (primary + additional).
+        Boss[] bossesToDraw = new Boss[MAX_ACTIVE_BOSSES];
+        int drawCount = 0;
+        if (boss.active) bossesToDraw[drawCount++] = boss;
+        for (int i = 0; i < MAX_ACTIVE_BOSSES && drawCount < MAX_ACTIVE_BOSSES; i++) {
+            if (activeBosses[i] != null && activeBosses[i].active) {
+                boolean already = false;
+                for (int j = 0; j < drawCount; j++) if (bossesToDraw[j] == activeBosses[i]) { already = true; break; }
+                if (!already) bossesToDraw[drawCount++] = activeBosses[i];
+            }
+        }
+
+        if (drawCount > 0) {
+            int barY = offY + 90; // Top position for first boss bar
+            int barSpacing = BOSS_BAR_H + 8; // Vertical spacing between bars
+
+            for (int b = 0; b < drawCount; b++) {
+                Boss bb = bossesToDraw[b];
+                if (bb == null || !bb.active) continue;
+
+                int bossBarX = offX + (viewWidth - BOSS_BAR_W) / 2;
+                int currentBarY = barY + b * barSpacing;
+
+                // Background panel (dark with subtle border)
+                g.setColor(20, 10, 10);
+                g.fillRect(bossBarX - 2, currentBarY - 2, BOSS_BAR_W + 4, BOSS_BAR_H + 4);
+                g.setColor(60, 20, 20);
+                g.drawRect(bossBarX - 2, currentBarY - 2, BOSS_BAR_W + 4, BOSS_BAR_H + 4);
+
+                // Bar background
+                g.setColor(40, 0, 0);
+                g.fillRect(bossBarX, currentBarY, BOSS_BAR_W, BOSS_BAR_H);
+
+                // HP fill with gradient-like effect (two-tone)
+                double bossHpRatio = MathUtil.clamp((double) bb.hp / (double) bb.maxHp, 0.0, 1.0);
+                int fillW = (int) ((BOSS_BAR_W - 2 * BOSS_BAR_INSET) * bossHpRatio);
+                int fillX = bossBarX + BOSS_BAR_INSET;
+                int fillY = currentBarY + BOSS_BAR_INSET;
+                int fillH = BOSS_BAR_H - 2 * BOSS_BAR_INSET;
+
+                // Main fill color (red to orange based on HP)
+                if (bossHpRatio > 0.5) {
+                    g.setColor(220, 60, 30); // High HP: bright red
+                } else if (bossHpRatio > 0.25) {
+                    g.setColor(255, 140, 30); // Medium HP: orange
+                } else {
+                    // Low HP: pulsing red warning
+                    if ((System.currentTimeMillis() / 200) % 2 == 0) {
+                        g.setColor(255, 40, 40);
+                    } else {
+                        g.setColor(255, 100, 40);
+                    }
+                }
+                if (fillW > 0) g.fillRect(fillX, fillY, fillW, fillH);
+
+                // Highlight top edge for depth
+                if (fillW > 0) {
+                    g.setColor(255, 180, 100);
+                    g.drawLine(fillX, fillY, fillX + fillW - 1, fillY);
+                }
+
+                // Phase indicators (small diamonds above bar)
+                if (bb.maxPhase > 1) {
+                    int phaseIconSize = 4;
+                    int phaseStartX = bossBarX + (BOSS_BAR_W - (bb.maxPhase * 8)) / 2;
+                    for (int p = 1; p <= bb.maxPhase; p++) {
+                        int px = phaseStartX + (p - 1) * 8;
+                        int py = currentBarY - 10;
+                        if (p < bb.phase) {
+                            g.setColor(100, 255, 100); // Completed phases: green
+                        } else if (p == bb.phase) {
+                            g.setColor(255, 255, 100); // Current phase: yellow
+                            if ((System.currentTimeMillis() / 300) % 2 == 0) {
+                                g.setColor(255, 255, 255); // Pulse current
+                            }
+                        } else {
+                            g.setColor(80, 80, 80); // Future phases: gray
+                        }
+                        // Draw small diamond
+                        g.fillRect(px, py + 2, 4, 2);
+                        g.drawLine(px + 2, py, px + 4, py + 2);
+                        g.drawLine(px + 2, py + 4, px + 4, py + 2);
+                    }
+                }
+
+                // Phase transition flash overlay
+                if (bb.isPhaseTransition && bb.phaseTransitionUntil > System.currentTimeMillis()) {
+                    long elapsed = bb.phaseTransitionUntil - System.currentTimeMillis();
+                    float progress = 1.0f - (float) elapsed / 1000.0f; // 1 second transition
+                    int alpha = (int) (200 * (1.0f - progress));
+                    g.setColor(255, 255, 255);
+                    g.fillRect(bossBarX, currentBarY, BOSS_BAR_W, BOSS_BAR_H);
+                }
+
+                // Boss name (with phase suffix if multi-phase)
+                String displayName = cachedBossName;
+                if (bb.maxPhase > 1) displayName += "  Phase " + bb.phase;
+                g.setColor(255, 255, 255);
+                g.drawString(displayName, offX + viewWidth / 2, currentBarY - 18, Graphics.TOP | Graphics.HCENTER);
+
+                // HP numbers
+                g.drawString(bb.hp + "/" + bb.maxHp, offX + viewWidth / 2, currentBarY + 2, Graphics.TOP | Graphics.HCENTER);
+
+                // Portrait/icon placeholder (small sprite area on left)
+                if (bb.portraitOffsetX != 0 || bb.portraitOffsetY != 0) {
+                    g.setColor(100, 50, 50);
+                    g.fillRect(bossBarX - BOSS_PORTRAIT_SIZE - 4, currentBarY, BOSS_PORTRAIT_SIZE, BOSS_PORTRAIT_SIZE);
+                    g.setColor(200, 100, 100);
+                    g.drawRect(bossBarX - BOSS_PORTRAIT_SIZE - 4, currentBarY, BOSS_PORTRAIT_SIZE, BOSS_PORTRAIT_SIZE);
+                }
+            }
         }
     }
 
@@ -3177,6 +3456,13 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
     private static final class Boss {
         boolean active; int defIndex; int x; int y; int hp; int maxHp; int atk; double speed;
         long nextAttack; int anim; long nextAnim; int chargeDx; int chargeDy; long chargeUntil; long hitMask;
+        // Multi-boss & phase support
+        int phase = 1;
+        int maxPhase = 1;
+        long phaseTransitionUntil = 0;
+        boolean isPhaseTransition = false;
+        int portraitOffsetX = 0;
+        int portraitOffsetY = 0;
     }
     private static final class Offer {
         int type = -1; int value; int existing; boolean newItem; boolean collab;
