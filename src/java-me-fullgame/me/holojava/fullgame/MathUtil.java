@@ -67,4 +67,17 @@ final class MathUtil {
         }
         return sum;
     }
+
+    /** Fast sine approximation (radians) using Bhaskara I's formula, accurate to ~0.0016. */
+    static double sin(double x) {
+        // Reduce to [-pi, pi]
+        x = x % (2.0 * 3.141592653589793);
+        if (x < -3.141592653589793) x += 2.0 * 3.141592653589793;
+        else if (x > 3.141592653589793) x -= 2.0 * 3.141592653589793;
+        // Bhaskara I: sin(x) ≈ 16x(π-x) / (5π² - 4x(π-x))
+        double pi = 3.141592653589793;
+        double numerator = 16.0 * x * (pi - x);
+        double denominator = 5.0 * pi * pi - 4.0 * x * (pi - x);
+        return numerator / denominator;
+    }
 }

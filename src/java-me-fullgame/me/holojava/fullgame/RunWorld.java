@@ -188,6 +188,24 @@ final class RunWorld {
     private int regenHealPerTick;
     private long shieldReadyAt;
     private int shield;
+    // --- Special skill visual effects -----------------------------------
+    private static final int MAX_EFFECTS = 8;
+    private static final int EFFECT_NONE = 0;
+    private static final int EFFECT_SHARK_RING = 1;    // Amelia: expanding ring
+    private static final int EFFECT_SLOW_AURA = 2;     // Gura: pulsing aura around player
+    private static final int EFFECT_REAPER_HEAL = 3;   // Calliope: green particles upward
+    private static final int EFFECT_PHOENIX_RING = 4;  // Kiara: expanding fire rings
+    private static final int EFFECT_ONI_SHIELD = 5;    // Ina: shield bubble + shot clear flash
+    private int effectType[] = new int[MAX_EFFECTS];
+    private int effectX[] = new int[MAX_EFFECTS];
+    private int effectY[] = new int[MAX_EFFECTS];
+    private int effectRadius[] = new int[MAX_EFFECTS];
+    private int effectMaxRadius[] = new int[MAX_EFFECTS];
+    private int effectTimer[] = new int[MAX_EFFECTS];
+    private int effectMaxTimer[] = new int[MAX_EFFECTS];
+    private int effectColorR[] = new int[MAX_EFFECTS];
+    private int effectColorG[] = new int[MAX_EFFECTS];
+    private int effectColorB[] = new int[MAX_EFFECTS];
     private int weaponCount;
     private int itemCount;
 
@@ -404,6 +422,7 @@ final class RunWorld {
         for (int i = 0; i < shots.length; i++) shots[i].active = false;
         for (int i = 0; i < melee.length; i++) melee[i].active = false;
         for (int i = 0; i < pickups.length; i++) pickups[i].active = false;
+        for (int i = 0; i < MAX_EFFECTS; i++) effectType[i] = EFFECT_NONE;
         vacuumUntil = 0L;
         for (int i = 0; i < encounterStarted.length; i++) { encounterStarted[i] = false; encounterDefeated[i] = false; }
         boss.active = false; bossEncounterIndex = -1; nextEndlessEncounter = 0;
@@ -651,6 +670,7 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
 
     void update(int keys, boolean attackPressed, boolean specialPressed, long now) {
         if (state != STATE_RUNNING) return;
+        updateEffects(now);
         if (elapsedMsAt(now) > 120000L && lastMinuteScaled != now / 60000L) {
             lastMinuteScaled = now / 60000L;
             updateScaling();
@@ -770,17 +790,141 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
         int growthBonus = growthLevel * playerLevel;
         if (characterIndex == 0) { // Shark Call
             damageEnemiesInRadius(110 + growthBonus, 180, true);
+            spawnEffect(EFFECT_SHARK_RING, px, py, 180, 600, 0, 180, 255);       // cyan expanding ring
         } else if (characterIndex == 1) { // Slow Time
             slowEnemiesUntil = now + 6000L;
+            spawnEffect(EFFECT_SLOW_AURA, px, py, 120, 6000, 100, 200, 255);     // blue pulsing aura
         } else if (characterIndex == 2) { // The Reaper
             playerHp = Math.min(playerMaxHp, playerHp + Math.max(8, playerMaxHp / 4));
             lifestealUntil = now + 10000L;
+            spawnEffect(EFFECT_REAPER_HEAL, px, py, 0, 800, 0, 255, 100);         // green heal particles
         } else if (characterIndex == 3) { // Phoenix Fire
             damageEnemiesInRadius(130 + growthBonus, 240, true);
+            spawnEffect(EFFECT_PHOENIX_RING, px, py, 240, 700, 255, 120, 0);      // orange expanding rings
         } else { // Spirit of the Oni
             shield = 30;
             shieldReadyAt = now + 10000L;
             clearEnemyShots();
+            spawnEffect(EFFECT_ONI_SHIELD, px, py, 80, 400, 180, 100, 255);       // purple shield bubble + flash
+        }
+    }
+
+    /** Spawns a visual effect at the given position. Finds a free slot or overwrites the oldest. */
+    private void spawnEffect(int type, int x, int y, int maxRadius, int duration, int r, int g, int b) {
+        if (effectType == null) return; // not initialized (e.g., in headless tests)
+        int slot = -1;
+        int oldestTimer = -1;
+        for (int i = 0; i < MAX_EFFECTS; i++) {
+            if (effectType[i] == EFFECT_NONE) { slot = i; break; }
+            if (effectTimer[i] > oldestTimer) { oldestTimer = effectTimer[i]; slot = i; }
+        }
+        if (slot == -1) slot = 0;
+        effectType[slot] = type;
+        effectX[slot] = x;
+        effectY[slot] = y;
+        effectRadius[slot] = 0;
+        effectMaxRadius[slot] = maxRadius;
+        effectTimer[slot] = 0;
+        effectMaxTimer[slot] = duration;
+        effectColorR[slot] = r;
+        effectColorG[slot] = g;
+        effectColorB[slot] = b;
+    }
+
+    /** Updates all active visual effects. Called once per frame during gameplay. */
+    private void updateEffects(long now) {
+        if (effectType == null) return; // not initialized (e.g., in headless tests)
+        for (int i = 0; i < MAX_EFFECTS; i++) {
+            if (effectType[i] == EFFECT_NONE) continue;
+            effectTimer[i] += 16; // ~60 FPS tick
+            if (effectTimer[i] >= effectMaxTimer[i]) {
+                effectType[i] = EFFECT_NONE;
+                continue;
+            }
+            float progress = (float) effectTimer[i] / (float) effectMaxTimer[i];
+            switch (effectType[i]) {
+                case EFFECT_SHARK_RING:
+                case EFFECT_PHOENIX_RING:
+                case EFFECT_ONI_SHIELD:
+                    effectRadius[i] = (int) (effectMaxRadius[i] * progress);
+                    break;
+                case EFFECT_SLOW_AURA:
+                    // Pulsing aura: radius oscillates
+                    effectRadius[i] = (int) (effectMaxRadius[i] * (0.5f + 0.5f * MathUtil.sin(progress * 8f * 3.14159f)));
+                    break;
+                case EFFECT_REAPER_HEAL:
+                    // Particles rise and fade - radius used as particle spread
+                    effectRadius[i] = (int) (effectMaxRadius[i] * progress);
+                    break;
+            }
+        }
+    }
+
+    /** Draws all active visual effects. Called from draw() during gameplay. */
+    private void drawEffects(Graphics g, int offX, int offY) {
+        if (effectType == null) return;
+        for (int i = 0; i < MAX_EFFECTS; i++) {
+            if (effectType[i] == EFFECT_NONE) continue;
+            float progress = (float) effectTimer[i] / (float) effectMaxTimer[i];
+            int alpha = (int) (255 * (1.0f - progress));
+            if (alpha <= 0) continue;
+            int cx = offX + effectX[i];
+            int cy = offY + effectY[i];
+            g.setColor(effectColorR[i], effectColorG[i], effectColorB[i]);
+            switch (effectType[i]) {
+                case EFFECT_SHARK_RING:
+                    // Expanding ring with thickness
+                    drawThickCircle(g, cx, cy, effectRadius[i], 3);
+                    drawThickCircle(g, cx, cy, effectRadius[i] - 4, 2);
+                    break;
+                case EFFECT_PHOENIX_RING:
+                    // Double expanding rings (fire style)
+                    drawThickCircle(g, cx, cy, effectRadius[i], 4);
+                    drawThickCircle(g, cx, cy, effectRadius[i] / 2, 2);
+                    break;
+                case EFFECT_ONI_SHIELD:
+                    // Shield bubble + inner glow
+                    drawThickCircle(g, cx, cy, effectRadius[i], 3);
+                    drawThickCircle(g, cx, cy, effectRadius[i] - 6, 1);
+                    break;
+                case EFFECT_SLOW_AURA:
+                    // Pulsing aura - multiple concentric circles
+                    for (int ring = 0; ring < 3; ring++) {
+                        int r = effectRadius[i] - ring * 8;
+                        if (r > 0) drawThickCircle(g, cx, cy, r, 1);
+                    }
+                    break;
+                case EFFECT_REAPER_HEAL:
+                    // Rising green particles
+                    for (int p = 0; p < 8; p++) {
+                        int px = cx + (rand(20) - 10);
+                        int py = cy - (int) (progress * effectMaxRadius[i]) + (rand(10) - 5);
+                        g.fillRect(px, py, 2, 4);
+                    }
+                    break;
+            }
+        }
+    }
+
+    /** Helper: draws a circle outline using Bresenham midpoint algorithm. */
+    private void drawThickCircle(Graphics g, int cx, int cy, int radius, int thickness) {
+        if (radius <= 0) return;
+        int x = 0;
+        int y = radius;
+        int d = 1 - radius;
+        while (x <= y) {
+            for (int t = 0; t < thickness; t++) {
+                int rt = radius - t;
+                if (rt > 0) {
+                    g.drawLine(cx - x, cy - rt, cx + x, cy - rt);
+                    g.drawLine(cx - x, cy + rt, cx + x, cy + rt);
+                    g.drawLine(cx - rt, cy - x, cx + rt, cy - x);
+                    g.drawLine(cx - rt, cy + x, cx + rt, cy + x);
+                }
+            }
+            if (d < 0) d += 2 * x + 3;
+            else { d += 2 * (x - y) + 5; y--; }
+            x++;
         }
     }
 
@@ -2497,12 +2641,14 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
             else { g.setColor(140, 0, 0); g.fillRect(x, y, bossWidth(), bossHeight()); }
             drawPlayer(g, worldOffX, offY, now);
             drawMelee(g, worldOffX, offY, now);
+            drawEffects(g, offX, offY);
             drawHud(g, offX, offY, now);
             drawDialogue(g, offX, offY, now);
             return;
         }
         drawPlayer(g, worldOffX, offY, now);
         drawMelee(g, worldOffX, offY, now);
+        drawEffects(g, offX, offY);
         drawHud(g, offX, offY, now);
     }
 
