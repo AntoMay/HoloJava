@@ -144,6 +144,10 @@ final class RunWorld {
     private final boolean[] offerUsed = new boolean[64];
 
     private int state = STATE_RUNNING;
+    // Wall-clock ms when the run clock was last suspended (0 while running).
+    private long suspendedAt;
+    // Total wall-clock ms accumulated in suspensions (popups/pause) to subtract from elapsed.
+    private long suspendedTotalMs;
     private long startTime;
     private long lastMinuteScaled = -1L;
     private double scaleA;
@@ -378,6 +382,8 @@ final class RunWorld {
 
     private void reset(SaveStore save) {
         startTime = System.currentTimeMillis();
+        suspendedAt = 0L;
+        suspendedTotalMs = 0L;
         state = STATE_RUNNING;
         won = false;
         moving = false;
@@ -523,13 +529,32 @@ final class RunWorld {
     int bossMaxHp() { return boss.maxHp; }
     String bossName() { return boss.active ? ContentCatalog.BOSSES[boss.defIndex].name : ""; }
     boolean won() { return won; }
-    long elapsedSeconds() { return Math.max(0L, (System.currentTimeMillis() - startTime) / 1000L); }
+    /** Run elapsed milliseconds at the given wall-clock time, excluding time spent in popups/pause. */
+private long elapsedMsAt(long now) {
+    long ms = now - startTime - suspendedTotalMs;
+    if (suspendedAt != 0L) ms -= now - suspendedAt;
+    return ms < 0L ? 0L : ms;
+}
+
+long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; }
 
     /** Waves fired this run, floored at 1: the opening field always counts as wave one. */
     int waveNumber() { return waveCount < 1 ? 1 : waveCount; }
 
-    void pause() { if (state == STATE_RUNNING) state = STATE_PAUSED; }
-    void resume() { if (state == STATE_PAUSED) state = STATE_RUNNING; }
+    void pause() {
+        if (state == STATE_RUNNING) {
+            state = STATE_PAUSED;
+            suspendedAt = System.currentTimeMillis();
+        }
+    }
+    void resume() {
+        if (state == STATE_PAUSED) {
+            long now = System.currentTimeMillis();
+            suspendedTotalMs += now - suspendedAt;
+            suspendedAt = 0L;
+            state = STATE_RUNNING;
+        }
+    }
 
     int offerCount() { return offerCount; }
     int selectedOffer() { return selectedOffer; }
@@ -607,12 +632,18 @@ final class RunWorld {
             return;
         }
         applyOffer(index);
+        if (suspendedAt != 0L) {
+            long now = System.currentTimeMillis();
+            suspendedTotalMs += now - suspendedAt;
+            suspendedAt = 0L;
+        }
         state = STATE_RUNNING;
         invulUntil = System.currentTimeMillis() + 500;
         if (experience >= expNeed && state == STATE_RUNNING) {
             experience -= expNeed;
             playerLevel++;
             expNeed = requiredForLevel(playerLevel);
+            suspendedAt = System.currentTimeMillis();
             state = STATE_LEVEL_UP;
             generateOffers();
         }
@@ -620,7 +651,7 @@ final class RunWorld {
 
     void update(int keys, boolean attackPressed, boolean specialPressed, long now) {
         if (state != STATE_RUNNING) return;
-        if (now - startTime > 120000L && lastMinuteScaled != now / 60000L) {
+        if (elapsedMsAt(now) > 120000L && lastMinuteScaled != now / 60000L) {
             lastMinuteScaled = now / 60000L;
             updateScaling();
         }
@@ -754,7 +785,7 @@ final class RunWorld {
     }
 
     private void updateTimedEvents(long now) {
-        long elapsed = now - startTime;
+        long elapsed = elapsedMsAt(now);
         if (elapsed >= 180000L && !ringEventDone) {
             ringEventDone = true;
             spawnWave(16, true);
@@ -770,7 +801,7 @@ final class RunWorld {
         if (boss.active) return;
         if (now < nextSpawnAt) return;
         if (activeEnemyCount() >= stage.maxEnemies) return;
-        long elapsed = now - startTime;
+        long elapsed = elapsedMsAt(now);
         int interval = stage.spawnIntervalMs - (int) (elapsed / 5000L) * 20;
         if (interval < 250) interval = 250;
         if (mode.completion == ContentCatalog.COMPLETE_KILL_TARGET) interval = Math.min(interval, 550);
@@ -1013,7 +1044,7 @@ final class RunWorld {
 
     private void updateBossDirector(long now) {
         if (stage.timeStage || stage.bossA == null || stage.bossA.length() == 0) return;
-        int elapsedSec = (int) ((now - startTime) / 1000L);
+        int elapsedSec = (int) (elapsedMsAt(now) / 1000L);
         if (boss.active) return;
         if (bossEncounterIndex < 0) {
             if (!encounterStarted[0] && elapsedSec >= stage.bossATimeSec) { spawnBoss(0); return; }
@@ -1501,6 +1532,7 @@ final class RunWorld {
                 experience -= expNeed;
                 playerLevel++;
                 expNeed = requiredForLevel(playerLevel);
+                suspendedAt = System.currentTimeMillis();
                 state = STATE_LEVEL_UP;
                 generateOffers();
                 selectedOffer = 0;

@@ -311,7 +311,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private String validationError;
 
     public FullGameCanvas(AssetLibrary assets, SaveStore save, String validationError, ShutdownRequest shutdownRequest) {
-        super(true);
+        // Deliver key events in addition to key states. A MIDP GameCanvas suppresses keyPressed
+        // only when the subclass asks for it, and the numeric keys ('5' pause, '9' special) reach
+        // the game through keyPressed while the d-pad polls getKeyStates; requesting suppression
+        // therefore froze every numeric key on spec-following emulators (freej2me skipped the
+        // dispatch entirely), which is why pressing 9 with a full special meter did nothing.
+        super(false);
         this.assets = assets;
         this.save = save;
         this.shutdownRequest = shutdownRequest;
