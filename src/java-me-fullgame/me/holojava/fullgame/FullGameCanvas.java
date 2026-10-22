@@ -168,14 +168,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     // Shared HoloJava UI palette — the menu language the original HoloCure speaks: near-black
     // panels framed in plain white, white body text, and the gold sampled from menu_first
     // (#FFDB50) for names and prices. MENU_BG is the title band, MENU_PANEL the content band
-    // and every floating popup, MENU_DEEP the backing behind portraits plus the text colour
-    // that sits ON the selection bar, and MENU_DIM the recessive label grey. The bright cyan
-    // accent (#31E0FF, once every frame's colour) now only fills the selected row's bar; every
-    // border, frame and rule is white, which reads cleaner against the dark panels.
+    // and every floating popup, MENU_DEEP the backing behind portraits and the coin plate, and
+    // MENU_DIM the recessive label grey. Every border, frame and rule is white, and a selected
+    // row is a white frame over the row's own ink — the bright cyan accent (#31E0FF) that once
+    // marked frames and selection bars is gone entirely.
     private static final int MENU_BG_R = 18, MENU_BG_G = 35, MENU_BG_B = 59;                // #12233B
     private static final int MENU_PANEL_R = 10, MENU_PANEL_G = 20, MENU_PANEL_B = 36;        // #0A1424
     private static final int MENU_INK_R = 255, MENU_INK_G = 255, MENU_INK_B = 255;           // #FFFFFF
-    private static final int MENU_ACCENT_R = 49, MENU_ACCENT_G = 224, MENU_ACCENT_B = 255;   // #31E0FF
     private static final int MENU_GOLD_R = 255, MENU_GOLD_G = 219, MENU_GOLD_B = 80;         // #FFDB50
     private static final int MENU_DEEP_R = 6, MENU_DEEP_G = 16, MENU_DEEP_B = 28;            // #06101C
     private static final int MENU_DIM_R = 143, MENU_DIM_G = 163, MENU_DIM_B = 181;           // #8FA3B5
@@ -2072,30 +2071,33 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
 
         int listY = py + 34;
         Font rowFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        g.setFont(rowFont);
+        Font rowFontSel = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
         for (int row = 0; row < rows; row++) {
             int i = levelUpScroll + row;
             if (i >= count) break;
             int ry = listY + row * rowH;
             boolean selected = i == sel;
+            // The picked offer wears a white frame like every other selected row in the game;
+            // no row flips to dark-on-colour text any more.
             if (selected) {
-                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-                g.fillRect(px + 5, ry, panelW - 10, rowH - 2);
-            }
-            // Dark text on the cyan selection bar, the way HoloCure sets its picked row; idle
-            // collab offers take the menu gold so the rare offer still stands out on the dark
-            // panel, and the type tag recedes into the label grey.
-            if (selected) g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
-            else {
                 g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-                if (world.offerIsCollab(i)) g.setColor(MENU_GOLD_R, MENU_GOLD_G, MENU_GOLD_B);
+                g.drawRect(px + 5, ry, panelW - 10, rowH - 2);
             }
-            g.drawString((selected ? "> " : "  ") + world.offerLabel(i), px + 10, ry + 5,
+            // White ink carries the offers, collab gold keeps the rare pick standing out
+            // whether or not the cursor is on it, and the type tag recedes into the label
+            // grey. Text is centred inside the frame box so the border reads even.
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+            if (world.offerIsCollab(i)) g.setColor(MENU_GOLD_R, MENU_GOLD_G, MENU_GOLD_B);
+            g.setFont(selected ? rowFontSel : rowFont);
+            int ty = ry + (rowH - 2 - rowFont.getHeight()) / 2;
+            g.drawString((selected ? "> " : "  ") + world.offerLabel(i), px + 10, ty,
                     Graphics.TOP | Graphics.LEFT);
             String tag = world.offerType(i);
-            if (selected) g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
+            g.setFont(rowFont);
+            if (selected) g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
             else inkDim(g);
-            g.drawString(tag, px + panelW - 10 - rowFont.stringWidth(tag), ry + 5, Graphics.TOP | Graphics.LEFT);
+            g.drawString(tag, px + panelW - 10 - rowFont.stringWidth(tag), ty,
+                    Graphics.TOP | Graphics.LEFT);
         }
         // Scroll affordances: ink triangles on the right edge while rows sit above/below.
         g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
@@ -2132,22 +2134,21 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         g.drawString(titleText, px + (panelW - titleFont.stringWidth(titleText)) / 2, py + 8,
                 Graphics.TOP | Graphics.LEFT);
 
-        // List items
+        // List items: every row in the same white ink, the picked one inside a white frame like
+        // the list pages use. Text is centred inside the frame's box (not the bare row) so the
+        // border reads even top and bottom at any font height.
         int listY = py + 30;
         Font rowFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
-        g.setFont(rowFont);
+        Font rowFontSel = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
         for (int i = 0; i < PAUSE_ITEMS.length; i++) {
             int ry = listY + i * rowH;
             boolean on = i == pauseIndex;
-            if (on) {
-                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-                g.fillRect(px + 5, ry, panelW - 10, rowH - 2);
-                g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B); // dark text on the cyan pick
-            } else {
-                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-            }
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+            if (on) g.drawRect(px + 5, ry, panelW - 10, rowH - 2);
+            g.setFont(on ? rowFontSel : rowFont);
+            int ty = ry + (rowH - 2 - rowFont.getHeight()) / 2;
             String prefix = on ? "> " : "  ";
-            g.drawString(prefix + PAUSE_ITEMS[i], px + 10, ry + 4, Graphics.TOP | Graphics.LEFT);
+            g.drawString(prefix + PAUSE_ITEMS[i], px + 10, ty, Graphics.TOP | Graphics.LEFT);
         }
     }
 
@@ -2213,9 +2214,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     /** Shared selectable list. The selected row is marked the same way everywhere: the "> " arrow,
-     *  bold style and a 2px cyan bar, exactly as the Main Menu does it. The palette keeps one text
-     *  colour on the dark panel, so the selection is carried by the marker, the weight and the bar
-     *  rather than by a second text colour. */
+     *  bold style and the white frame the shop and stage lists draw, so every list on the game
+     *  agrees on one selection treatment. The palette keeps one text colour on the dark panel,
+     *  so the selection is carried by the frame, the marker and the weight rather than by a
+     *  second text colour. */
     private void list(Graphics g, int x, int y, String[] items, int selected) {
         for (int i = 0; i < items.length; i++) {
             boolean on = i == selected;
@@ -2224,8 +2226,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             drawText(g, x + 36, rowY, (on ? "> " : "  ") + items[i],
                     on ? Font.STYLE_BOLD : Font.STYLE_PLAIN, Font.SIZE_SMALL);
             if (on) {
-                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
-                g.fillRect(x, rowY + 2, 2, 12);
+                // Same frame box the upgrades and armory lists use: two rows above the text,
+                // 16 tall, so the frame hugs the row instead of floating away from it.
+                g.drawRect(x + 8, rowY - 2, 288, 16);
             }
         }
     }
