@@ -459,8 +459,11 @@ public final class RunWorldLifecycleIntegrationTest {
             }
             tick(w, now + 100L, true);
 
-            expectEq(w.specialCharge(), 0,
-                    ContentCatalog.CHARACTERS[ci].name + ": the special emptied the meter");
+            // At activation tick: state becomes ACTIVE, charge still full (drain starts next tick)
+            expectEq(getInt(w, "specialState"), RunWorld.SPECIAL_STATE_ACTIVE,
+                    ContentCatalog.CHARACTERS[ci].name + ": state is ACTIVE after fire");
+            expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX,
+                    ContentCatalog.CHARACTERS[ci].name + ": charge still full at activation tick");
             switch (ci) {
                 case 0:
                     expect(enemy != null && getInt(enemy, "hp") < hpBefore,
@@ -502,23 +505,29 @@ public final class RunWorldLifecycleIntegrationTest {
                             "Ninomae Inanis: the special cleared enemy projectiles from the screen");
                     break;
                 }
-            }
+            }  // end switch (ci)
 
-            // An empty meter swallows the next press...
+            // An empty (draining) meter swallows the next press during ACTIVE...
             if (enemy != null && (ci == 0 || ci == 3)) {
                 int hpAfterFirst = getInt(enemy, "hp");
                 tick(w, now + 300L, true);
                 expectEq(getInt(enemy, "hp"), hpAfterFirst,
-                        ContentCatalog.CHARACTERS[ci].name + ": an empty meter cannot fire again");
+                        ContentCatalog.CHARACTERS[ci].name + ": press during ACTIVE has no effect");
             }
 
-            // ...and once drops refill it, the same special fires again in the same run.
+            // ...and after ACTIVE (3s) + COOLDOWN (5s) = 8s, refill allows firing again.
+            long afterCycle = now + RunWorld.SPECIAL_ACTIVE_DURATION_MS + RunWorld.SPECIAL_COOLDOWN_MS + 100L;
             set(w, "specialCharge", Integer.valueOf(RunWorld.SPECIAL_CHARGE_MAX));
-            tick(w, now + 400L, true);
-            expectEq(w.specialCharge(), 0,
-                    ContentCatalog.CHARACTERS[ci].name + ": refires once the meter is refilled");
+            set(w, "specialState", Integer.valueOf(RunWorld.SPECIAL_STATE_IDLE));
+            set(w, "specialCooldownUntil", Long.valueOf(0L));
+            tick(w, afterCycle, true);
+            // At refire tick: state becomes ACTIVE, charge still full (drain starts next tick)
+            expectEq(getInt(w, "specialState"), RunWorld.SPECIAL_STATE_ACTIVE,
+                    ContentCatalog.CHARACTERS[ci].name + ": refires after cooldown, state ACTIVE");
+            expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX,
+                    ContentCatalog.CHARACTERS[ci].name + ": charge full at refire tick");
         }
-    }
+    }  // end for (ci)
 
     // ---------------------------------------------------------------- 6. effects consumed by combat
 

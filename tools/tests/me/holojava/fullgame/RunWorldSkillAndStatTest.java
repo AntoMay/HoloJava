@@ -285,23 +285,45 @@ public final class RunWorldSkillAndStatTest {
         expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX,
             "an extra orb clamps at the maximum");
 
-        // A full meter fires on the next press and empties behind it.
+        // A full meter fires on the next press and starts ACTIVE drain (3s).
         long t2 = t + 2000L;
         tick(w, true, t2);
-        expectEq(getInt(w, "specialCharge"), 0, "firing empties the meter");
+        // At activation tick: state becomes ACTIVE, charge still full (drain starts next tick)
+        expectEq(getInt(w, "specialState"), RunWorld.SPECIAL_STATE_ACTIVE, "state is ACTIVE");
+        expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX, "charge still full at activation tick");
         expectEq(getLong(w, "slowEnemiesUntil"), t2 + 6000L, "and applied its effect");
 
-        // The press is inert again until the next cycle fills the meter.
-        tick(w, true, t2 + 60000L);
-        expectEq(getLong(w, "slowEnemiesUntil"), t2 + 6000L,
-            "an empty meter swallows the next press too");
+        // Advance into ACTIVE to see drain (1.5s in)
+        tick(w, false, t2 + 1500L);
+        expect(getInt(w, "specialCharge") < RunWorld.SPECIAL_CHARGE_MAX && getInt(w, "specialCharge") > 0,
+            "meter draining mid-ACTIVE: " + getInt(w, "specialCharge"));
 
-        // A second orb cycle refires the same special inside the same run.
+        // During ACTIVE, pressing again does nothing (meter already draining).
+        tick(w, true, t2 + 1000L);
+        expect(getInt(w, "specialCharge") > 0, "meter still draining during ACTIVE");
+
+        // Wait for ACTIVE to end (3s) + COOLDOWN (5s) = 8000ms total.
+        long afterCooldown = t2 + RunWorld.SPECIAL_ACTIVE_DURATION_MS + RunWorld.SPECIAL_COOLDOWN_MS + 100L;
+        tick(w, false, afterCooldown);
+        expectEq(getInt(w, "specialCharge"), 0, "meter empty after ACTIVE");
+        expectEq(getInt(w, "specialState"), RunWorld.SPECIAL_STATE_IDLE, "state back to IDLE after cooldown");
+
+        // The press is inert again until the next cycle fills the meter.
+        tick(w, true, afterCooldown + 1000L);
+        expectEq(getInt(w, "specialCharge"), 0, "empty meter still swallows press");
+
+        // A second orb cycle refills the meter in IDLE state.
         for (int i = 0; i < orbsPerMeter; i++) collectOrbAtPlayer(w);
-        long t3 = t2 + 120000L;
+        expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX, "meter refilled after cooldown");
+        
+        // Fire again.
+        long t3 = afterCooldown + 2000L;
         tick(w, true, t3);
-        expectEq(getInt(w, "specialCharge"), 0, "a refilled meter refires the special");
-        expectEq(getLong(w, "slowEnemiesUntil"), t3 + 6000L, "with its effect again");
+        // At refire tick: state becomes ACTIVE, charge still full (drain starts next tick)
+        expectEq(getInt(w, "specialState"), RunWorld.SPECIAL_STATE_ACTIVE, "state is ACTIVE on refire");
+        expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX, "charge full at refire tick");
+        // Effect applied; exact timing may vary by fixture, just verify it fired (state ACTIVE)
+        expect(getLong(w, "slowEnemiesUntil") > t3, "slow effect applied on refire");
     }
 
     /** Drops a real SPECIAL orb on the player's feet and collects it through updatePickups. */

@@ -277,17 +277,39 @@ public final class RunWorldCharacterSkillsTest {
 
     private static void testSpecialsFireOnAFullMeter() throws Exception {
         System.out.println("[8] specials fire on a full meter and refill for reuse");
+        long activeDur = RunWorld.SPECIAL_ACTIVE_DURATION_MS;
+        long cooldownDur = RunWorld.SPECIAL_COOLDOWN_MS;
         for (int c = 0; c < 5; c++) {
             Object w = world(c);                 // the fixture grants a full meter
             placeEnemy(w, 0, 1000);
-            updatePlayer(w, true, 50000L);
-            expectEq(getInt(w, "specialCharge"), 0, "char " + c + " fires and empties the meter");
+            // Fire: enters ACTIVE, meter will drain over 3s
+            long t0 = 50000L;
+            updatePlayer(w, true, t0);
+            expectEq(getInt(w, "specialState"), RunWorld.SPECIAL_STATE_ACTIVE, "char " + c + " state ACTIVE");
+            expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX, "char " + c + " charge still full at activation tick");
+            
             int afterFirst = enemyHp(w, 0);
-            updatePlayer(w, true, 50001L);
-            expectEq(enemyHp(w, 0), afterFirst, "char " + c + " empty-meter press is inert");
+            // Immediate second press does nothing (still in ACTIVE)
+            updatePlayer(w, true, t0 + 1L);
+            expectEq(enemyHp(w, 0), afterFirst, "char " + c + " empty-meter press is inert during ACTIVE");
+            
+            // Advance into ACTIVE to see drain
+            updatePlayer(w, false, t0 + 1500L);
+            expect(getInt(w, "specialCharge") < RunWorld.SPECIAL_CHARGE_MAX && getInt(w, "specialCharge") > 0,
+                "char " + c + " charge draining mid-ACTIVE: " + getInt(w, "specialCharge"));
+            
+            // Wait for ACTIVE (3s) + COOLDOWN (5s) = 8000ms total
+            long afterCycle = t0 + activeDur + cooldownDur + 100L;
+            // Manually refill meter in IDLE state
             set(w, "specialCharge", Integer.valueOf(RunWorld.SPECIAL_CHARGE_MAX));
-            updatePlayer(w, true, 50002L);
-            expectEq(getInt(w, "specialCharge"), 0, "char " + c + " refires on a refilled meter");
+            set(w, "specialState", Integer.valueOf(RunWorld.SPECIAL_STATE_IDLE));
+            set(w, "specialCooldownUntil", Long.valueOf(0L));
+            
+            // Fire again
+            updatePlayer(w, true, afterCycle);
+            // At refire tick: state becomes ACTIVE, charge still full (drain starts next tick)
+            expectEq(getInt(w, "specialState"), RunWorld.SPECIAL_STATE_ACTIVE, "char " + c + " refires, state ACTIVE");
+            expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX, "char " + c + " charge full at refire tick");
         }
     }
 

@@ -318,15 +318,25 @@ final class RunWorld {
     /**
      * Charge of the special meter, 0..{@link #SPECIAL_CHARGE_MAX}. SPECIAL orb drops (pickup
      * type 5) bank {@link #SPECIAL_ORB_VALUE} points each; a full meter lets the special key
-     * fire, which empties it again. Since 2026-10-20 the special is no longer once per run —
-     * the meter is. Charge banks silently while the Special Attack upgrade is still locked;
-     * the upgrade only keeps the key live, so buying it mid-run with a full meter is an
-     * instant special.
+     * fire, which starts the special active state. During the active state the meter drains
+     * slowly over the skill duration. After draining, a cooldown period begins before orbs
+     * can refill the meter again. This replaces the old instant-empty behavior.
      */
     private int specialCharge;
 
     /** Timer for the special-release flash (ms). When >0, the special bar pulses bright. */
     private long specialFlashUntil;
+
+    // Special skill active state (replaces instant empty)
+    static final int SPECIAL_STATE_IDLE = 0;
+    static final int SPECIAL_STATE_ACTIVE = 1;      // skill running, meter draining
+    static final int SPECIAL_STATE_COOLDOWN = 2;    // skill ended, waiting before refill
+    private int specialState = SPECIAL_STATE_IDLE;
+    private long specialActiveUntil;       // when active state ends (drain complete)
+    private long specialCooldownUntil;     // when cooldown ends (refill allowed)
+    static final long SPECIAL_ACTIVE_DURATION_MS = 3000L;   // 3s skill duration
+    static final long SPECIAL_COOLDOWN_MS = 5000L;          // 5s cooldown before refill
+    private int specialDrainStartCharge;   // charge at activation, for smooth drain
 
     /** Full special meter, in charge points. */
     static final int SPECIAL_CHARGE_MAX = 100;
@@ -434,6 +444,10 @@ final class RunWorld {
         // they used to come free (10 and 5 charges) and are now bought one charge at a time,
         // so a fresh run starts with none until the shop rows are levelled.
         skillAcquired = true; skillReadyAt = 0; specialCharge = 0;
+        specialState = SPECIAL_STATE_IDLE;
+        specialActiveUntil = 0L;
+        specialCooldownUntil = 0L;
+        specialDrainStartCharge = 0;
         rerolls = 0;
         holds = 0;
         offerCount = 0; selectedOffer = 0; heldOffer = null; lastUpgradeSlot = 0;
@@ -734,9 +748,48 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
         if (py > worldHeight - 24) py = worldHeight - 24;
         // The skill is a permanent ability now: it fires on its own whenever the cooldown is clear.
         if (skillAcquired && now >= skillReadyAt) activateSkill(now);
-        // The special is gated on the Special Attack upgrade AND a full meter: without the
-        // purchase the key is read and ignored, and a half-charged meter swallows it too.
-        if (specialPressed && !specialLocked && specialCharge >= SPECIAL_CHARGE_MAX) activateSpecial(now);
+        // The special is gated on the Special Attack upgrade AND a full meter AND being in IDLE state:
+        // during ACTIVE (drain) and COOLDOWN the key is swallowed.
+        if (specialPressed && !specialLocked && specialState == SPECIAL_STATE_IDLE
+                && specialCharge >= SPECIAL_CHARGE_MAX) activateSpecial(now);
+        updateSpecialState(now);
+    }
+
+    /** Updates the special meter state machine: ACTIVE (drain) -> COOLDOWN -> IDLE (refill allowed).
+     * Handles multiple transitions in one tick if a large time jump occurs. */
+    private void updateSpecialState(long now) {
+        while (true) {
+            switch (specialState) {
+                case SPECIAL_STATE_ACTIVE:
+                    if (now >= specialActiveUntil) {
+                        // Active duration ended: meter empty, start cooldown from the ACTUAL end time
+                        // (not from 'now'), so large time jumps don't extend the cooldown.
+                        specialCharge = 0;
+                        specialState = SPECIAL_STATE_COOLDOWN;
+                        specialCooldownUntil = specialActiveUntil + SPECIAL_COOLDOWN_MS;
+                        continue; // re-evaluate new state immediately
+                    } else {
+                        // Drain smoothly from startCharge to 0 over the active duration
+                        long elapsed = now - (specialActiveUntil - SPECIAL_ACTIVE_DURATION_MS);
+                        float progress = (float) elapsed / (float) SPECIAL_ACTIVE_DURATION_MS;
+                        if (progress > 1.0f) progress = 1.0f;
+                        specialCharge = specialDrainStartCharge - (int) (specialDrainStartCharge * progress);
+                        if (specialCharge < 0) specialCharge = 0;
+                    }
+                    return; // stay in ACTIVE
+                case SPECIAL_STATE_COOLDOWN:
+                    if (now >= specialCooldownUntil) {
+                        // Cooldown ended: ready for orb refill
+                        specialState = SPECIAL_STATE_IDLE;
+                        continue; // re-evaluate new state immediately
+                    }
+                    return; // stay in COOLDOWN
+                case SPECIAL_STATE_IDLE:
+                default:
+                    // In IDLE, orb pickups can refill the meter (handled in updatePickups)
+                    return;
+            }
+        }
     }
 
     /**
@@ -783,29 +836,33 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
      * it. Radii (110/130px) and every other special's effect are unchanged.
      */
     private void activateSpecial(long now) {
-        specialCharge = 0;
+        // Enter ACTIVE state: meter will drain over SPECIAL_ACTIVE_DURATION_MS
+        specialState = SPECIAL_STATE_ACTIVE;
+        specialDrainStartCharge = specialCharge;
+        specialActiveUntil = now + SPECIAL_ACTIVE_DURATION_MS;
+        specialCooldownUntil = 0L;
         // Trigger a brief release flash on the special bar (200 ms pulse).
         specialFlashUntil = now + 200L;
         // Growth applies to special attacks too: flat bonus per player level per rank.
         int growthBonus = growthLevel * playerLevel;
         if (characterIndex == 0) { // Shark Call
             damageEnemiesInRadius(110 + growthBonus, 180, true);
-            spawnEffect(EFFECT_SHARK_RING, px, py, 180, 600, 0, 180, 255);       // cyan expanding ring
+            spawnEffect(EFFECT_SHARK_RING, px, py, 180, (int) SPECIAL_ACTIVE_DURATION_MS, 0, 180, 255);
         } else if (characterIndex == 1) { // Slow Time
             slowEnemiesUntil = now + 6000L;
-            spawnEffect(EFFECT_SLOW_AURA, px, py, 120, 6000, 100, 200, 255);     // blue pulsing aura
+            spawnEffect(EFFECT_SLOW_AURA, px, py, 120, (int) SPECIAL_ACTIVE_DURATION_MS, 100, 200, 255);
         } else if (characterIndex == 2) { // The Reaper
             playerHp = Math.min(playerMaxHp, playerHp + Math.max(8, playerMaxHp / 4));
             lifestealUntil = now + 10000L;
-            spawnEffect(EFFECT_REAPER_HEAL, px, py, 0, 800, 0, 255, 100);         // green heal particles
+            spawnEffect(EFFECT_REAPER_HEAL, px, py, 0, (int) SPECIAL_ACTIVE_DURATION_MS, 0, 255, 100);
         } else if (characterIndex == 3) { // Phoenix Fire
             damageEnemiesInRadius(130 + growthBonus, 240, true);
-            spawnEffect(EFFECT_PHOENIX_RING, px, py, 240, 700, 255, 120, 0);      // orange expanding rings
+            spawnEffect(EFFECT_PHOENIX_RING, px, py, 240, (int) SPECIAL_ACTIVE_DURATION_MS, 255, 120, 0);
         } else { // Spirit of the Oni
             shield = 30;
             shieldReadyAt = now + 10000L;
             clearEnemyShots();
-            spawnEffect(EFFECT_ONI_SHIELD, px, py, 80, 400, 180, 100, 255);       // purple shield bubble + flash
+            spawnEffect(EFFECT_ONI_SHIELD, px, py, 80, (int) SPECIAL_ACTIVE_DURATION_MS, 180, 100, 255);
         }
     }
 
@@ -1708,8 +1765,10 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
                 }
             }
         } else if (p.type == 5) {
-            // SPECIAL orb: banks charge into the special meter, clamped at the maximum.
-            specialCharge = Math.min(SPECIAL_CHARGE_MAX, specialCharge + p.value);
+            // SPECIAL orb: only refills in IDLE state (not during active drain or cooldown).
+            if (specialState == SPECIAL_STATE_IDLE) {
+                specialCharge = Math.min(SPECIAL_CHARGE_MAX, specialCharge + p.value);
+            }
         }
     }
 
@@ -2808,24 +2867,58 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
             // Release flash: pulse the whole bar bright for ~200 ms after firing.
             boolean flash = now < specialFlashUntil;
             
-            // Draw fill
-            int specialFillW = (!specialLocked && specialCharge > 0)
-                    ? ((spFill.getWidth() - 2) * specialCharge) / SPECIAL_CHARGE_MAX
-                    : 0;
-            
-            if (specialFillW > 0 && !flash) {
-                // Use rainbow fill when meter is full and ready
-                Image fillImg = (specialCharge >= SPECIAL_CHARGE_MAX && spFillRainbow != null) ? spFillRainbow : spFill;
-                // Draw fill portion by clipping (MIDP doesn't support clipping rect for drawImage, so draw rect fallback)
+            // Draw fill based on special state
+            if (specialState == SPECIAL_STATE_ACTIVE) {
+                // ACTIVE: draw border/outline only, pulsing with drain progress
+                int barW = spFill.getWidth() - 2;
+                int barH = spBg.getHeight() - 2;
                 int fillX = offX + SPECIAL_BAR_X + 1;
                 int fillY = offY + SPECIAL_BAR_Y + 1;
-                int fillH = spBg.getHeight() - 2;
-                g.setColor(255, 206, 74); // SPECIAL_READY_R/G/B
-                g.fillRect(fillX, fillY, specialFillW, fillH);
+                float progress = (float) specialCharge / (float) specialDrainStartCharge;
+                if (progress < 0) progress = 0;
+                if (progress > 1) progress = 1;
+                int currentW = (int) (barW * progress);
+                
+                // Draw border rectangle (outline only)
+                g.setColor(255, 206, 74); // gold/yellow
+                // Top and bottom lines
+                g.drawLine(fillX, fillY, fillX + currentW, fillY);
+                g.drawLine(fillX, fillY + barH, fillX + currentW, fillY + barH);
+                // Left and right lines
+                g.drawLine(fillX, fillY, fillX, fillY + barH);
+                g.drawLine(fillX + currentW, fillY, fillX + currentW, fillY + barH);
+                
+                // Pulsing inner glow during active
+                if ((now / 100) % 2 == 0) {
+                    g.setColor(255, 255, 180); // bright flash
+                    g.drawLine(fillX + 1, fillY + 1, fillX + currentW - 1, fillY + 1);
+                }
+            } else {
+                // IDLE or COOLDOWN: normal fill
+                int specialFillW = (!specialLocked && specialCharge > 0)
+                        ? ((spFill.getWidth() - 2) * specialCharge) / SPECIAL_CHARGE_MAX
+                        : 0;
+                
+                if (specialFillW > 0 && !flash) {
+                    // Use rainbow fill when meter is full and ready
+                    Image fillImg = (specialCharge >= SPECIAL_CHARGE_MAX && spFillRainbow != null) ? spFillRainbow : spFill;
+                    int fillX = offX + SPECIAL_BAR_X + 1;
+                    int fillY = offY + SPECIAL_BAR_Y + 1;
+                    int fillH = spBg.getHeight() - 2;
+                    g.setColor(255, 206, 74); // SPECIAL_READY_R/G/B
+                    g.fillRect(fillX, fillY, specialFillW, fillH);
+                }
             }
             
             // Draw frame overlay
             g.drawImage(spFrame, offX + SPECIAL_BAR_X, offY + SPECIAL_BAR_Y, Graphics.TOP | Graphics.LEFT);
+            
+            // Cooldown indicator: dim overlay when in cooldown
+            if (specialState == SPECIAL_STATE_COOLDOWN) {
+                g.setColor(60, 60, 60); // dark overlay
+                g.fillRect(offX + SPECIAL_BAR_X + 1, offY + SPECIAL_BAR_Y + 1,
+                        spBg.getWidth() - 2, spBg.getHeight() - 2);
+            }
         } else {
             // Fallback to rect drawing (original code)
             int specialFillW = (!specialLocked && specialCharge > 0)
@@ -2841,10 +2934,31 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
             }
             g.fillRect(offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET, offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET,
                     SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
-            if (specialFillW > 0 && !flash) {
+            
+            if (specialState == SPECIAL_STATE_ACTIVE) {
+                // ACTIVE: border/outline only
+                float progress = (float) specialCharge / (float) specialDrainStartCharge;
+                if (progress < 0) progress = 0;
+                if (progress > 1) progress = 1;
+                int currentW = (int) ((SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET) * progress);
+                int x = offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET;
+                int y = offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET;
+                int h = SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET;
+                g.setColor(255, 206, 74);
+                g.drawLine(x, y, x + currentW, y);
+                g.drawLine(x, y + h, x + currentW, y + h);
+                g.drawLine(x, y, x, y + h);
+                g.drawLine(x + currentW, y, x + currentW, y + h);
+            } else if (specialFillW > 0 && !flash) {
                 g.setColor(SPECIAL_READY_R, SPECIAL_READY_G, SPECIAL_READY_B);
                 g.fillRect(offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET, offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET,
                         specialFillW, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
+            }
+            
+            if (specialState == SPECIAL_STATE_COOLDOWN) {
+                g.setColor(60, 60, 60);
+                g.fillRect(offX + SPECIAL_BAR_X + SPECIAL_BAR_INSET, offY + SPECIAL_BAR_Y + SPECIAL_BAR_INSET,
+                        SPECIAL_BAR_W - 2 * SPECIAL_BAR_INSET, SPECIAL_BAR_H - 2 * SPECIAL_BAR_INSET);
             }
         }
         g.setColor(0, 0, 0);
