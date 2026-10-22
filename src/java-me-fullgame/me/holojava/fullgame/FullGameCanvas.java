@@ -157,16 +157,21 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         return max > 0 ? max : 0;
     }
 
-    // Shared HoloJava UI palette. The page and the panel are both light, so every piece of menu
-    // text is drawn in MENU_INK: white only reaches 1.66:1 on MENU_BG and 1.35:1 on MENU_PANEL,
-    // while the ink reaches 3.48:1 and 4.27:1. MENU_ACCENT is reserved for non-text selection marks
-    // (bars and frames), which stay readable through the "> " marker and the bold weight.
-    // Palette white (#FFFFFF) is deliberately not declared: on this palette it has no surface that
-    // clears the contrast bar, and an unused constant would be dead code.
-    private static final int MENU_BG_R = 117, MENU_BG_G = 213, MENU_BG_B = 247;             // #75D5F7
-    private static final int MENU_PANEL_R = 168, MENU_PANEL_G = 231, MENU_PANEL_B = 252;    // #A8E7FC
-    private static final int MENU_INK_R = 36, MENU_INK_G = 108, MENU_INK_B = 145;           // #246C91
-    private static final int MENU_ACCENT_R = 66, MENU_ACCENT_G = 191, MENU_ACCENT_B = 239;  // #42BFEF
+    // Shared HoloJava UI palette — the menu language the original HoloCure speaks: near-black
+    // panels framed in the bright cyan sampled from hud_dialogueBox and
+    // ui_menu_upgrade_window_selected (#31E0FF), white body text, and the gold sampled from
+    // menu_first (#FFDB50) for names and prices. MENU_BG is the title band, MENU_PANEL the
+    // content band and every floating popup, MENU_DEEP the backing behind portraits plus the
+    // text colour that sits ON the cyan selection bar, MENU_DIM the recessive label grey, and
+    // MENU_EDGE the idle frame that keeps the bright cyan for the picked window.
+    private static final int MENU_BG_R = 18, MENU_BG_G = 35, MENU_BG_B = 59;                // #12233B
+    private static final int MENU_PANEL_R = 10, MENU_PANEL_G = 20, MENU_PANEL_B = 36;        // #0A1424
+    private static final int MENU_INK_R = 255, MENU_INK_G = 255, MENU_INK_B = 255;           // #FFFFFF
+    private static final int MENU_ACCENT_R = 49, MENU_ACCENT_G = 224, MENU_ACCENT_B = 255;   // #31E0FF
+    private static final int MENU_GOLD_R = 255, MENU_GOLD_G = 219, MENU_GOLD_B = 80;         // #FFDB50
+    private static final int MENU_DEEP_R = 6, MENU_DEEP_G = 16, MENU_DEEP_B = 28;            // #06101C
+    private static final int MENU_DIM_R = 143, MENU_DIM_G = 163, MENU_DIM_B = 181;           // #8FA3B5
+    private static final int MENU_EDGE_R = 46, MENU_EDGE_G = 107, MENU_EDGE_B = 133;         // #2E6B85
     private static final int MENU_BODY_Y = 40;     // header band height; all content starts below
 
     // Splash/Main Menu layout, in logical 320x240 pixels. Both screens now sit on the reference
@@ -932,12 +937,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         }
     }
 
-    /** Shared page background: a lighter header band behind the title row and the slightly darker
-     *  content band below it. The Main Menu paints its own, logo-driven variant of the same pair. */
+    /** Shared page background: a slightly lifted title band behind the title row and the
+     *  near-black content band below it, split by the cyan rule HoloCure underlines its headers
+     *  with. The Main Menu paints its own, logo-driven variant of the same pair. */
     private void drawPageBackground(Graphics g, int x, int y) {
         g.setColor(MENU_BG_R, MENU_BG_G, MENU_BG_B); g.fillRect(x, y, Viewport.MIN_W, Viewport.MIN_H);
         g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
         g.fillRect(x, y + MENU_BODY_Y, Viewport.MIN_W, Viewport.MIN_H - MENU_BODY_Y);
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.fillRect(x, y + MENU_BODY_Y - 1, Viewport.MIN_W, 1);
     }
 
     private void drawMenuScreen(Graphics g, int x, int y) {
@@ -1176,13 +1184,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     /**
      * CHOOSE YOUR IDOL — grid 5 karakter (tanpa tombol Kembali).
      * Layout: 5 kotak horizontal (48x56), detail panel di bawah dengan scroll.
-     * Setiap kotak: HANYA portrait, border biru muda (dipilih = border lebih tebal).
+     * Setiap kotak: portrait di atas mat gelap, border cyan (dipilih = frame cyan terang berlapis).
      * Detail panel: border 1px, nama karakter di baris penuh atas, idle sprite berdiri
      *               di garis tanah bersama di kiri, kolom status di kanan (scroll Atas/Bawah).
      * Semua konstanta layout ada di blok IDOL_* di atas file.
      */
     private void drawChooseIdol(Graphics g, int x, int y) {
-        // ===== HEADER: CHOOSE YOUR IDOL (Y=0-40, centred in the blue band) =====
+        // ===== HEADER: CHOOSE YOUR IDOL (Y=0-40, centred in the dark title band) =====
         // Drawn through the same helper and the same TITLE_TOP as every other page heading, so
         // the reference heading and the pages that follow it cannot drift apart.
         title(g, x, y, "CHOOSE YOUR IDOL");
@@ -1207,11 +1215,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             int by = startY;
             boolean selected = (i == menuIndex);
 
-            // Box: NO fill, only light blue border
-            g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+            // Box: dark mat behind the bright portrait, recessive edge when idle, and the bright
+            // cyan frame HoloCure marks a picked window with — outer ring plus box edge.
+            g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
+            g.fillRect(x + bx, y + by, boxW - 1, boxH - 1);
             if (selected) {
-                g.drawRect(x + bx - 2, y + by - 2, boxW + 3, boxH + 3); // thicker selected
+                g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+                g.drawRect(x + bx - 2, y + by - 2, boxW + 3, boxH + 3);
+                g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
             } else {
+                g.setColor(MENU_EDGE_R, MENU_EDGE_G, MENU_EDGE_B);
                 g.drawRect(x + bx, y + by, boxW - 1, boxH - 1);
             }
 
@@ -1232,14 +1245,17 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int pw = IDOL_PANEL_W;          // 296
         int ph = IDOL_PANEL_H;          // 114
 
-        // One 1px border, the same weight the character selection boxes use, so the two
-        // read as the same kind of frame instead of the panel looking heavier.
+        // Dark chip fill with the same 1px cyan frame the selection boxes use, so the two read
+        // as the same kind of window HoloCure frames its panels with.
+        g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
+        g.fillRect(px, py, pw, ph);
         g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.drawRect(px, py, pw - 1, ph - 1);
 
         // The name gets its own full-width row across the top of the panel, so the status column
-        // below it starts clear of it instead of overprinting it.
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        // below it starts clear of it instead of overprinting it. It takes the gold HoloCure
+        // gives item and character names.
+        g.setColor(MENU_GOLD_R, MENU_GOLD_G, MENU_GOLD_B);
         drawText(g, px + 8, py + 6, sel.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
 
         // Everything below the name row: sprite on the left, status column on the right.
@@ -1388,11 +1404,11 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         ContentCatalog.CharacterDef c = ContentCatalog.CHARACTERS[selected];
 
         // Middle column: the selected character's portrait, native size, centred in the box. The
-        // frame geometry is untouched; only its colours changed. The mat uses the palette ink
-        // because the portraits are bright sprites (median luma 195) and need a dark backing, and
-        // the outline uses the cyan accent. The caption sits below the frame on the light panel,
-        // so it stays in the ink: white there would be 1.35:1.
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        // frame geometry is untouched; only its colours changed. The mat uses the deep panel
+        // colour because the portraits are bright sprites (median luma 195) and need a dark
+        // backing, and the outline uses the cyan accent. The caption sits below the frame on the
+        // dark page, so it stays in the white ink.
+        g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
         g.fillRect(x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y, CHARS_PORTRAIT_W, CHARS_PORTRAIT_H);
         g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.drawRect(x + CHARS_PORTRAIT_X, y + CHARS_PORTRAIT_Y, CHARS_PORTRAIT_W - 1, CHARS_PORTRAIT_H - 1);
@@ -1459,12 +1475,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     }
 
     // Map/stage status colours, taken from the shared palette. The ink always means
-    // unlocked-and-allowed; the cyan accent means unavailable and deliberately recedes. The
-    // selected row is not a third colour: it is marked by the "> " arrow, bold style and an
-    // outline frame instead. The "[mode]" and "[locked]" suffixes keep the state readable in text
-    // regardless of the colour.
-    private static final int STAGE_UNLOCKED_R = 36, STAGE_UNLOCKED_G = 108, STAGE_UNLOCKED_B = 145;
-    private static final int STAGE_LOCKED_R = 66, STAGE_LOCKED_G = 191, STAGE_LOCKED_B = 239;
+    // unlocked-and-allowed; the dim cyan means unavailable and deliberately recedes on the dark
+    // panel. The selected row is not a third colour: it is marked by the "> " arrow, bold style
+    // and an outline frame instead. The "[mode]" and "[locked]" suffixes keep the state readable
+    // in text regardless of the colour.
+    private static final int STAGE_UNLOCKED_R = 255, STAGE_UNLOCKED_G = 255, STAGE_UNLOCKED_B = 255;
+    private static final int STAGE_LOCKED_R = 74, STAGE_LOCKED_G = 143, STAGE_LOCKED_B = 176;
     private static final int STAGE_ROW_X = 12;
     private static final int STAGE_ROW_Y = 40;
     private static final int STAGE_ROW_PITCH = 16;
@@ -1543,8 +1559,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (menuIndex >= 0 && menuIndex < count) {
             ContentCatalog.UpgradeDef def = ContentCatalog.upgrade(start + menuIndex);
             int level = shopRowLevel(def, start + menuIndex);
-            drawText(g, x + 12, y + 190, def.name + "   Lv " + level + "/" + def.maxLevel,
-                    Font.STYLE_BOLD, Font.SIZE_SMALL);
+            // The item name takes the HoloCure gold; its level tail stays ink, right after it.
+            g.setColor(MENU_GOLD_R, MENU_GOLD_G, MENU_GOLD_B);
+            drawText(g, x + 12, y + 190, def.name, Font.STYLE_BOLD, Font.SIZE_SMALL);
+            Font bold = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
+            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+            g.drawString("   Lv " + level + "/" + def.maxLevel,
+                    x + 12 + bold.stringWidth(def.name), y + 190, Graphics.TOP | Graphics.LEFT);
             drawText(g, x + 12, y + 206, def.desc, Font.STYLE_PLAIN, Font.SIZE_SMALL);
         } else {
             drawText(g, x + 12, y + 190, "Kembali ke menu Toko.", Font.STYLE_BOLD, Font.SIZE_SMALL);
@@ -1591,7 +1612,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int px = x + (Viewport.MIN_W - w) / 2, py = y + 58;
         g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
         g.fillRect(px, py, w, h);
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.drawRect(px + 1, py + 1, w - 3, h - 3);
         ink(g);
         drawText(g, px + 12, py + 10, heading, Font.STYLE_BOLD, Font.SIZE_SMALL);
@@ -1652,11 +1673,16 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         boolean affordable = maxed || cost == 0 || balance >= cost;
         if (affordable) ink(g);
         else g.setColor(STAGE_LOCKED_R, STAGE_LOCKED_G, STAGE_LOCKED_B);
-        String text = label + " Lv" + level + "/" + def.maxLevel;
-        if (maxed) text = text + " MAX";
-        else if (cost == 0) text = text + "  gratis";
-        else text = text + "  " + cost;
-        drawText(g, x + 12, rowY, text, style, Font.SIZE_SMALL);
+        String head = label + " Lv" + level + "/" + def.maxLevel;
+        String tail = maxed ? " MAX" : (cost == 0 ? "  gratis" : "  " + cost);
+        drawText(g, x + 12, rowY, head, style, Font.SIZE_SMALL);
+        // The price takes the HoloCure gold when the balance can cover it; a price that cannot
+        // be paid keeps the row's own colour, so colour never contradicts the words.
+        if (tail.length() > 0) {
+            if (affordable && !maxed) g.setColor(MENU_GOLD_R, MENU_GOLD_G, MENU_GOLD_B);
+            Font f = Font.getFont(Font.FACE_SYSTEM, style, Font.SIZE_SMALL);
+            g.drawString(tail, x + 12 + f.stringWidth(head), rowY, Graphics.TOP | Graphics.LEFT);
+        }
     }
 
     /**
@@ -1756,7 +1782,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                 creditsRule(g, x, ty);
             } else if (row.length() > 0) {
                 boolean heading = creditIsHeading(row);
-                ink(g);
+                if (heading) g.setColor(MENU_GOLD_R, MENU_GOLD_G, MENU_GOLD_B);
+                else ink(g);
                 drawCentered(g, ty, row, heading ? Font.STYLE_BOLD : Font.STYLE_PLAIN,
                         Font.SIZE_SMALL);
             }
@@ -1977,11 +2004,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      *  popup closes (see render). The window slides so the selected row always stays visible. */
     private int levelUpScroll;
 
-    /** Level-up popup: a themed panel over a dithered dim of the frozen run behind it. The
-     *  offer list scrolls inside the box once the rows no longer fit, so the popup keeps one
-     *  fixed size no matter how many offers (or Reroll/Tahan rows) the roll produced. */
+    /** Level-up popup: a dark panel with the double cyan frame HoloCure windows wear, floating
+     *  over the frozen run behind it. The offer list scrolls inside the box once the rows no
+     *  longer fit, so the popup keeps one fixed size no matter how many offers (or Reroll/Tahan
+     *  rows) the roll produced. */
     private void drawLevelUp(Graphics g, int x, int y) {
-        // No full-screen dim: as requested, only the light-blue panel itself floats over the
+        // No full-screen dim: as requested, only the dark framed panel itself floats over the
         // frozen run. drawPause keeps the full-page treatment; this popup does not.
         int panelW = 248;
         int rowH = 20;
@@ -1989,12 +2017,13 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int panelH = 34 + rows * rowH + 6;
         int px = x + (Viewport.MIN_W - panelW) / 2;
         int py = y + (Viewport.MIN_H - panelH) / 2;
-        // Same panel/ink/accent trio as every menu page: the popup wears the game's own tone.
+        // Same panel trio as every menu page, framed in the cyan every HoloCure window wears.
         g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
         g.fillRect(px, py, panelW, panelH);
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.drawRect(px, py, panelW - 1, panelH - 1);
         g.drawRect(px + 2, py + 2, panelW - 5, panelH - 5);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         Font titleFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
         g.setFont(titleFont);
         g.drawString("LEVEL UP", px + (panelW - titleFont.stringWidth("LEVEL UP")) / 2, py + 8,
@@ -2019,14 +2048,19 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                 g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
                 g.fillRect(px + 5, ry, panelW - 10, rowH - 2);
             }
-            // Ink text on the accent selection bar (4.27:1); collabs keep a deeper gold when
-            // idle so the rare offer still stands out on the light panel.
-            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
-            if (!selected && world.offerIsCollab(i)) g.setColor(176, 116, 20);
+            // Dark text on the cyan selection bar, the way HoloCure sets its picked row; idle
+            // collab offers take the menu gold so the rare offer still stands out on the dark
+            // panel, and the type tag recedes into the label grey.
+            if (selected) g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
+            else {
+                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+                if (world.offerIsCollab(i)) g.setColor(MENU_GOLD_R, MENU_GOLD_G, MENU_GOLD_B);
+            }
             g.drawString((selected ? "> " : "  ") + world.offerLabel(i), px + 10, ry + 5,
                     Graphics.TOP | Graphics.LEFT);
             String tag = world.offerType(i);
-            g.setColor(104, 126, 140);
+            if (selected) g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
+            else inkDim(g);
             g.drawString(tag, px + panelW - 10 - rowFont.stringWidth(tag), ry + 5, Graphics.TOP | Graphics.LEFT);
         }
         // Scroll affordances: ink triangles on the right edge while rows sit above/below.
@@ -2049,14 +2083,15 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         int px = x + (Viewport.MIN_W - panelW) / 2;
         int py = y + (Viewport.MIN_H - panelH) / 2;
 
-        // Panel with double border like the level-up popup
+        // Panel with the level-up popup's double cyan frame, so both floaters agree.
         g.setColor(MENU_PANEL_R, MENU_PANEL_G, MENU_PANEL_B);
         g.fillRect(px, py, panelW, panelH);
-        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
         g.drawRect(px, py, panelW - 1, panelH - 1);
         g.drawRect(px + 2, py + 2, panelW - 5, panelH - 5);
 
         // Title
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
         Font titleFont = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
         g.setFont(titleFont);
         String titleText = "PAUSED";
@@ -2073,8 +2108,10 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             if (on) {
                 g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
                 g.fillRect(px + 5, ry, panelW - 10, rowH - 2);
+                g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B); // dark text on the cyan pick
+            } else {
+                g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
             }
-            g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
             String prefix = on ? "> " : "  ";
             g.drawString(prefix + PAUSE_ITEMS[i], px + 10, ry + 4, Graphics.TOP | Graphics.LEFT);
         }
@@ -2114,25 +2151,36 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
                 Graphics.TOP | Graphics.LEFT);
     }
 
-    /** Coin balance pinned to the top-right corner of every Toko-family page, in the title band. */
     /**
-     * Coin balance, right-aligned in the title band on every Toko-family page.
+     * Coin balance, right-aligned on every Toko-family page as a dark chip inside a cyan frame —
+     * the shape the original HoloCure puts its balance in.
      *
-     * <p>{@code COIN_TOP} sits below the heading rather than level with it. The heading is
-     * {@code TITLE_TOP} (8) in {@link Font#SIZE_LARGE}, which reaches about row 24; at 20 the two
-     * shared the same line and a long balance ran into the title. 28 clears the heading and still
-     * lands inside the 40px band, so the balance stays part of the header instead of floating over
-     * the page below it.
+     * <p>{@code COIN_TOP} (44) sits below the heading rather than level with it: the heading is
+     * {@code TITLE_TOP} (8) in {@link Font#SIZE_LARGE}, which reaches about row 24, and the chip
+     * then starts clear of the cyan rule that closes the header band, so the balance reads as its
+     * own element instead of running into the title.
      */
     private void drawCoin(Graphics g, int x, int y, long balance) {
-        ink(g);
-        drawRight(g, x, y + COIN_TOP, "Koin: " + balance);
+        String text = "Koin: " + balance;
+        Font f = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_BOLD, Font.SIZE_SMALL);
+        int tw = f.stringWidth(text);
+        // Chip hugs rows 41-55: its floor stops short of the first list row (56) on the pages
+        // that carry one, so the box can never overprint a row.
+        int bx = x + Viewport.MIN_W - tw - 12;
+        int by = y + 41;
+        g.setColor(MENU_DEEP_R, MENU_DEEP_G, MENU_DEEP_B);
+        g.fillRect(bx, by, tw + 8, 15);
+        g.setColor(MENU_ACCENT_R, MENU_ACCENT_G, MENU_ACCENT_B);
+        g.drawRect(bx, by, tw + 7, 14);
+        g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B);
+        g.setFont(f);
+        g.drawString(text, bx + 4, y + COIN_TOP, Graphics.TOP | Graphics.LEFT);
     }
 
     /** Shared selectable list. The selected row is marked the same way everywhere: the "> " arrow,
-     *  bold style and a 2px cyan bar, exactly as the Main Menu does it. The palette has only one
-     *  text colour that stays readable on the light panel, so the selection is carried by the marker,
-     *  the weight and the bar rather than by a second text colour. */
+     *  bold style and a 2px cyan bar, exactly as the Main Menu does it. The palette keeps one text
+     *  colour on the dark panel, so the selection is carried by the marker, the weight and the bar
+     *  rather than by a second text colour. */
     private void list(Graphics g, int x, int y, String[] items, int selected) {
         for (int i = 0; i < items.length; i++) {
             boolean on = i == selected;
@@ -2152,10 +2200,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
      *  drawing call left behind. */
     private void ink(Graphics g) { g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B); }
 
-    /** Secondary labels. The palette exposes one readable text colour on the light panel, so this
-     *  resolves to the same ink as ink(); labels and values stay separated by their bold/plain
-     *  style and by the gutter, not by a second hue. */
-    private void inkDim(Graphics g) { g.setColor(MENU_INK_R, MENU_INK_G, MENU_INK_B); }
+    /** Secondary labels: the recessive label grey, one clear step below the body ink, so a label
+     *  column reads as a label and its value as the value. */
+    private void inkDim(Graphics g) { g.setColor(MENU_DIM_R, MENU_DIM_G, MENU_DIM_B); }
 
     private void drawText(Graphics g, int x, int y, String text, int style, int size) {
         g.setFont(Font.getFont(Font.FACE_SYSTEM, style, size));
