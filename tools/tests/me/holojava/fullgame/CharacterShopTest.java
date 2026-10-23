@@ -315,8 +315,8 @@ public final class CharacterShopTest {
                     "row '" + d.id + "' is locked, so it has no purchasable price");
             }
         }
-        expectEq(lockedCount, 12,
-            "the 12 rows without gameplay yet are marked locked");
+        expectEq(lockedCount, 13,
+            "the 13 rows without gameplay yet are marked locked (including Special Attack)");
         // The effects the shop must actually move the run's stats with:
         expect(seenEffect[ContentCatalog.EFFECT_MAX_HP], "a row raises max HP");
         expect(seenEffect[ContentCatalog.EFFECT_DAMAGE_PCT], "a row raises damage");
@@ -639,7 +639,7 @@ public final class CharacterShopTest {
             expectEq(save.upgradeLevel(i), 0, "locked row '" + def.id + "' stayed at level 0");
             expectEq(save.coinBalance(), before, "locked row '" + def.id + "' charged nothing");
         }
-        expectEq(checked, 12, "every one of the 12 locked rows was exercised");
+        expectEq(checked, 13, "every one of the 13 locked rows was exercised (including Special Attack)");
     }
 
     /** Hardcore toggles the shared settings flag; Refund All needs two deliberate presses. */

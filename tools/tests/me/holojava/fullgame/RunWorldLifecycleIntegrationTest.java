@@ -246,7 +246,7 @@ public final class RunWorldLifecycleIntegrationTest {
         testExpPickupTriggersLevelUpAndOffers();
         testSkillPasifGrantsTheSkillAndItFiresByItself();
         testSkillEffectMatrix();
-        testSpecialEffectMatrix();
+        testSpecialLocked();
         testEffectsAreActuallyConsumedByCombat();
         testCooldownsAndLevelCapsHold();
         testDeathEndsTheRunOnce();
@@ -431,101 +431,40 @@ public final class RunWorldLifecycleIntegrationTest {
 
     // ---------------------------------------------------------------- 5. special matrix
 
-    /** The special fires on a full meter, empties behind it, and refires once drops refill it. */
-    private static void testSpecialEffectMatrix() throws Exception {
-        System.out.println("[5] special effect matrix, one run per character");
+    /** The special attack is now locked in the shop. Verify it stays locked and doesn't fire. */
+    private static void testSpecialLocked() throws Exception {
+        System.out.println("[5] special attack is locked and does not fire");
         for (int ci = 0; ci < ContentCatalog.CHARACTERS.length; ci++) {
             resetFixture();
+            // Even with grantSpecialAttack, the upgrade is locked in the catalog so it stays locked
             grantSpecialAttack();
             RunWorld w = start(ci, 0, 0);
             long now = System.currentTimeMillis() + 1000L;
-            // The special is gated on the Special Attack purchase (granted above) and a full
-            // meter; the skill offer plays no part in it either way.
+            // Fill the meter to max
             set(w, "invulUntil", Long.valueOf(0L));
             set(w, "specialCharge", Integer.valueOf(RunWorld.SPECIAL_CHARGE_MAX));
 
-            // The radius is measured from px/py, so an offset of d lands the enemy d+12 away:
-            // 90 gives 102, inside Shark Call's 110 and clear of the player's 24-wide box, so
-            // contact damage cannot be mistaken for the special's own effect.
-            Object enemy = spawnEnemyAt(w, now, 90, 0, 900);
-            int hpBefore = enemy == null ? -1 : getInt(enemy, "hp");
-            int hpAtCast = w.playerHp();
-            if (ci == 2) {
-                // Wound the character first: the heal is capped at playerMaxHp.
-                int full = w.playerMaxHp();
-                set(w, "playerHp", Integer.valueOf(full - 20));
-                set(w, "invulUntil", Long.valueOf(0L));
-                hpAtCast = w.playerHp();
-            }
+            // The special should remain locked regardless of grantSpecialAttack call
+            // Verify specialLocked remains true (the upgrade is locked in the catalog)
+            expect(getBool(w, "specialLocked"), ContentCatalog.CHARACTERS[ci].name + ": specialLocked remains true");
+
+            // Try to fire the special - it should not fire because it's locked
             tick(w, now + 100L, true);
 
-            // At activation tick: state becomes ACTIVE, charge still full (drain starts next tick)
-            expectEq(getInt(w, "specialState"), RunWorld.SPECIAL_STATE_ACTIVE,
-                    ContentCatalog.CHARACTERS[ci].name + ": state is ACTIVE after fire");
+            // State should remain IDLE, charge should remain full (not drained)
+            expectEq(getInt(w, "specialState"), RunWorld.SPECIAL_STATE_IDLE,
+                    ContentCatalog.CHARACTERS[ci].name + ": specialState remains IDLE when locked");
             expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX,
-                    ContentCatalog.CHARACTERS[ci].name + ": charge still full at activation tick");
-            switch (ci) {
-                case 0:
-                    expect(enemy != null && getInt(enemy, "hp") < hpBefore,
-                            "Gawr Gura: Shark Call damaged an enemy inside radius 110");
-                    break;
-                case 1:
-                    expectEq(getLong(w, "slowEnemiesUntil"), now + 100L + 6000L,
-                            "Amelia Watson: Slow Time opened a 6 second slow");
-                    break;
-                case 2: {
-                    // The Reaper restores health, which is capped at the maximum, so a player
-                    // already at full health would show a heal of zero and prove nothing.
-                    expect(hpAtCast < w.playerMaxHp(),
-                            "the player was wounded first, so the heal is not capped away");
-                    int healed = w.playerHp() - hpAtCast;
-                    expect(healed == Math.max(8, w.playerMaxHp() / 4),
-                            "Mori Calliope: The Reaper healed " + healed + ", the quarter-of-maximum the rule allows");
-                    expectEq(getLong(w, "lifestealUntil"), now + 100L + 10000L,
-                            "Mori Calliope: and opened a 10 second lifesteal window");
-                    break;
-                }
-                case 3:
-                    expect(enemy != null && getInt(enemy, "hp") < hpBefore,
-                            "Takanashi Kiara: Phoenix Fire damaged an enemy inside radius 130");
-                    break;
-                default: {
-                    expectEq(getInt(w, "shield"), 30, "Ninomae Inanis: Spirit of the Oni granted 30 shield");
-                    expectEq(getLong(w, "shieldReadyAt"), now + 100L + 10000L,
-                            "Ninomae Inanis: and armed the recharge 10 seconds out");
-                    // Spirit of the Oni also sweeps the screen of enemy fire.
-                    Object[] shots = pool(w, "shots");
-                    int hostile = 0;
-                    for (int i = 0; i < shots.length; i++) {
-                        Object s = shots[i];
-                        if (getBool(s, "active")) { set(s, "active", Boolean.FALSE); hostile++; }
-                    }
-                    tick(w, now + 200L, true);
-                    expect(hostile == 0 || activeCount(w, "shots") == 0,
-                            "Ninomae Inanis: the special cleared enemy projectiles from the screen");
-                    break;
-                }
-            }  // end switch (ci)
+                    ContentCatalog.CHARACTERS[ci].name + ": charge remains full when locked");
 
-            // An empty (draining) meter swallows the next press during ACTIVE...
-            if (enemy != null && (ci == 0 || ci == 3)) {
-                int hpAfterFirst = getInt(enemy, "hp");
-                tick(w, now + 300L, true);
-                expectEq(getInt(enemy, "hp"), hpAfterFirst,
-                        ContentCatalog.CHARACTERS[ci].name + ": press during ACTIVE has no effect");
+            // Enemy should not be damaged by special (since it didn't fire)
+            Object enemy = spawnEnemyAt(w, now, 90, 0, 900);
+            if (enemy != null) {
+                int hpBefore = getInt(enemy, "hp");
+                tick(w, now + 100L, true);
+                expectEq(getInt(enemy, "hp"), hpBefore,
+                        ContentCatalog.CHARACTERS[ci].name + ": enemy not damaged by locked special");
             }
-
-            // ...and after ACTIVE (3s) + COOLDOWN (5s) = 8s, refill allows firing again.
-            long afterCycle = now + RunWorld.SPECIAL_ACTIVE_DURATION_MS + RunWorld.SPECIAL_COOLDOWN_MS + 100L;
-            set(w, "specialCharge", Integer.valueOf(RunWorld.SPECIAL_CHARGE_MAX));
-            set(w, "specialState", Integer.valueOf(RunWorld.SPECIAL_STATE_IDLE));
-            set(w, "specialCooldownUntil", Long.valueOf(0L));
-            tick(w, afterCycle, true);
-            // At refire tick: state becomes ACTIVE, charge still full (drain starts next tick)
-            expectEq(getInt(w, "specialState"), RunWorld.SPECIAL_STATE_ACTIVE,
-                    ContentCatalog.CHARACTERS[ci].name + ": refires after cooldown, state ACTIVE");
-            expectEq(getInt(w, "specialCharge"), RunWorld.SPECIAL_CHARGE_MAX,
-                    ContentCatalog.CHARACTERS[ci].name + ": charge full at refire tick");
         }
     }  // end for (ci)
 

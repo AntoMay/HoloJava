@@ -346,7 +346,7 @@ final class ContentCatalog {
     static final UpgradeDef[] UPGRADES = {
         // ---- Ability, wiki order ------------------------------------------------
         upgrade("special_attack", "Special Attack", "Buka Special Attack untuk semua karakter",
-                GROUP_ABILITY, -1, 0, false, BUY_LEVEL, new long[] { 500 }),
+                GROUP_ABILITY, -1, 0, true, BUY_LEVEL, new long[] { 500 }),
         upgrade("growth", "Growth", "+1% damage senjata utama & special per level (terkunci)",
                 GROUP_ABILITY, EFFECT_GROWTH, 1, false, BUY_LEVEL, new long[] { 500, 10000, 50000 }),
         upgrade("reroll", "Reroll", "+1 Reroll tiap level up per level",
