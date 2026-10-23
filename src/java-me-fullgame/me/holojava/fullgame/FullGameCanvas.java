@@ -1832,7 +1832,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private String[] buildCreditRows() {
         return new String[] {
             "HOLOJAVA", "Game Java ME bergaya HoloCure", CREDIT_RULE,
-            "PENULIS", "by AntoMay", "github.com/AntoMay", CREDIT_RULE,
+            "PENULIS", "by AntoMay", "github.com/AntoMay", "facebook.com/epoy.saputra.73", CREDIT_RULE,
             "INSPIRASI", "HoloCure, fan game hololive", "oleh kayfstarter", CREDIT_RULE,
             "SUMBER DATA", "holocure.wiki.gg (Update 0.7)",
             "Data karakter, senjata, item,", "harga dan stage disusun dari sana.", CREDIT_RULE,
