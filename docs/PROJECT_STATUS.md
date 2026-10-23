@@ -1,20 +1,16 @@
 # Project Status
 
 Source of truth: current phase, blockers, progress, and immediate next action.  
-Current roadmap version: `0.2`.
+Current roadmap version: `1.0.1`.
 
-## State on 2026-10-20
+## State on 2026-10-23
 
-- Phases 0-2: complete (the 2026-10-13 record below is retained as history).
-- Phases 3-5: complete — the rebuild ships menus, the five reference stages with their four Hard
+- Phases 0-7: complete — the rebuild ships menus, the five reference stages with their four Hard
   variants, time attack, the original stage6, five idols, weapons/collabs/items, shop, save and
   per-stage BGM. `Roadmap.md`'s phase table was caught up on this date.
-- Phase 6: retired into the recurring audit cycle (`reports/`); coverage of record is
-  `reports/fullgame_asset_manifest.csv` plus the test suites. `SYSTEM_CATALOG.md` and
-  `CONTENT_COVERAGE.md` moved to `docs/archive/` on this date.
-- Phase 7: active — 41 suites / ~4,300 checks green on every commit, plus the CLDC bytecode gate
+- Phase 7: complete — 41 suites / ~4,300 checks green on every commit, plus the CLDC bytecode gate
   after every compile.
-- Phase 8: not started; the asset-redistribution review remains the release gate.
+- Phase 8 (Distribution Readiness): active — v1.0.1 released with special drop disabled, Special Attack locked, Hutan Sawit no BGM, boss HP buffed.
 
 **Done 2026-10-19** (detail in the git log): character ATK was being applied as a bonus and
 doubled every character's damage — fixed and the original damage values restored; weapon

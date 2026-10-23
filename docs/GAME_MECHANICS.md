@@ -28,6 +28,9 @@ HoloCure.
 | Boss phase transitions | Designed | — | Auto-transition at HP thresholds (25%/50%/75% per phase); HP ×1.5, ATK ×1.25 per phase, full heal, 1s white flash; max phases per boss configurable |
 | Boss HP bar UI (enhanced) | Designed | — | 260×20 bar, gradient fill (red→orange→pulsing red), phase diamonds, phase flash, name+phase suffix, portrait placeholder, stacked multi-boss bars |
 | Timer pause during popups | Designed | — | `elapsedMsAt(now)` subtracts suspension time during LEVEL_UP & PAUSED states; boss gates, wave spawns, minute scaling all respect suspension; timer resumes seamlessly |
+| Special skill meter drop | Designed | — | **Disabled in v1.0.1**: `rand(50) == -1` never triggers; special orbs no longer drop |
+| Special Attack upgrade | Designed | — | **Locked in shop**: gated behind `special_attack` upgrade (500 coins), not purchasable in v1.0.1 |
+| Hutan Sawit BGM | Designed | — | **No BGM**: Stage 6 (Arena Hutan Sawit) has no background music |
 | Stage clear-coin bonuses | Verified | Wiki Stage article, recorded in `data/wiki/modes.csv` | `StageDef.coinClear` (3000..50000) matches the documented `clearAmount` list |
 | Shop upgrade prices | Verified | Wiki per-level price tables | `UpgradeDef.prices`; pinned by `CharacterShopTest` |
 | EXP: level 1→2 threshold | Verified | Wiki Level Up page ("79 EXP") | Pinned in `RunWorld.requiredForLevel` |
