@@ -1,3 +1,18 @@
+# Screenshots
+
+<table>
+<tr>
+<td align="center"><img src="screenshots/holo_01_menu.png" alt="Main Menu" width="300"/><br>Main Menu</td>
+<td align="center"><img src="screenshots/holo_02_choose_idol.png" alt="Choose Idol" width="300"/><br>Choose Idol</td>
+<td align="center"><img src="screenshots/holo_03_gameplay.png" alt="Gameplay" width="300"/><br>Gameplay</td>
+</tr>
+<tr>
+<td align="center"><img src="screenshots/holo_04_paused.png" alt="Paused" width="300"/><br>Paused</td>
+<td align="center"><img src="screenshots/holo_05_shop.png" alt="Shop" width="300"/><br>Shop</td>
+<td align="center"><img src="screenshots/holo_06_credits.png" alt="Credits" width="300"/><br>Credits</td>
+</tr>
+</table>
+
 # HoloJava
 
 A HoloCure-style survival roguelite for Java ME (CLDC 1.1 / MIDP 2.0). Pick an
