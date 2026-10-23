@@ -350,6 +350,30 @@ final class SaveStore {
         return (v & (1 << bit)) != 0;
     }
 
+    /**
+     * Checks if ANY character has completed the given stage.
+     * Used for global stage unlocking across all characters.
+     */
+    boolean isCompletedByAny(int stageOrder) {
+        if (stageOrder < 0 || stageOrder > MAX_STAGE_ORDER) return false;
+        if (stageOrder < ORDER_BITS_LOW) {
+            // Check primary byte for all characters
+            for (int i = 0; i < ContentCatalog.CHARACTERS.length; i++) {
+                int v = data[i] & 0xff;
+                int bit = stageOrder;
+                if ((v & (1 << bit)) != 0) return true;
+            }
+        } else {
+            // Check high byte for all characters
+            int bit = stageOrder - ORDER_BITS_LOW;
+            for (int i = 0; i < ContentCatalog.CHARACTERS.length; i++) {
+                int v = data[HIGH_BASE + i] & 0xff;
+                if ((v & (1 << bit)) != 0) return true;
+            }
+        }
+        return false;
+    }
+
     void setCompleted(int characterIndex, int stageOrder) {
         if (characterIndex < 0 || characterIndex >= ContentCatalog.CHARACTERS.length) return;
         if (stageOrder < 0 || stageOrder > MAX_STAGE_ORDER) return;

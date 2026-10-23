@@ -917,8 +917,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private boolean stageUnlocked(int index) {
         ContentCatalog.StageDef s = ContentCatalog.stage(index);
         if (s.unlockRequirement == -1 || s.unlockRequirement == 99) return true;
-        if (s.timeStage) return save.isCompleted(characterIndex, 2);
-        return save.isCompleted(characterIndex, s.unlockRequirement);
+        if (s.timeStage) return save.isCompletedByAny(2);
+        return save.isCompletedByAny(s.unlockRequirement);
     }
 
     private void render() {

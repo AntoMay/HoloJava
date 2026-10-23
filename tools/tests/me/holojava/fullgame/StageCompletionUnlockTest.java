@@ -269,9 +269,9 @@ public final class StageCompletionUnlockTest {
         handleRunEnd(canvas(save, RunWorld.STATE_VICTORY, 0, 0, 0));
         expect(stageUnlocked(c, 1), "stage 2 opened once stage 1 was cleared");
 
-        // A different character has its own progress and must stay locked.
+        // A different character now shares the same progress and can access the unlocked stage.
         Object other = canvas(save, RunWorld.STATE_RUNNING, 0, 1, 0);
-        expect(!stageUnlocked(other, 1), "character 1 is still locked");
+        expect(stageUnlocked(other, 1), "character 1 also has stage 2 unlocked (shared progress)");
     }
 
     /**
