@@ -83,7 +83,7 @@ final class BgmAudio {
             case 7:  return "/assets/fullgame/audio/bgm_mythortreat.mid";      // Halloween Castle (Myth)
             case 8:  return "/assets/fullgame/audio/bgm_bokuragakurukara.mid"; // Gelora Bung Yagoo (Night)
             case 9:  return "/assets/fullgame/audio/bgm_concert.mid";          // Concert Stage (Time)
-            case 10: return "/assets/fullgame/audio/bgm_palm_forest.mid";      // Arena Hutan Sawit (custom)
+            case 10:  return null;      // Arena Hutan Sawit (custom) - no BGM
             default: return null;
         }
     }

@@ -628,12 +628,12 @@ final class ContentCatalog {
         // its wiki 100000/35, so WoWo sits above that; EXP follows the 300/400 pair
         // scaled up to the wiki's boss-EXP range. documentedBaseStats stays false:
         // this row is ours alone.
-        boss("wowo", "WoWo", 110000, 44, AI_SHOOTER, 1000, 3000, "WoWo", false, 64, 64, false),
+        boss("wowo", "WoWo", 140000, 44, AI_SHOOTER, 1000, 3000, "WoWo", false, 64, 64, false),
         // Original design: FufuFafa, the second Arena Hutan Sawit boss, scheduled for the
         // 20:00 encounter so the stage closes on a new fight instead of a repeat WoWo. Same
         // radial-burst family as WoWo but on a tighter cooldown and a step up on both HP and
         // ATK. collW/collH track the 46x56 frame size of bosses/FufuFafa.
-        boss("fufufafa", "FufuFafa", 125000, 48, AI_SHOOTER, 900, 4000, "FufuFafa", false, 46, 56, false)
+        boss("fufufafa", "FufuFafa", 160000, 48, AI_SHOOTER, 900, 4000, "FufuFafa", false, 46, 56, false)
     };
 
     static final ModeDef[] MODES = {

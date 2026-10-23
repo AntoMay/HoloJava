@@ -72,8 +72,8 @@ public final class BossStatsWikiTest {
         wiki("halloween_myth", 79600, 31, 2600, true);
         wiki("goriela", 180000, 47, 3000, true);
         // The two originals: no wiki figure exists, so documentedBaseStats stays false.
-        wiki("wowo", 110000, 44, 3000, false);
-        wiki("fufufafa", 125000, 48, 4000, false);
+        wiki("wowo", 140000, 44, 3000, false);
+        wiki("fufufafa", 160000, 48, 4000, false);
     }
 
     private static void wiki(String id, int hp, int atk, int exp, boolean documented) {
