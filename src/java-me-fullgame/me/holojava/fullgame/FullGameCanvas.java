@@ -335,7 +335,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         // Debounced coin credits land before the app goes to the background: a suspend is exactly
         // when a device may never come back the way it left.
         if (save != null) save.flush();
-        bgm().stop(); // music must not keep playing behind a backgrounded MIDlet
+        // Pause BGM instead of stopping: freeze audio so it resumes from the same position
+        bgm().pause();
         if (world != null) world.pause();
     }
     public void resumeApplication() {
@@ -343,8 +344,8 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         if (world != null) world.resume();
         if (save != null) bgm().setEnabled(save.audioEnabled());
         if (screen == GAME) {
-            // re-entering mid-run: the stage track returns, unless Pengaturan turned Audio off
-            bgm().play(stageIndex);
+            // re-entering mid-run: resume stage track from paused position
+            bgm().resume();
         } else if (screen != RESULTS) {
             bgm().playMenu(); // same rule as render(): only the results page stays silent
         }
@@ -1831,13 +1832,14 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
     private String[] buildCreditRows() {
         return new String[] {
             "HOLOJAVA", "Game Java ME bergaya HoloCure", CREDIT_RULE,
-            "PENULIS", "by AntoMay", "facebook.com/epoy.saputra.73", CREDIT_RULE,
+            "PENULIS", "by AntoMay", "github.com/AntoMay", CREDIT_RULE,
             "INSPIRASI", "HoloCure, fan game hololive", "oleh kayfstarter", CREDIT_RULE,
             "SUMBER DATA", "holocure.wiki.gg (Update 0.7)",
             "Data karakter, senjata, item,", "harga dan stage disusun dari sana.", CREDIT_RULE,
             "TEKNOLOGI", "Java ME (MIDP 2.0) untuk HP", "MIDP 1.1 untuk perangkat lama",
             "Bebas framework, tanpa aset curian.", CREDIT_RULE,
             "PROYEK", "Kode, stage dan tata letak", "HoloJava oleh AntoMay", CREDIT_RULE,
+            "TOOLS", "Opencode (AI coding agent)", "UndertaleModTool (data.win)", CREDIT_RULE,
             "TERIMA KASIH", "kepada para Hololive member", "dan komunitas penggemarnya",
             "", "Sampai jumpa di stage berikutnya."
         };
@@ -2002,9 +2004,9 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         Image key9Icon = assets.keybindIcons() != null ? assets.keybindIcons()[9] : null;
         if (key9Icon != null) {
             g.drawImage(key9Icon, x + 24, ty + 1, Graphics.TOP | Graphics.LEFT);
-            drawText(g, x + 24 + key9Icon.getWidth() + 4, ty, "Special (butuh upgrade)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            drawText(g, x + 24 + key9Icon.getWidth() + 4, ty, "Special (butuh upgrade Special Attack)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         } else {
-            drawText(g, x + 24, ty, "9: Special (butuh upgrade)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            drawText(g, x + 24, ty, "9: Special (butuh upgrade Special Attack)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         }
         ty += lh;
         // 5 / FIRE for pause
@@ -2024,6 +2026,12 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
         drawText(g, x + 24, ty, "Skill karakter aktif sendiri tiap 15 detik.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         ty += lh;
         drawText(g, x + 24, ty, "Senjata orbiting & pasif menembak sendiri.", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh + 4;
+        drawText(g, x + 16, ty, "Opencode (Pengembangan):", Font.STYLE_BOLD, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "Kode: github.com/AntoMay/HoloJava", Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        ty += lh;
+        drawText(g, x + 24, ty, "CLI: opencode (AI coding agent)", Font.STYLE_PLAIN, Font.SIZE_SMALL);
         // Restore the full-page clip so the next screen cannot inherit the scrolled band.
         g.clipRect(0, 0, Viewport.MIN_W, Viewport.MIN_H);
     }

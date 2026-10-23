@@ -152,6 +152,18 @@ final class BgmAudio {
         current = null;
     }
 
+    /** Pauses the current track without releasing it. Safe to call when nothing plays. */
+    void pause() {
+        if (player == null) return;
+        try { player.stop(); } catch (Throwable ignored) { }
+    }
+
+    /** Resumes a paused track. Safe to call when nothing is paused. */
+    void resume() {
+        if (player == null) return;
+        try { player.start(); } catch (Throwable ignored) { }
+    }
+
     private static byte[] readAll(InputStream in) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buf = new byte[512];
