@@ -1838,7 +1838,7 @@ public class FullGameCanvas extends GameCanvas implements Runnable {
             "Data karakter, senjata, item,", "harga dan stage disusun dari sana.", CREDIT_RULE,
             "TEKNOLOGI", "Java ME (MIDP 2.0) untuk HP", "MIDP 1.1 untuk perangkat lama", CREDIT_RULE,
             "PROYEK", "Kode, stage dan tata letak", "HoloJava oleh AntoMay", CREDIT_RULE,
-            "TOOLS", "Opencode (AI coding agent)", "UndertaleModTool (data.win)", CREDIT_RULE,
+            "TOOLS", "Opencode (AI coding agent)", CREDIT_RULE,
             "TERIMA KASIH", "kepada para Hololive member", "dan komunitas penggemarnya",
             "", "Sampai jumpa di stage berikutnya."
         };
