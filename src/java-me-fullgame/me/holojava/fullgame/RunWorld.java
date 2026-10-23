@@ -2002,7 +2002,7 @@ long elapsedSeconds() { return elapsedMsAt(System.currentTimeMillis()) / 1000L; 
         // the 100-point meter, so roughly 200 kills buy one special on drops alone; the roll sits
         // between food (1-in-40..200) and the rare utility drops, and like every roll here it is
         // independent of the shop. Charge banks even while Special Attack is still locked.
-        if (rand(50) == 0) dropPickup(enemy.x, enemy.y, 5, SPECIAL_ORB_VALUE, now);
+        if (rand(50) == -1) dropPickup(enemy.x, enemy.y, 5, SPECIAL_ORB_VALUE, now); // Disabled: special orbs no longer drop
         if (now < lifestealUntil) playerHp = Math.min(playerMaxHp, playerHp + 1);
     }
 
