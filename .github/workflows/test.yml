@@ -1,0 +1,43 @@
+name: HoloJava CI - Test Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/*.py') }}
+
+      - name: Run test suites
+        run: |
+          chmod +x ./tools/*.sh
+          ./tools/run_fullgame_tests.sh
+          echo "Running all 41 test suites (~4,300 checks)"
+
+      - name: CLDC compatibility gate
+        run: |
+          chmod +x ./tools/verify_cldc_classes.sh
+          ./tools/verify_cldc_classes.sh build/java-me-fullgame/classes
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: holojava-test-results
+          path: reports/
