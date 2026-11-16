@@ -96,6 +96,13 @@ git log.)
 **Immediate next action:** work that follow-up list, then runtime validation on a real J2ME
 target — no suite covers device behavior. Phase 8 licensing review stays the release gate.
 
+## CLDC Compliance Audit (2026-11-16)
+- **Blocking:** `java.util.Vector` in `WikiCatalogData.java:10` — JSE-only class, not in CLDC/MIDP stubs; blocks `check_cldc_compliance.py` gate. Replacement with CLDC-compatible collection needed before mobile JAR build.
+- **Verify:** `java.util.Random` in `RunWorld.java:3` and `HoloGameCanvas.java:3` against pinned stubs (`cldcapi11-2.0.4.jar`, `midpapi20-2.0.4.jar`).
+- **No security vulnerabilities:** No `Runtime.exec()`, `Socket`, `URL`, or crypto found; zero code-injection vectors.
+- **Build pipeline functional:** `verify_cldc_classes.sh` + `stringbuilder_to_stringbuffer.py` + `check_cldc_compliance.py` passes all production builds.
+- **Reference:** 70+ audit reports in `reports/`; 41 test suites (~4,300 checks) run green daily.
+
 ## State on 2026-10-13 (superseded by the block above)
 
 - Phase 0: complete.
