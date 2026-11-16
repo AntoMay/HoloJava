@@ -29,6 +29,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle
 
+      - name: Install ProGuard
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y proguard
+
       - name: Install dependencies
         run: |
           chmod +x ./tools/*.sh
