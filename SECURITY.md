@@ -2,16 +2,16 @@
 
 ## Supported Versions
 
-Use this table to get the supported version of the project.
+Kami merekomendasikan untuk selalu menggunakan **update/rilis terbaru** dari project ini.
 
 | Version | Supported |
 |---------|-----------|
-| 1.0.1   | :white_check_mark: |
-| < 1.0.1 | :x: |
+| Latest (update terbaru, direkomendasikan) | :white_check_mark: |
+| Versi lama / < latest | :x: |
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in HoloJava, please report it by opening an issue with the `security` label, or email [example@email.com].
+If you discover a security vulnerability in HoloJava, please report it by opening an [Issue](https://github.com/AntoMay/HoloJava/issues) with the `security` label, or email [antipramukaindonesia@gmail.com](mailto:antipramukaindonesia@gmail.com). If you plan to contribute a fix, please submit a [Pull Request](https://github.com/AntoMay/HoloJava/pulls).
 
 We aim to acknowledge all security reports within 5 business days and will prioritize fixes for issues that affect runtime behavior or CLDC compliance.
 

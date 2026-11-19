@@ -6,7 +6,7 @@ We as members, contributors, and leaders pledge to make participation in our pro
 
 ## Our Standards
 
-Examples of behavior that contributes to a positive environment for include:
+Examples of behavior that contributes to a positive environment include:
 
 - Using welcoming and inclusive language
 - Being respectful of differing viewpoints and experiences
@@ -24,13 +24,13 @@ Examples of unacceptable behavior include:
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue or contacting the project team at [example@email.com]. All complaints will be reviewed and investigated and will result in a response that is deemed necessary and appropriate to the situation.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an [Issue](https://github.com/AntoMay/HoloJava/issues) or contacting the project team at [antipramukaindonesia@gmail.com](mailto:antipramukaindonesia@gmail.com). All complaints will be reviewed and investigated and will result in a response that is deemed necessary and appropriate to the situation.
 
 Project maintainers have the right to remove, edit, or reject comments, commits, code, issues, contributions, and other contributions that are not aligned with this Code of Conduct. Project maintainers who have received a complaint that one of the rules or expectations of this Code of Conduct has been breached will be tasked with investigating or otherwise determining an appropriate response.
 
 ## Scope
 
-This Code of Conduct applies within the project space, and in public spaces when an individual is representing the project or its community. Examples of representing the project include using an official project email address, posting via an official social media account, or acting as an appointed representative at an online event or offlineinteraction.
+This Code of Conduct applies within the project space, and in public spaces when an individual is representing the project or its community. Examples of representing the project include using an official project email address, posting via an official social media account, or acting as an appointed representative at an online event or offline interaction.
 
 ## Attribution
 
