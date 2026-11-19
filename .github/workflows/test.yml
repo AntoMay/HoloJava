@@ -30,19 +30,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y proguard
 
+      - name: Prepare tools
+        run: chmod +x ./tools/*.sh
+
+      - name: Build dev mobile artifact
+        run: ./tools/build_fullgame.sh
+
       - name: Run test suites
         run: |
-          chmod +x ./tools/*.sh
           ./tools/run_fullgame_tests.sh
           echo "Running all 41 test suites (~4,300 checks)"
 
       - name: CLDC compatibility gate
-        run: |
-          chmod +x ./tools/verify_cldc_classes.sh
-          ./tools/verify_cldc_classes.sh build/java-me-fullgame/classes
+        run: ./tools/verify_cldc_classes.sh build/java-me-fullgame/classes
 
       - name: Upload test results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: holojava-test-results
           path: reports/
+          if-no-files-found: ignore
