@@ -85,7 +85,7 @@ on an encoding mismatch. Arguments after the jar path: `0` = windowed mode,
 | `src/java-me-first-slice/`, `src/java-me-phase3/`, `src/java-me-diagnostic/` | Earlier milestones, kept for reference; not part of the build. |
 | `tools/` | Build scripts, the CLDC bytecode gate, and every test suite (`tools/tests/`). |
 | `assets/` | Packaged game assets: animation sets, stages, UI. |
-| `assets-source/` | Source imagery behind the original stage's generated art. |
+| `assets/source/` | Source imagery behind the original stage's generated art. |
 | `data/wiki/` | CSVs extracted from the HoloCure wiki (characters, weapons, items, stages, bosses…); every row keeps its source URL and coverage note. |
 | `deps/java-me/` | Pinned CLDC 1.1 and MIDP 2.0 API stub jars — the definition of what the game may call. |
 | `docs/` | Contracts, decisions and status. `docs/PROJECT_STATUS.md` is the source of truth. |

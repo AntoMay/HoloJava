@@ -3,9 +3,9 @@
 
 Sources (checked into the repo so the build is reproducible):
 
-  assets-source/hutan_sawit/wowo.jpeg      the podium guardian -> bosses/WoWo (4x 64x64)
-  assets-source/hutan_sawit/fufufafa.jpeg  the purple flame head -> bosses/FufuFafa (4 frames)
-  assets-source/hutan_sawit/kucing19.jpeg  the missing-poster guy -> enemies/Kucing19 (3 frames)
+  assets/source/hutan_sawit/wowo.jpeg      the podium guardian -> bosses/WoWo (4x 64x64)
+  assets/source/hutan_sawit/fufufafa.jpeg  the purple flame head -> bosses/FufuFafa (4 frames)
+  assets/source/hutan_sawit/kucing19.jpeg  the missing-poster guy -> enemies/Kucing19 (3 frames)
 
 Each source is a large pixel-art render. MIDP 2.0 cannot scale images at runtime, so
 the pipeline is: downscale to a small working resolution, flood the flat background
@@ -25,7 +25,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "assets-source" / "hutan_sawit"
+SRC = ROOT / "assets" / "source" / "hutan_sawit"
 BOSSES = ROOT / "assets" / "fullgame" / "bosses"
 ENEMIES = ROOT / "assets" / "fullgame" / "enemies"
 
